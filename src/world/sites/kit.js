@@ -1,5 +1,7 @@
 import * as THREE from "three";
+import {parkedTwoWheeler} from '../parked-models.js';
 import * as BGU from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import * as T from '../textures.js';
 
 // Shared kit for hand-built real-life sites (LDRP/KSV, GIFT City, Swagat, Indroda).
 // Every site works in its own local frame: u = metres to the site's right, v = metres
@@ -224,11 +226,15 @@ export const dryGround = () => canvasTex(128, 128, (c, w, h) => {
 
 const leafColors = [0x4f7f34, 0x5b8c3c, 0x46722e, 0x6b9a45];
 export function tree(g, x, z, k = 1, { color, dry = false } = {}) {
-  cyl(g, 0.16 * k, 0.28 * k, 3 * k, 0x5a4330, x, 0, z, 6);
+  cyl(g, 0.16 * k, 0.28 * k, 4.5 * k, 0x665442, x, 0, z, 9);
   const c = color ?? (dry ? [0x8a8a4a, 0x7a7f45, 0x99914f][Math.floor(Math.abs(x * 7 + z) % 3)] : leafColors[Math.floor(Math.abs(x * 3 + z * 7) % 4)]);
-  for (const [dx, dy, dz, r] of [[0, 4.2, 0, 2.2], [1, 3.7, 0.5, 1.5], [-0.9, 3.9, -0.4, 1.6]]) {
-    const m = put(g, new THREE.IcosahedronGeometry(r * k, 0), mat(c, { flatShading: true }), x + dx * k, dy * k, z + dz * k);
-    m.rotation.set(x, z, 0);
+  for (const [dx, dy, dz, r] of [[0, 4.8, 0, 2.4], [1.1, 4.0, 0.7, 1.8], [-1.0, 4.2, -0.6, 1.9]]) {
+    const a=new THREE.Vector3(x,2.7*k,z),b=new THREE.Vector3(x+dx*k,dy*k,z+dz*k),delta=b.clone().sub(a);
+    const branch=new THREE.Mesh(new THREE.CylinderGeometry(0.06*k,0.11*k,delta.length(),7),mat(0x665442));branch.position.copy(a.add(b).multiplyScalar(0.5));branch.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());g.add(branch);
+    for(let i=0;i<5;i++) {
+      const leaf=put(g,new THREE.PlaneGeometry(r*2*k,r*1.65*k),mat(T.foliage(),{color:c,alphaTest:0.42,side:THREE.DoubleSide,roughness:1}),x+dx*k,dy*k,z+dz*k,i*Math.PI/5);
+      leaf.rotation.z=Math.sin(i+x)*0.18;
+    }
   }
 }
 export function palm(g, x, z, k = 1) {
@@ -301,18 +307,14 @@ export function boomBarrier(g, x, z, yaw = 0, len = 5) {
 }
 // A parked two-wheeler (Activa / Splendor silhouette).
 export function scooter(g, x, z, yaw, color = 0x2f5e9e) {
-  const s = new THREE.Group(); s.position.set(x, 0, z); s.rotation.y = yaw; g.add(s);
-  for (const dz of [-0.6, 0.6]) { const w = put(s, new THREE.TorusGeometry(0.26, 0.07, 6, 14), mat(0x1a1a1a), 0, 0.3, dz, Math.PI / 2); w.castShadow = false; }
-  box(s, 0.32, 0.38, 1.1, color, 0, 0.35, 0);
-  box(s, 0.28, 0.12, 0.55, 0x1a1a1a, 0, 0.75, -0.15);
-  box(s, 0.6, 0.06, 0.06, 0x555555, 0, 1.05, 0.55);
+  return parkedTwoWheeler(g,x,z,yaw,color);
 }
 // A parked car (simple but proportioned; real traffic uses vehicle-models.js).
 export function parkedCar(g, x, z, yaw, color) {
   const c = new THREE.Group(); c.position.set(x, 0, z); c.rotation.y = yaw; g.add(c);
   box(c, 1.75, 0.7, 4.1, mat(color, { roughness: 0.35, metalness: 0.5 }), 0, 0.3, 0);
   box(c, 1.55, 0.55, 2.1, mat(0x24303a, { roughness: 0.15, metalness: 0.3 }), 0, 1.0, -0.2);
-  for (const [dx, dz] of [[-0.8, 1.3], [0.8, 1.3], [-0.8, -1.3], [0.8, -1.3]]) cyl(c, 0.32, 0.32, 0.22, 0x151515, dx, 0.1, dz, 10).rotation.z = Math.PI / 2;
+  for (const [dx, dz] of [[-0.8, 1.3], [0.8, 1.3], [-0.8, -1.3], [0.8, -1.3]]) cyl(c, 0.32, 0.32, 0.22, 0x151515, dx, 0.23, dz, 10).rotation.z = Math.PI / 2;
 }
 // Text sign (Gujarati + English welcome arches, shop fascias).
 export function textPlane(g, lines, { bg = "#1d4e89", fg = "#ffffff", w = 1024, h = 256, font = "800 92px 'Baloo Bhai 2', Inter, sans-serif" }, pw, ph, x, y, z, ry = 0) {
@@ -368,8 +370,13 @@ export function mergeStatic(g) {
   g.updateMatrixWorld(true);
   const keep = [];
   g.traverse((o) => {
+    if(o.userData.parking){keep.push(o);return;}
     if (!o.isMesh || o.userData.flag || o.userData.lamp || o.userData.keep || o.material.isMeshBasicMaterial) { if (o.isMesh) keep.push(o); return; }
-    const geo = o.geometry.clone().applyMatrix4(o.matrixWorld);
+    const geo = o.geometry.clone();
+    // Quantized GLBs store normalized integers. Convert before world transforms
+    // so translations do not clamp their vertices into the integer [-1,1] range.
+    for(const [name,attr] of Object.entries(geo.attributes))if(attr.normalized||attr.isInterleavedBufferAttribute){const data=new Float32Array(attr.count*attr.itemSize);for(let i=0;i<attr.count;i++)for(let j=0;j<attr.itemSize;j++)data[i*attr.itemSize+j]=attr.getComponent(i,j);geo.setAttribute(name,new THREE.BufferAttribute(data,attr.itemSize));}
+    geo.applyMatrix4(o.matrixWorld);
     if (geo.index) { const ni = geo.toNonIndexed(); geo.dispose(); byMat.has(o.material) || byMat.set(o.material, []); byMat.get(o.material).push(ni); }
     else { byMat.has(o.material) || byMat.set(o.material, []); byMat.get(o.material).push(geo); }
   });
@@ -421,7 +428,7 @@ export function createSiteZone({ id, f, area, solids = [], walls = [], vehicleFr
   return {
     id,
     contains(x, z) { const { u, v } = f.toLocal(x, z); return pointInPolygon(u, v, area); },
-    heights(x, z, radius = 0.38) { const { u, v } = f.toLocal(x, z); return blocked(u, v, radius) ? [] : [groundY]; },
+    heights(x, z, radius = 0.38) { const { u, v } = f.toLocal(x, z); return blocked(u, v, radius) ? [] : [typeof groundY==='function'?groundY(u,v):groundY]; },
     forbidsVehicles(x, z, margin = 0) { const { u, v } = f.toLocal(x, z); return vehicleFree.some((p) => nearPolygon(u, v, p, margin)); },
     roadHeight() { return null; },
     clearing: {

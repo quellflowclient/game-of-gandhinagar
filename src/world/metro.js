@@ -1,15 +1,16 @@
 import * as THREE from "three";
 import * as BGU from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { canvasTex } from "./sites/kit.js";
+import { canvasTex,mergeStatic } from "./sites/kit.js";
+import {metroCenterlines,singleRowPiers} from './metro-layout.js';
 
 // Ahmedabad–Gandhinagar metro (OSM railway=subway): elevated viaduct on hammerhead piers
 // ~12 m up, running along the real alignment, plus an elevated station at every mapped
 // station that lies on the line (GIFT City, PDPU, Infocity, Sector-24 near LDRP, ...).
 const DECK_Y = 12, PIER_STEP = 26;
 
-function pierGeometry() {
-  const col = new THREE.BoxGeometry(1.8, DECK_Y - 1.6, 1.8); col.translate(0, (DECK_Y - 1.6) / 2, 0);
-  const cap = new THREE.BoxGeometry(6.4, 1.6, 2.2); cap.translate(0, DECK_Y - 0.8, 0);
+export function pierGeometry() {
+  const col = new THREE.CylinderGeometry(0.75,0.85, DECK_Y - 1.6, 28); col.translate(0, (DECK_Y - 1.6) / 2, 0);
+  const cap = new THREE.BoxGeometry(8.4, 1.6, 2.2); cap.translate(0, DECK_Y - 0.8, 0);
   return BGU.mergeGeometries([col.toNonIndexed(), cap.toNonIndexed()]);
 }
 
@@ -37,8 +38,8 @@ function deckGeometry(path) {
 }
 
 export function buildMetro(scene, map, { lowEnd = false } = {}) {
-  const lines = (map.metro || []).filter((l) => l.elevated && l.pts.length > 1);
-  if (!lines.length) return { stations: [] };
+  const lines = metroCenterlines(map.metro || []);
+  if (!lines.length) return { stations: [],obstacles:[],cameraObstacles:[] };
   const group = new THREE.Group();
   const concrete = new THREE.MeshStandardMaterial({ color: 0xbdb8ae, roughness: 0.9 });
   const decks = lines.map((l) => deckGeometry(l.pts)).filter((g) => g.attributes.position.count);
@@ -70,9 +71,10 @@ export function buildMetro(scene, map, { lowEnd = false } = {}) {
       acc = (acc + len) % PIER_STEP;
     }
   }
-  const piers = new THREE.InstancedMesh(pierGeometry(), concrete, spots.length);
+  const centralSpots=singleRowPiers(spots);
+  const piers = new THREE.InstancedMesh(pierGeometry(), concrete, centralSpots.length);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1);
-  spots.forEach(([x, z, a], i) => { q.setFromAxisAngle(up, a + Math.PI / 2); piers.setMatrixAt(i, m.compose(new THREE.Vector3(x, 0, z), q, one)); });
+  centralSpots.forEach(([x, z, a], i) => { q.setFromAxisAngle(up, a + Math.PI / 2); piers.setMatrixAt(i, m.compose(new THREE.Vector3(x, 0, z), q, one)); });
   piers.castShadow = true; piers.receiveShadow = true; piers.computeBoundingSphere();
   group.add(piers);
 
@@ -102,7 +104,7 @@ export function buildMetro(scene, map, { lowEnd = false } = {}) {
     add(new THREE.BoxGeometry(20, 0.6, 140), clad, 0, DECK_Y + 1.2, 0);     // platforms
     const roof = add(new THREE.CylinderGeometry(15, 15, 140, 24, 1, true, -0.75, 1.5), roofMat, 0, DECK_Y + 0.6, 0);
     roof.rotation.x = Math.PI / 2; roof.rotation.z = Math.PI / 2; roof.scale.set(1, 1, 0.45);
-    for (const side of [-1, 1]) for (const zz of [-40, 0, 40]) add(new THREE.BoxGeometry(1.2, 12, 1.2), clad, side * 9, 6, zz);
+    for (const zz of [-40, 0, 40]) {add(new THREE.CylinderGeometry(0.9,1.05,12,28),clad,0,6,zz);add(new THREE.BoxGeometry(19,1.1,2.3),clad,0,10.8,zz);}
     for (const side of [-1, 1]) { // stair towers to street level
       const stair = add(new THREE.BoxGeometry(4, 9, 14), clad, side * 15, 4.5, 50);
       stair.userData.cameraSolid = true;
@@ -110,8 +112,9 @@ export function buildMetro(scene, map, { lowEnd = false } = {}) {
     const sign = new THREE.Mesh(new THREE.PlaneGeometry(14, 2.2), new THREE.MeshBasicMaterial({
       map: canvasTex(512, 80, (c, w, h) => { c.fillStyle = "#2a4b8d"; c.fillRect(0, 0, w, h); c.fillStyle = "#fff"; c.font = "700 44px Inter, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(`Ⓜ ${s.name}`, w / 2, h / 2); }) }));
     for (const side of [-1, 1]) { const sg = sign.clone(); sg.position.set(side * 11.2, 9, 0); sg.rotation.y = side * Math.PI / 2; st.add(sg); }
+    mergeStatic(st);
     stations.push({ name: s.name, x: p.x, z: p.z, a: p.a });
   }
   scene.add(group);
-  return { group, stations, deckY: DECK_Y };
+  return { group, stations,piers:centralSpots, deckY: DECK_Y,pierCount:centralSpots.length,centerlines:lines.length,obstacles:centralSpots.map(([x,z])=>({x,z,r:0.85})),cameraObstacles:[deck,piers] };
 }

@@ -22,6 +22,14 @@ import * as social from "./ui/social.js";
 import * as prof from "./ui/profile.js";
 import * as city from "./ui/city.js";
 import * as game from "./ui/game.js";
+import {createStreetLife} from './ui/street.js';
+import {marketPoint,MARKET,MARKET_SHOPS,shopPoint} from './world/sites/ldrp-market-layout.js';
+import {openCamera} from './ui/camera.js';
+import {preloadParkedModels,updateParkedVehicles} from './world/parked-models.js';
+import {createDrivingSurface} from './world/driving.js';
+import {inLdrpArea} from './world/sites/ldrp-market-layout.js';
+import {openVehicles} from './ui/vehicles.js';
+import {buildMetroGarden} from './world/metro-garden.js';
 
 const loading = document.getElementById("loading");
 const tourMode = new URLSearchParams(location.search).has('tour');
@@ -34,12 +42,19 @@ const humanAssets=preloadAvatarAssets();
 setLoading("Loading the map of Gandhinagar…");
 const mapData = await loadMap();
 setLoading("Building landmarks…");
+await preloadParkedModels(renderer);
 const world = buildLandmarks(scene, mapData);
+const metro = buildMetro(scene, mapData, { lowEnd });
+const metroGarden=buildMetroGarden(scene,metro.piers||[],placePos(placeById('ldrp')));
+world.navigation.zones.push(metroGarden.zone);world.clearings.push(metroGarden.zone.clearing);
+world.navigation.addObstacles(metroGarden.obstacles);
 setLoading("Laying roads and planting trees…");
 const cityObj = await buildCity(scene, world.clearings, mapData, { lowEnd });
 world.map = cityObj.map;
 const traffic = createTraffic(scene, mapData, { count: lowEnd ? 22 : 45, zones:world.navigation.zones });
-const metro = buildMetro(scene, mapData, { lowEnd });
+world.navigation.addObstacles(metro.obstacles);
+world.navigation.zones.push({id:'metro-supports',contains:()=>false,heights:()=>[],forbidsVehicles:(x,z,margin=0)=>world.navigation.obstacleAt(x,z,margin)});
+world.cameraObstacles.push(...metro.cameraObstacles);
 setLoading('Loading detailed male and female characters…');
 await humanAssets;
 
@@ -51,10 +66,11 @@ const bounds = (() => {
 })();
 
 const labelsEl = document.getElementById("labels");
-const progress = createProgress();
+const qaScope=tourMode?new URLSearchParams(location.search).get('qa'):null;
+const progress = createProgress(qaScope?`gnr-progress-qa-${qaScope.replace(/[^a-z0-9]/gi,'').slice(0,32)}`:undefined);
 const sound = createSound();
 const clock = createClock();
-setHour(clock.hour()); // light the sky before the first frame
+setHour(clock.hour(),clock.solar); // live IST, local seasonal sunrise/sunset
 const festival = createFestival(scene);
 clock.loadWeather().then(updateTicker);
 setInterval(() => clock.loadWeather().then(updateTicker), 15 * 60 * 1000);
@@ -68,6 +84,8 @@ const app = {
   currentPlace: null,
   festival: null,
   open: (name) => openNamed(name),
+  setCamera(mode){endTourView();player.setCameraMode(mode);},
+  setVehicle(type){const result=player.setVehicle(type);if(!result.error)endTourView();return result;},
   requireSignIn(reason) {
     if (app.session) return true;
     prof.openSignIn(app, reason);
@@ -122,9 +140,12 @@ const app = {
 
 // ---------- world objects ----------
 const hud = createHud({ open: (n) => openNamed(n), act: (n) => act(n) });
-const player = createPlayer({ scene, camera, dom: renderer.domElement, joystickEl: hud.joystick, bounds, navigation: world.navigation, cameraObstacles: world.cameraObstacles });
+const ldrpOrigin=placePos(placeById('ldrp'));
+const areaContains=(x,z)=>inLdrpArea(ldrpOrigin,x,z,1.5);
+const player = createPlayer({ scene, camera, dom: renderer.domElement, joystickEl: hud.joystick, bounds, navigation: world.navigation, cameraObstacles: world.cameraObstacles,playArea:areaContains,driving:createDrivingSurface(mapData.roads,world.navigation.zones,(x,z)=>!player.areaLocked||areaContains(x,z)) });
 app.player = player;
-const people = createPeople({ scene, camera, labelsEl, spawns: world.spawns, navigation: world.navigation, onTap: (p) => social.openCard(app, p) });
+app.street=world.markets?.[0]?createStreetLife(app,world.markets[0]):null;
+const people = createPeople({ scene, camera, labelsEl, spawns: world.spawns, navigation: world.navigation,lowEnd, onTap: (p) => social.openCard(app, p) });
 app.people = people;
 
 // Start at Infocity's welcome sign.
@@ -137,7 +158,7 @@ function openNamed(name) {
     profile: () => prof.openEdit(app), about: () => prof.openAbout(app), twin: () => prof.openTwin(app), card: () => prof.openResidentCard(app),
     find: () => social.openFind(app), online: () => social.openOnline(app), chats: () => social.openChats(app), world: () => social.openWorld(app),
     plans: () => city.openPlans(app), utsav: () => city.openUtsav(app), travel: () => city.openTravel(app), map: () => city.openMap(app),
-    time: () => city.openTime(app), sound: () => city.openSound(app), suggest: () => city.openSuggest(app), ads: () => city.openAds(app),
+    time: () => city.openTime(app), sound: () => city.openSound(app),camera:()=>openCamera(app),vehicles:()=>openVehicles(app,hud), suggest: () => city.openSuggest(app), ads: () => city.openAds(app),
     mission: () => game.openMissionBrief(app), missions: () => game.openMissions(app), passport: () => game.openPassport(app),
     dayone: () => game.openDayOne(app), scores: () => game.openScores(app),
   };
@@ -147,10 +168,9 @@ function openNamed(name) {
 // ---------- actions ----------
 function act(name) {
   sound.start();
+  if(name==='run')return player.toggleRun();
   if (name === "cycle") {
-    const on = player.toggleCycle();
-    hud.setCycling(on);
-    toast(on ? "🚲 Cycle on. Ride the green roads!" : "Walking again");
+    openVehicles(app,hud);
   } else if (name === "wave") {
     const p = people.nearest(player.position, 10);
     if (p) waveAt(p); else { player.wave(); toast("👋 Nobody close enough. Walk up to someone first."); }
@@ -183,6 +203,8 @@ async function waveAt(target) {
 const fade = h("div", { id: "fade" }, h("div", {}, h("b", {}, "🚌 BRTS"), h("span", {})));
 document.body.append(fade);
 function travel(placeId) {
+  if(player.sitting||player.carrying)return toast('Pehle table se utho ya carry ki hui table rakh do.');
+  if(app.street?.service.meal?.item&&app.street.service.meal.phase!=='paid')return toast('Pehle apna khana aur pending bill complete karo.');
   const p = placeById(placeId);
   if (!p || p.pending) return;
   const spawn = world.spawns[p.id] || { x: placePos(p).x, z: placePos(p).z + 40 };
@@ -318,12 +340,12 @@ const panelObserver = new MutationObserver(() => player.freeze(panelOpen()));
 panelObserver.observe(document.body, { childList: true });
 
 // ---------- place detection, hours, proximity ----------
-let nearStall = null, nearStage = false, lastPresence = 0, lastHourTick = 0, lastPlaceCheck = 0;
+let nearStall = null, nearStage = false, lastPresence = 0, lastHourTick = -2, lastPlaceCheck = 0;
 function checkPlace() {
   const p = player.position;
   let best = null, bd = Infinity;
   for (const pl of placedPlaces()) {
-    if (pl.id === 'dandi' && world.navigation.zones.some(zone => zone.id === 'mahatma-mandir' && zone.contains(p.x,p.z))) {
+    if ((pl.id === 'dandi' && world.navigation.zones.some(zone => zone.id === 'mahatma-mandir' && zone.contains(p.x,p.z))) || (pl.id==='ldrp'&&player.areaLocked)) {
       best = pl; break;
     }
     const { x, z } = placePos(pl);
@@ -350,7 +372,7 @@ function proximity() {
   const p = player.position;
   nearStall = world.stalls.find((s) => Math.hypot(p.x - s.x, p.z - s.z) < 5) || null;
   nearStage = !!world.stage && Math.hypot(p.x - world.stage.x, p.z - world.stage.z) < 9;
-  hud.setInteract(nearStall ? `${nearStall.emoji} ${nearStall.name} · BUY / BHAAV KARO (E)` : nearStage ? "🎤 Open mic stage (E)" : null);
+  hud.setInteract(nearStall ? nearStall.street?`${nearStall.caller} ko bulao · E`:`${nearStall.emoji} ${nearStall.name} · BUY / BHAAV KARO (E)` : nearStage ? "🎤 Open mic stage (E)" : null);
   const n = people.nearest(p, 6);
   hud.setNearest(nearStall || nearStage ? null : n);
   // Story checkpoints.
@@ -402,6 +424,7 @@ const tourSubjects=[];
 const endTourView = () => { tourCamera = null; for(const subject of tourSubjects){scene.remove(subject.root);subject.dispose();}tourSubjects.length=0; };
 renderer.domElement.addEventListener('pointerdown', endTourView);
 window.addEventListener('keydown', endTourView);
+hud.joystick.addEventListener('pointerdown',endTourView);
 async function enter() {
   if (entered) return;
   entered = true;
@@ -424,13 +447,14 @@ function frame() {
   const dt = Math.min(clockT.getDelta(), 0.05);
   t += dt;
   player.update(dt);
+  app.street?.update(dt);
   if (player.cycling) { cycAcc += player.speed * dt; if (cycAcc >= 25) { progress.track("cycle_m", { m: cycAcc }); cycAcc = 0; } }
   people.manage(player.position);
   people.update(dt, player.position);
   for(const subject of tourSubjects)subject.update(dt,0);
   festival.update(dt, t);
   cityObj.update(t);
-  world.update(t);
+  world.update(t,player.position);
   traffic.update(dt, entered ? player.position : showcase, t);
   updateGig(dt);
   if (!entered) {
@@ -449,6 +473,8 @@ function frame() {
   if (t - lastPlaceCheck > 0.5) { lastPlaceCheck = t; checkPlace(); proximity(); }
   if (t - lastMini > 0.2) {
     lastMini = t;
+    updateParkedVehicles(scene,player.position);
+    hud.setVehicle(player.vehicle);hud.setDrive(player.vehicle,player.speedKmh,player.areaLocked);
     const dots = people.all().map((p) => ({ x: p.x, z: p.z, real: !p.data.ai }));
     minimap.draw(player.position, player.heading, dots);
     if (tourMode) {
@@ -456,18 +482,21 @@ function frame() {
       renderer.domElement.dataset.trafficSummary=JSON.stringify(traffic.stats);
       renderer.domElement.dataset.trafficPositions=JSON.stringify(traffic.vehicles.filter(v=>v.pose).map(v=>({id:v.id,type:v.type,...v.pose})));
       renderer.domElement.dataset.humanAssets='male,female';
+      renderer.domElement.dataset.driving=JSON.stringify({vehicle:player.vehicle,kmh:player.speedKmh,areaLocked:player.areaLocked});
       renderer.domElement.dataset.renderStats=JSON.stringify({calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,pixelRatio:renderer.getPixelRatio()});
     }
   }
   if (t - lastHourTick > 1) {
     lastHourTick = t;
     const hr = clock.hour();
-    const { night, dusk } = setHour(hr);
+    const { night, dusk } = setHour(hr,clock.solar);
     cityObj.setNight(night, dusk);
     traffic.setNight(night || dusk);
+    player.setNight(night||dusk);
+    for(const market of world.markets)market.setNight(night||dusk,player.position);
     if (night !== wasNight) { wasNight = night; setLandmarksNight(night); }
     const w = clock.weather;
-    hud.setTime(fmtHour(hr), night, w.loaded ? `${w.temp}° · AQI ${w.aqi}` : "");
+    hud.setTime(`${fmtHour(hr)} ${clock.mode==='live'?'IST':'PREVIEW'}`, night, w.loaded ? `${w.temp}°C${w.stale?' (last update)':''}` : 'Weather unavailable');
     progress.track("hour", { hour: hr });
   }
   if (t - lastPresence > 1.2 && app.session && app.me?.name) {
@@ -509,7 +538,6 @@ progress.track = (ev, payload) => {
 let lastNightKey = "";
 
 loading?.remove();
-frame();
 
 // Handy for debugging in the browser console. `?tour` skips the landing and popups and
 // adds shot(placeId) to frame a landmark from the south.
@@ -528,11 +556,21 @@ if (new URLSearchParams(location.search).has("tour")) {
   // Reproducible reference views for visual QA. Any key/drag returns to walking.
   const params = new URLSearchParams(location.search);
   if(params.get('place')==='ldrp') {
-    clock.setPreset('Day');
+    if(params.get('night')==='1')clock.setPreset('Night');else if(params.get('day')==='1')clock.setPreset('Day');
     const at=placePos(placeById('ldrp')),spawn=world.spawns.ldrp;
     player.teleport(spawn.x,spawn.z,spawn.yaw);player.setView(8,0.22);
     const garden=params.get('view')==='garden';
     tourCamera={position:new THREE.Vector3(at.x+(garden?-25:140),garden?2.2:140,at.z+(garden?-76:-180)),target:new THREE.Vector3(at.x-28,garden?3:0,at.z-20)};
+    const view=params.get('view');
+    if(['metro','circle','market','babu','chintu','seats','tea-seats','lalbhai','masi','patel','sarpanch','natu','ajit'].includes(view)) {
+      const s=MARKET_SHOPS.find(s=>s.id===(view==='tea-seats'?'masi':view))||MARKET_SHOPS[0],seating=['seats','tea-seats'].includes(view);
+      const spawnPoint=shopPoint(s,seating?-4.8:0,seating?-6:3.5),sp=marketPoint(at,...spawnPoint);
+      player.teleport(sp.x,sp.z,MARKET.yaw+(s.v>0?0:Math.PI));player.setView(5,0.12);
+      if(view==='metro'){const sp=marketPoint(at,-165,-3.2);player.teleport(sp.x,sp.z,MARKET.yaw);const cam=marketPoint(at,-174,-3.6),target=marketPoint(at,-132,1.1);tourCamera={position:new THREE.Vector3(cam.x,3.3,cam.z),target:new THREE.Vector3(target.x,2.5,target.z)};}
+      else if(view==='circle'){const sp=marketPoint(at,-22,12);player.teleport(sp.x,sp.z,MARKET.yaw);const cam=marketPoint(at,-26,26),target=marketPoint(at,0,0);tourCamera={position:new THREE.Vector3(cam.x,7,cam.z),target:new THREE.Vector3(target.x,2,target.z)};}
+      else if(view==='market') {const cam=marketPoint(at,-20,205),target=marketPoint(at,-10,0);tourCamera={position:new THREE.Vector3(cam.x,145,cam.z),target:new THREE.Vector3(target.x,0,target.z)};}
+      else {const cp=shopPoint(s,seating?-4.8:5.7,seating?-7:9),tp=shopPoint(s,0,seating?-6:0);const cam=marketPoint(at,...cp),target=marketPoint(at,...tp);tourCamera={position:new THREE.Vector3(cam.x,seating?2.1:2.5,cam.z),target:new THREE.Vector3(target.x,1.1,target.z)};}
+    }
   }
   if (params.get('place') === 'dandi') {
     clock.setPreset(params.get('night') === '1' ? 'Night' : 'Day');
@@ -571,3 +609,4 @@ if (new URLSearchParams(location.search).has("tour")) {
     }
   }
 }
+frame();

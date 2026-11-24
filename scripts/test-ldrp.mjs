@@ -3,10 +3,11 @@ import fs from 'node:fs';
 import * as THREE from 'three';
 import {LDRP} from '../src/world/sites/ldrp.js';
 import * as K from '../src/world/sites/kit.js';
+import {placePos,placeById} from '../src/data/places.js';
 const map=JSON.parse(fs.readFileSync(new URL('../public/data/gandhinagar-map.json',import.meta.url)));
 const palm=new THREE.Group();K.palm(palm,2,3);palm.updateMatrixWorld(true);
 palm.traverse(o=>{if(o.isMesh){assert.ok(o.matrixWorld.elements.every(Number.isFinite));assert.ok([...o.geometry.attributes.position.array].every(Number.isFinite));}});
-const origin={x:(LDRP.pin.lon-map.origin.lon)*111320*Math.cos(map.origin.lat*Math.PI/180),z:-(LDRP.pin.lat-map.origin.lat)*111320};
+const origin=placePos(placeById('ldrp'));
 const f=K.frame(origin),solids=[];
 assert.equal(LDRP.gates.length,1,'Only one shared entry/exit');
 for(const id of [...LDRP.university,...LDRP.quarters]) {

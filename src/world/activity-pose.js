@@ -30,7 +30,8 @@ export function createActivityPose(root,model,bones) {
     if(kind==='tea'){right.set(-0.14,1.06+Math.sin(t*1.8)*0.07,0.32);left.set(0.16,0.99,0.32);}
     if(kind==='serve'){left.set(0.15,1.02,0.35);right.set(-0.15,1.02,0.35);}
     if(kind==='cash'){right.set(-0.12,0.91+Math.sin(t*2)*0.025,0.38);left.set(0.16,0.86,0.28);}
-    if(kind==='eat'){const bite=(t%7)>4;right=bite?head.clone().add(new THREE.Vector3(-0.06,-0.12,0.13)):new THREE.Vector3(-0.12,0.88,0.35);left.set(0.15,0.84,0.34);}
+    if(kind==='eat'||kind==='eat-standing'){const bite=(t%7)>4;right=bite?head.clone().add(new THREE.Vector3(-0.06,-0.12,0.13)):new THREE.Vector3(-0.12,seated?0.88:1.04,0.35);left.set(0.15,seated?0.84:1.03,0.34);}
+    if(kind==='carry'){left.set(0.29,1.0,0.38);right.set(-0.29,1.0,0.38);}
     if(kind==='smoke'){right=(t%9)<3?head.clone().add(new THREE.Vector3(-0.07,-0.13,0.14)):new THREE.Vector3(-0.23,0.99,0.15);left.set(0.16,0.98,0.12);}
     if(kind==='rub'){const phase=t%14;if(phase<9){left.set(0.025,1.03,0.29);right.set(-0.025,1.06,0.29+Math.sin(t*12)*0.035);}else if(phase<11){left.set(0.1,1.04,0.3);right.set(-0.1,1.05,0.32);}else{right=head.clone().add(new THREE.Vector3(-0.05,-0.12,0.14));left.set(0.16,1.04,0.3);}}
     if(kind==='stern'){left.set(-0.08,1.16,0.17);right.set(0.08,1.12,0.19);}

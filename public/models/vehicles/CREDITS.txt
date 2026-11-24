@@ -1,0 +1,14 @@
+Parking vehicles: tevy original CC0 1.0 models, pinned v1.
+https://tevy.dev/models/motor-scooter
+https://tevy.dev/models/sport-motorcycle
+Downloaded 2026-11-24. Redistributed and displayed under CC0 1.0:
+https://creativecommons.org/publicdomain/zero/1.0/
+
+scooter-parking.glb: motor-scooter/v1/lod2.glb (5,174 triangles)
+motorcycle-parking.glb: sport-motorcycle/v1/lod2.glb (5,704 triangles)
+These are generic vehicles; no manufacturer affiliation or exact Activa replica.
+Geometry and KTX2 material textures are bundled locally, no runtime model CDN.
+
+basis/basis_transcoder.js and .wasm: copied from the installed Three.js examples
+distribution (r169). Basis Universal transcoder, Apache-2.0.
+https://github.com/BinomialLLC/basis_universal/blob/master/LICENSE

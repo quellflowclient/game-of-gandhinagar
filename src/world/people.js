@@ -7,7 +7,7 @@ import { residentsFor, OPEN_TO } from "../data/content.js";
 // other members' avatars from presence, and HTML name tags above everyone nearby.
 const SPAWN_R = 380, DESPAWN_R = 520, PER_PLACE = 9, LABEL_R = 40, MAX_LABELS = 8;
 
-export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navigation }) {
+export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navigation,lowEnd=false }) {
   const active = new Map(); // id -> person
   const loadedPlaces = new Set();
 
@@ -61,7 +61,7 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
       const d = Math.hypot(playerPos.x - x, playerPos.z - z);
       if (d < SPAWN_R && !loadedPlaces.has(place.id)) {
         loadedPlaces.add(place.id);
-        const n = place.hub ? PER_PLACE : 4;
+        const n = lowEnd?4:place.hub ? PER_PLACE : 4;
         const home = spawns[place.id] || { x, z: z + 40 };
         residentsFor(place, n).forEach((r, i) => {
           const a = (i / n) * Math.PI * 2;
@@ -138,6 +138,7 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
         p.speed = 0;
         if (stop) p.avatar.root.rotation.y = Math.atan2(playerPos.x - p.x, playerPos.z - p.z);
       }
+      if(navigation){const h=navigation.surface(p.x,p.z,p.y||0);if(h!==undefined)p.y=h;}
       p.avatar.root.position.set(p.x, p.y || 0, p.z);
       // Far people: no shadows, and skip the walk animation unless they are fairly close.
       p.avatar.setShadow?.(near < 22);

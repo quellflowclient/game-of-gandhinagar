@@ -25,16 +25,16 @@ function fresh() {
   };
 }
 
-function load() {
-  try { return { ...fresh(), ...JSON.parse(localStorage.getItem(KEY)) }; } catch { return fresh(); }
+function load(key=KEY) {
+  try { return { ...fresh(), ...JSON.parse(localStorage.getItem(key)) }; } catch { return fresh(); }
 }
 
-export function createProgress() {
-  let s = load();
+export function createProgress(key=KEY) {
+  let s = load(key);
   const subs = [];
   const toast = (msg, kind = "info") => subs.forEach((f) => f({ toast: msg, kind }));
   const save = () => {
-    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* storage blocked */ }
+    try { localStorage.setItem(key, JSON.stringify(s)); } catch { /* storage blocked */ }
     subs.forEach((f) => f({ changed: true }));
   };
 

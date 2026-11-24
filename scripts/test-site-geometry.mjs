@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import './load-parking-test-assets.mjs';
+import fs from 'node:fs';
+import * as THREE from 'three';
+import {buildLdrp} from '../src/world/sites/ldrp.js';
+import {buildMetro} from '../src/world/metro.js';
+import {updateParkedVehicles} from '../src/world/parked-models.js';
+import {placePos,placeById} from '../src/data/places.js';
+import {buildMetroGarden} from '../src/world/metro-garden.js';
+import {marketPoint,MARKET_SHOPS,MARKET_GROUND} from '../src/world/sites/ldrp-market-layout.js';
+// Canvas drawing is stubbed only for this CPU geometry test. This does not
+// substitute for the actual rendered screenshots/browser interaction checks.
+const noop=()=>{};
+globalThis.document={createElement(){const canvas={width:1,height:1};const context=new Proxy({canvas,createLinearGradient:()=>({addColorStop:noop}),createRadialGradient:()=>({addColorStop:noop}),measureText:t=>({width:String(t).length*8}),createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)})},{get:(o,k)=>k in o?o[k]:noop});canvas.getContext=()=>context;return canvas;}};
+const map=JSON.parse(fs.readFileSync(new URL('../public/data/gandhinagar-map.json',import.meta.url))),scene=new THREE.Scene(),origin=placePos(placeById('ldrp'));
+const ldrp=buildLdrp(scene,map,origin),metro=buildMetro(scene,map,{lowEnd:true});scene.updateMatrixWorld(true);
+const pierSnapshot=JSON.stringify(metro.piers),garden=buildMetroGarden(scene,metro.piers,origin);assert.equal(JSON.stringify(metro.piers),pierSnapshot,'Garden must not move existing columns');
+updateParkedVehicles(scene,origin);scene.updateMatrixWorld(true);
+let meshes=0,vertices=0;
+scene.traverse(o=>{if(!o.isMesh)return;assert.ok(o.matrixWorld.elements.every(Number.isFinite),o.name);for(const a of Object.values(o.geometry.attributes))assert.ok([...a.array].every(Number.isFinite),`Finite ${o.name} geometry`);meshes++;vertices+=o.geometry.attributes.position.count;});
+assert.equal(ldrp.market.shops.length,8);assert.equal(ldrp.market.seats.length,166);
+for(const shop of MARKET_SHOPS.filter(s=>s.kind!=='food'))assert.equal(ldrp.market.seats.filter(s=>s.shopId===shop.id).length,25);
+assert.ok(ldrp.market.seats.every(s=>s.y===MARKET_GROUND));assert.ok(metro.obstacles.length>0&&metro.obstacles.every(p=>p.r===0.85));
+for(const s of MARKET_SHOPS){const p=marketPoint(origin,s.u,s.v>0?11:-10);assert.ok(ldrp.market.zone.contains(p.x,p.z),'No unowned grass gap beside the shop row');}
+for(const u of [-150,80]){const p=marketPoint(origin,u,0.85),zone=u<0?garden.zone:ldrp.market.zone;assert.equal(zone.heights(p.x,p.z).length,0,'Median plants/fence block movement');assert.ok(zone.forbidsVehicles(p.x,p.z));}
+for(const s of garden.segments)if(s.tree){const nearest=metro.piers.reduce((d,p)=>Math.min(d,Math.hypot(s.tree[0]-p[0],s.tree[1]-p[1])),Infinity);assert.ok(nearest>7,'Trees go between piers, clear of columns');}
+console.log(`Site geometry passed: ${meshes} finite meshes / ${vertices} vertices, 8 shops, 25 sitting tables per tea tapri (166 total), decoded GLB parked vehicles, shoulder and fenced median.`);

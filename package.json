@@ -8,6 +8,11 @@
     "test:navigation": "node scripts/test-navigation.mjs",
     "test:traffic": "node scripts/test-traffic.mjs",
     "test:cycling": "node scripts/test-cycling.mjs",
+    "test:street": "node scripts/test-street.mjs",
+    "test:activities": "node scripts/test-activities.mjs",
+    "test:driving": "node scripts/test-driving.mjs",
+    "test:clock": "node scripts/test-clock.mjs",
+    "test:site": "node scripts/test-site-geometry.mjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"

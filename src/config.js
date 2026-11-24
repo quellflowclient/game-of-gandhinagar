@@ -13,10 +13,10 @@ export const CITY = {
 };
 
 export const ENV = {
-  supabaseUrl: import.meta.env.VITE_SUPABASE_URL || "",
-  supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || "",
+  supabaseUrl: import.meta.env?.VITE_SUPABASE_URL || "",
+  supabaseAnonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY || "",
   // Serverless endpoint for AI twin and AI resident replies. Empty = offline fallback replies.
-  aiEndpoint: import.meta.env.VITE_AI_ENDPOINT || "",
+  aiEndpoint: import.meta.env?.VITE_AI_ENDPOINT || "",
 };
 
 export const LIMITS = {

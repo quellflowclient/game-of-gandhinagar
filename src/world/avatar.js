@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { lookById, CHARACTERS } from '../data/content.js';
-import { CYCLE, pedalPosition, createCyclingPose } from './cycling-pose.js';
+import { CYCLE, pedalPosition, createCyclingPose,orient } from './cycling-pose.js';
 import { createActivityPose } from './activity-pose.js';
 
 // Local, licensed Rocketbox people: textured faces/clothes and gender-specific
@@ -34,7 +34,7 @@ function bicycle() {
   const g=new THREE.Group(),wheels=[],pedals=[],cranks=[];
   const tube=(a,b,r,m)=>{const x=new THREE.Vector3(...a),y=new THREE.Vector3(...b),d=y.clone().sub(x);const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,d.length(),8),m);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());mesh.position.copy(x.add(y).multiplyScalar(0.5));g.add(mesh);};
   for(const z of [-0.57,0.57]) {
-    const w=new THREE.Group();w.position.set(0,0.34,z);
+    const w=new THREE.Group();w.position.set(0,0.35,z);
     const tyre=new THREE.Mesh(new THREE.TorusGeometry(0.32,0.026,9,36),bikeMat.tyre);tyre.rotation.y=Math.PI/2;w.add(tyre);
     const rim=new THREE.Mesh(new THREE.TorusGeometry(0.29,0.009,5,36),bikeMat.metal);rim.rotation.y=Math.PI/2;w.add(rim);
     for(let i=0;i<12;i++) {const a=i*Math.PI/6;const spoke=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,0.59,3),bikeMat.metal);spoke.rotation.x=a;w.add(spoke);}
@@ -86,18 +86,26 @@ export function createAvatar(lookId,skin=0xa86b47) {
   const scale=(gender==='male'?1.76:1.66)/height;model.scale.multiplyScalar(scale);model.position.y-=bounds.min.y*scale;
   const basePosition=model.position.clone();
   const bones={};model.traverse(o=>{if(o.isBone)bones[o.name.replaceAll(':','')]=o;});
+  const soleBones=['LeftFoot','RightFoot','LeftToeBase','RightToeBase'].map(n=>bones[`mixamorig${n}`]).filter(Boolean);
+  root.updateWorldMatrix(true,true);
+  const floorProbe=()=>Math.min(...soleBones.map(b=>root.worldToLocal(b.getWorldPosition(new THREE.Vector3())).y));
+  const neutralSole=floorProbe();
   const cyclePose=createCyclingPose(root,model,bones);
   const activityPose=createActivityPose(root,model,bones);
-  let activity=null;
-  let bike=null,cycling=false,waveT=0,time=Math.random()*4,shadow=true,cyclePhase=0;
+  let activity=null,activityBlend=1,exitActivity=null,exitBlend=0;
+  const boneList=Object.values(bones),seated=k=>['sit','eat','cash','sell'].includes(k);
+  let bike=null,cycling=false,waveT=0,time=Math.random()*4,shadow=true,cyclePhase=0,gestureT=0,gestureKind='yes';
   function play(name){if(name===current)return;actions[current]?.fadeOut(0.22);actions[name].reset().fadeIn(0.22).play();current=name;}
   return {root,look,gender,
-    setActivity(kind){activity=kind;},
+    setActivity(kind){if(kind===activity)return;if(!kind&&activity){exitActivity=activity;exitBlend=1;}if(kind&&!(seated(kind)&&seated(activity)))activityBlend=0;activity=kind;},
+    setFirstPerson(on){for(const mesh of meshes)if(mesh.name==='Body'||mesh.name==='Hair')mesh.visible=!on;},
     socket(name){root.updateWorldMatrix(true,true);return root.worldToLocal(bones[`mixamorig${name}`].getWorldPosition(new THREE.Vector3()));},
     setOlder(){for(const mesh of meshes)if(mesh.name==='Hair')mesh.material.color.setHex(0xb8b6aa);},
+    setClothes(top,bottom=0x39444c){for(const mesh of meshes){if(/^Top_/.test(mesh.name))mesh.material.color.setHex(top);if(mesh.name==='Trousers')mesh.material.color.setHex(bottom);}},
     setShadow(on){if(on===shadow)return;shadow=on;for(const mesh of meshes)mesh.castShadow=on;},
     setCycling(on){cycling=on;if(on&&!bike){bike=bicycle();root.add(bike);}if(bike)bike.visible=on;},
     wave(){waveT=actions.Wave.getClip().duration;play('Wave');},
+    gesture(kind){gestureKind=kind;gestureT=2.2;},
     update(dt,speed){
       time+=dt;waveT=Math.max(0,waveT-dt);
       play(waveT>0?'Wave':!cycling&&speed>0.12?'Walk':'Idle');
@@ -119,7 +127,18 @@ export function createAvatar(lookId,skin=0xa86b47) {
         }
         for(const wheel of bike.userData.wheels)wheel.rotation.x+=dt*speed/0.32;
       }
-      else if(activity)activityPose.apply(activity,time);
+      else if(activity||exitBlend>0){
+        activityBlend=Math.min(1,activityBlend+dt*4);exitBlend=Math.max(0,exitBlend-dt*4);
+        const weight=activity?activityBlend:exitBlend,base=weight<1?boneList.map(b=>b.quaternion.clone()):null;
+        activityPose.apply(activity||exitActivity,time);
+        if(base){for(let i=0;i<boneList.length;i++)boneList[i].quaternion.copy(base[i].slerp(boneList[i].quaternion,weight));model.position.lerp(basePosition,1-weight);model.rotation.x*=weight;root.updateWorldMatrix(true,true);}
+      }
+      if(!cycling&&!seated(activity)&&!(exitBlend>0&&seated(exitActivity))) {
+        // Captured clips have vertical root motion. Keep the lowest planted
+        // foot at the rendered surface instead of letting both soles sink.
+        root.updateWorldMatrix(true,true);model.position.y+=THREE.MathUtils.clamp(neutralSole-floorProbe()+0.004,-0.04,0.14);
+      }
+      if(gestureT>0){gestureT=Math.max(0,gestureT-dt);root.updateWorldMatrix(true,true);const axis=new THREE.Vector3(gestureKind==='yes'?1:0,gestureKind==='no'?1:0,0).transformDirection(root.matrixWorld),q=new THREE.Quaternion().setFromAxisAngle(axis,Math.sin(gestureT*9)*0.16);orient(bones.mixamorigHead,q.multiply(bones.mixamorigHead.getWorldQuaternion(new THREE.Quaternion())));}
     },
     dispose(){mixer.stopAllAction();mixer.uncacheRoot(model);for(const material of materials)material.dispose();if(bike)bike.traverse(o=>o.geometry?.dispose());},
   };

@@ -94,6 +94,7 @@ export function openDayOne(app) {
 
 // ---------- stalls and bargaining ----------
 export function openStall(app, stall) {
+  if(stall.street&&app.street)return app.street.openShop(stall);
   const s = app.progress.state;
   openPanel(`${stall.emoji} ${stall.name.toUpperCase()}`, h("div", {},
     h("p", { class: "muted small" }, `Wallet: ₹${s.coins} (play money). Prices here are samples, not real shop prices.`),

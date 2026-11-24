@@ -2,6 +2,15 @@
 
 Read this first in a new session instead of re-exploring. See README.md for setup and full feature status.
 
+Latest LDRP street-life pass: read `docs/STREET-LIFE.md`. Eight PDF-positioned
+shops now have reference-photo geometry, named rigged staff, approach/order/
+deliver/eat/pay-afterwards interactions, group permissions and exclusive movable
+small sitting tables. Phone joystick/run/context actions and road/paving height
+alignment (including planted feet and tyres) are included. New files:
+`ldrp-market*.js`, `ldrp-stall-models.js`, `activity-pose.js`, `street-service.js`,
+`ui/street.js`; tests `test:street`, `test:activities`. Local demo seat claims use
+Web Locks/storage, not a deployed cross-device furniture server. No publishing.
+
 ## What it is
 Gandhinagar version of peopleofahmedabad.com (feature list in docs/FEATURES.md), built with
 Vite + Three.js 0.169 (vanilla JS). Demo backend = localStorage + BroadcastChannel; Supabase
@@ -50,3 +59,12 @@ low effort, server-side fallbacks) NOT tested with a real key.
 - Shared browser storage keys: gnr-db-v1 (demo DB), gnr-progress-v1 (missions/passport), gnr-session (sessionStorage). Clear progress after automated tours so the user's game is not polluted.
 - Browser pane is often hidden -> rAF paused; screenshots force frames. Don't mistake a frozen camera for a bug.
 - Google Images shows CAPTCHA; use Bing image search for reference photos.
+# Latest local changes: KH-5 / rides / tapris
+
+See STREET-LIFE.md for the complete implementation and limits. Added an explicit
+KH-5 reference view, rebuilt roundabout, single central circular metro supports,
+no grass gap at stalls, 25 sitting tables per tea/snack tapri, Walk/Cycle/Auto/Car
+selector (35/80 km/h caps), LDRP exploration bounds, live IST/seasonal lighting,
+night lamps and locally bundled textured parking GLBs with CC0 credits.
+New checks: test:driving, test:clock, test:site. No deployment performed.
+

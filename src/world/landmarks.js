@@ -424,7 +424,7 @@ function stageModel() {
 
 export function buildLandmarks(scene, map) {
   const clearings = [], stalls = [], checkpoints = [], spawns = {};
-  const navigationZones = [], cameraObstacles = [], animations = [];
+  const navigationZones = [], cameraObstacles = [], animations = [],markets=[];
   let stage = null;
 
   for (const p of placedPlaces()) {
@@ -434,6 +434,8 @@ export function buildLandmarks(scene, map) {
     if (SITES[p.id]) {
       const site = SITES[p.id](scene, map, { x, z });
       navigationZones.push(site.zone); clearings.push(site.zone.clearing);
+      for(const zone of site.extraZones||[]){navigationZones.push(zone);clearings.push(zone.clearing);}
+      if(site.market){markets.push(site.market);stalls.push(...site.market.shops);}
       spawns[p.id] = site.spawn; animations.push(site);
       continue;
     }
@@ -489,7 +491,7 @@ export function buildLandmarks(scene, map) {
     }
   }
 
-  const navigation = createNavigation(navigationZones);
+  const navigation = createNavigation(navigationZones,{roads:map.roads,parks:map.parks});
   for (const s of STORIES) {
     const p = placedPlaces().find((q) => q.id === s.place);
     if (!p) continue;
@@ -511,7 +513,7 @@ export function buildLandmarks(scene, map) {
   }
 
   scene.updateMatrixWorld(true);
-  return { clearings, stalls, checkpoints, spawns, navigation, cameraObstacles,
-    update(time) { for (const detail of animations) detail.update(time); },
+  return { clearings, stalls, checkpoints, spawns, navigation, cameraObstacles,markets,
+    update(time,playerPos) { for (const detail of animations) detail.update(time,playerPos); },
     stage: stage ? { x: stage.position.x, z: stage.position.z } : null };
 }

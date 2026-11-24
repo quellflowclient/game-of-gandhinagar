@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {createClock,solarTimes} from '../src/systems/clock.js';
+const winter=solarTimes(new Date('2026-12-21T12:00:00Z')),summer=solarTimes(new Date('2026-06-21T12:00:00Z'));
+assert.ok(winter.sunrise>6.8&&winter.sunset<18.1);assert.ok(summer.sunrise<6.2&&summer.sunset>19);
+const c=createClock();assert.equal(c.mode,'live');
+globalThis.fetch=async url=>{if(url.includes('air-quality'))throw new Error('AQI offline');return{ok:true,json:async()=>({current:{temperature_2m:26.2,wind_speed_10m:8,weather_code:0,time:'2026-11-24T13:00'},daily:{time:['2026-11-24'],sunrise:['2026-11-24T06:58'],sunset:['2026-11-24T17:53']}})};};
+await c.loadWeather();assert.equal(c.weather.temp,26);assert.equal(c.weather.loaded,true);assert.equal(c.weather.aqi,null);
+globalThis.fetch=async()=>{throw new Error('Offline');};await c.loadWeather();assert.equal(c.weather.temp,26);assert.equal(c.weather.stale,true);
+const fresh=createClock();await fresh.loadWeather();assert.equal(fresh.weather.loaded,false);assert.equal(fresh.weather.temp,null);
+c.setPreset('Night');assert.equal(c.hour(),22);c.setLive();assert.equal(c.mode,'live');
+console.log('Clock passed: seasonal Gujarat sunrise/sunset, live default, temperature survives AQI failure, marked stale readings and no invented offline temperature.');

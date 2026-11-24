@@ -26,21 +26,22 @@ function distanceToRoad(x,z,route) {
   return best;
 }
 export function roadPose(route,s,direction,vehicle,zones=[]) {
+  const width=route.width||ROAD_WIDTH[route.kind];
   const center=centerAt(route,s),a=centerAt(route,s-2),b=centerAt(route,s+2);
   const len=Math.hypot(b.x-a.x,b.z-a.z)||1,fx=(b.x-a.x)/len*direction,fz=(b.z-a.z)/len*direction;
   // Oneway OSM ways already describe separate carriageways; do not invent a
   // second opposite lane on those. Bidirectional ways use left-hand traffic.
-  const lane=route.oneway?0:ROAD_WIDTH[route.kind]*0.25;
+  const lane=route.oneway?0:width*0.25;
   const x=center.x+fz*lane,z=center.z-fx*lane;
   const halfW=vehicle.width/2+0.12,halfL=vehicle.length/2+0.2;
   if(s<halfL+1||s>route.length-halfL-1)return null;
   // Edges and centre are sampled as well as corners, including fence setbacks.
   for(const u of [-halfW,0,halfW])for(const v of [-halfL,0,halfL]) {
     const px=x+fz*u+fx*v,pz=z-fx*u+fz*v;
-    if(distanceToRoad(px,pz,route)>ROAD_WIDTH[route.kind]/2-0.1)return null;
+    if(distanceToRoad(px,pz,route)>width/2-0.1)return null;
     if(zones.some(zone=>zone.forbidsVehicles?.(px,pz,0.3)))return null;
   }
-  let y=0.2+ROAD_WIDTH[route.kind]*0.004;
+  let y=0.2+width*0.004;
   for(const zone of zones){const h=zone.roadHeight?.(x,z);if(h!=null)y=h;}
   return {x,y,z,yaw:Math.atan2(fx,fz)};
 }

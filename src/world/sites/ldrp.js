@@ -1,5 +1,8 @@
 import * as THREE from "three";
 import * as K from "./kit.js";
+import {buildLdrpMarket} from './ldrp-market.js';
+import {ldrpCyclePaths} from './ldrp-paths.js';
+import {applyRoad5Profile} from './ldrp-market-layout.js';
 
 // LDRP-ITR inside the Kadi Sarva Vishwavidyalaya (KSV) campus, Sector 15.
 // Sources: Google Maps satellite (Nov 2026), KSV/LDRP campus photographs, and OSM
@@ -23,9 +26,11 @@ export const LDRP = {
 };
 
 export function buildLdrp(scene, map, origin) {
+  applyRoad5Profile(map);
   const f = K.frame(origin, 0);
   const g = new THREE.Group(); g.position.set(origin.x, 0, origin.z); scene.add(g);
   const solids = [], trees = [], animated = [];
+  const cyclePaths=ldrpCyclePaths(LDRP,map,f);
   g.name='LDRP campus exterior';
 
   // ---------- ground: open ground, garden lawn, paving ----------
@@ -37,11 +42,9 @@ export function buildLdrp(scene, map, origin) {
   // Radial red-brick paths from the gate hub, as seen from above.
   const brick = K.mat(K.brickPaving(), { roughness: 0.95 });
   // Actual mapped campus drives remain outside the closed building envelopes.
-  for(const road of map.roads) {
-    const points=road.pts.map(([x,z])=>{const p=f.toLocal(x,z);return [p.u,p.v];});
-    if(points.length<2||!points.every(([u,v])=>K.pointInPolygon(u,v,LDRP.area)))continue;
-    if(!['service','residential','footway','pedestrian','path'].includes(road.kind??road.type))continue;
-    K.strip(g,points,road.kind==='footway'?2.4:5.5,0.15,0x777972);
+  for(const path of cyclePaths.paths.filter(p=>p.kind==='drive')) {
+    const [a,b]=path.points,n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/2));
+    for(let i=0;i<n;i++){const p=[a[0]+(b[0]-a[0])*i/n,a[1]+(b[1]-a[1])*i/n],q=[a[0]+(b[0]-a[0])*(i+1)/n,a[1]+(b[1]-a[1])*(i+1)/n];if(K.pointInPolygon((p[0]+q[0])/2,(p[1]+q[1])/2,LDRP.area))K.strip(g,[p,q],path.width,path.height,0x777972);}
   }
   const [hu, hv] = LDRP.hub;
   for (let i = 0; i <= 6; i++) {
@@ -103,6 +106,7 @@ export function buildLdrp(scene, map, origin) {
     const [u,v]=K.centroid(hostel.ring);
     K.textPlane(g,['LDRP HOSTEL · D BLOCK'],{bg:'#e4e0d5',fg:'#30475b'},19,1.4,u,3,v+8,0);
     K.strip(g,[[u-24,v+13],[u+26,v+13]],3,0.16,brick);
+    cyclePaths.paths.push({points:[[u-24,v+13],[u+26,v+13]],width:3,height:0.16,kind:'garden'});
   }
   // Garden detail visible in the supplied panorama: low stone kerbs, clipped
   // topiary, a three-tier centre plinth and dense palms beside the road fork.
@@ -118,9 +122,9 @@ export function buildLdrp(scene, map, origin) {
   const walls = K.compoundWall(g, LDRP.area, LDRP.gates, { height: 1.9 });
   const main = LDRP.gates[0];
   const gate=new THREE.Group();gate.position.set(main.u,0,main.v);gate.rotation.y=-Math.atan2(68,117);g.add(gate);
-  for (const s of [-1, 1]) { K.box(gate, 1.6, 4, 1.6, 0xa5aaa6, s * 5.6, 0, 0); solids.push({ circle: [main.u + s * 4.84, main.v+s*2.81, 1] }); }
-  K.box(gate, 12.8, 0.65, 1.8, 0xa5aaa6, 0, 4, 0);
-  K.textPlane(gate, ["LDRP INSTITUTE OF TECHNOLOGY & RESEARCH"], { bg: "#9a9f9b", fg: "#263c4b" }, 12, 0.6, 0, 4.3, -0.92, Math.PI);
+  for (const s of [-1, 1]) { K.box(gate, 1.6, 5.4, 1.6, 0xa5aaa6, s * 5.6, 0, 0); solids.push({ circle: [main.u + s * 4.84, main.v+s*2.81, 1] }); }
+  K.box(gate, 12.8, 0.7, 1.8, 0xa5aaa6, 0, 5.4, 0);
+  K.textPlane(gate, ["કડી સર્વ વિશ્વવિદ્યાલય", "KSV · LDRP-ITR"], { bg: "#9a9f9b", fg: "#263c4b" }, 12, 0.65, 0, 5.75, -0.92, Math.PI);
   K.securityCabin(g, main.u + 8.5, main.v + 3, Math.PI); solids.push({ rect: [main.u + 8.5, main.v + 3, 2.4, 2.4] });
   const boom = K.boomBarrier(g, main.u + 4.2, main.v + 1.5, Math.PI, 4.2);
   for (const gt of LDRP.gates.slice(1)) K.securityCabin(g, gt.u + gt.width / 2 + 2, gt.v + 2.5);
@@ -152,14 +156,16 @@ export function buildLdrp(scene, map, origin) {
   for (const [u, v, r] of trees) solids.push({ circle: [u, v, r] });
 
   K.mergeStatic(g);
-  const zone = K.createSiteZone({ id: "ldrp-campus", f, area: LDRP.area, solids, walls, vehicleFree: [LDRP.area] });
+  const zone = K.createSiteZone({ id: "ldrp-campus", f, area: LDRP.area, solids, walls, vehicleFree: [LDRP.area],walkable:cyclePaths.allowed,groundY:cyclePaths.height,replaceRoads:true });
+  zone.contains=(x,z)=>{const p=f.toLocal(x,z);return K.nearPolygon(p.u,p.v,LDRP.area,0.8);};
+  const market=buildLdrpMarket(scene,origin);
 
   // Residents: students in the garden and by the LDRP block, a guard at the gate.
   const local = [[-28, -64], [-12, -50], [-44, -48], [-28, -36], [70, -12], [48, 0], [-30, -86], [20, -40], [-60, -30]];
   const residents = local.map(([u, v]) => ({ ...f.toWorld(u, v), r: 6 }));
   const spawn = { ...f.toWorld(main.u+7, main.v-12), yaw: -0.526, residents };
   return {
-    zone, spawn, frame: f,
-    update(t) { for (const fl of animated) if (fl.geometry) { fl.rotation.y = Math.sin(t * 1.7 + fl.position.x) * 0.25; } boom.rotation.z = 0; },
+    zone, spawn, frame: f,market,extraZones:[market.zone],
+    update(t,playerPos) { for (const fl of animated) if (fl.geometry) { fl.rotation.y = Math.sin(t * 1.7 + fl.position.x) * 0.25; } boom.rotation.z = 0;market.update(t,playerPos); },
   };
 }

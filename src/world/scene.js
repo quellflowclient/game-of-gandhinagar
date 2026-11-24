@@ -5,9 +5,9 @@ import { Sky } from "three/examples/jsm/objects/Sky.js";
 // Gujarat, image-based lighting from that sky, soft shadows that follow the player,
 // ACES filmic tone mapping, stars at night.
 export function createScene(container) {
-  const lowEnd = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+  const lowEnd = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)||matchMedia('(pointer:coarse)').matches||window.innerWidth<700;
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowEnd ? 1.5 : 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowEnd ? 1.25 : 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -15,6 +15,9 @@ export function createScene(container) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(renderer.domElement);
+  let lostNotice=null;
+  renderer.domElement.addEventListener('webglcontextlost',event=>{event.preventDefault();if(lostNotice)return;lostNotice=document.createElement('div');lostNotice.className='graphics-recovery';const message=document.createElement('p');message.textContent='Graphics paused. Give your device a moment, or reload to continue.';const reload=document.createElement('button');reload.textContent='Reload game';reload.onclick=()=>location.reload();lostNotice.append(message,reload);container.append(lostNotice);});
+  renderer.domElement.addEventListener('webglcontextrestored',()=>{lostNotice?.remove();lostNotice=null;});
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog(0xc9d6e2, 350, 2000);
@@ -68,13 +71,13 @@ export function createScene(container) {
   const moonDir = new THREE.Vector3(-0.35, 0.8, 0.45).normalize();
   const fogDay = new THREE.Color(0xc9d6e2), fogDusk = new THREE.Color(0xe9b98f), fogNight = new THREE.Color(0x10172a);
 
-  function setHour(hour) {
+  function setHour(hour,{sunrise=6,sunset=18}={}) {
     // Sun rises in the east (+x) and arcs through the southern sky (+z) over Gujarat.
-    const t = (hour - 6) / 12; // 0 at sunrise, 1 at sunset
+    const t = (hour - sunrise) / (sunset-sunrise);
     const elev = Math.sin(Math.PI * t) * 72 * (Math.PI / 180); // up to ~72° at noon
     const az = Math.PI * t; // east -> south -> west
     sunDir.set(Math.cos(az), Math.sin(elev), Math.sin(az) * 0.55).normalize();
-    const day = hour > 5.6 && hour < 18.6;
+    const day = hour > sunrise-.3 && hour < sunset+.3;
     const night = !day;
     if (night) sunDir.set(-0.3, -0.25, 0.4).normalize();
 

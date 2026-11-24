@@ -35,11 +35,15 @@ export function createHud({ open, act }) {
   const minimap = h("button", { type: "button", class: "minimap", "aria-label": "Open the city map (L)", onclick: () => open("map") }, miniCanvas, h("span", { class: "n" }, "N"));
 
   // ---- bottom right: actions ----
-  const cycleBtn = ibtn("🚲", null, "Ride a cycle (C)", () => act("cycle"), "fab cycle");
+  const cycleBtn = ibtn("🚲", null, "Choose ride: walk, cycle, auto or car (C)", () => act("cycle"), "fab cycle");
   const waveBtn = ibtn("👋", null, "Wave (Q)", () => act("wave"), "fab wave");
-  const actions = h("div", { class: "hud-actions" }, cycleBtn, waveBtn);
+  const runBtn = ibtn('🏃',null,'Toggle running',()=>{const on=act('run');runBtn.setAttribute('aria-pressed',String(on));},'fab run');
+  runBtn.setAttribute('aria-pressed','false');
+  const actions = h("div", { class: "hud-actions" }, runBtn,cycleBtn, waveBtn);
+  const speed=h('div',{class:'vehicle-speed glass',hidden:true,'aria-live':'off'}),area=h('div',{class:'play-area-label glass',hidden:true},'LDRP · KH-5 · STALLS');
+  const cameraBtn=ibtn('◉',null,'Camera view',()=>open('camera'),'fab camera-view');
 
-  const joystick = h("div", { class: "joystick", "aria-hidden": "true" }, h("div", { class: "knob" }));
+  const joystick = h("div", { class: "joystick",role:'group','aria-label':'Movement joystick. Drag to walk, push to outer ring to run.' }, h("div", { class: "knob" }),h('span',{class:'joy-label'},'WALK · RUN'));
   const hint = h("div", { class: "hint glass" }, h("b", {}, "Kem cho! "), "Walk with WASD or the left thumb · drag to look · tap a name to say hi");
   setTimeout(() => hint.classList.add("fade"), 9000);
 
@@ -78,12 +82,14 @@ export function createHud({ open, act }) {
   const arrival = h("div", { class: "arrival", hidden: true });
   const activity = h("div", { class: "activity" });
 
-  root.append(topLeft, topRight, minimap, actions, joystick, hint, context, dock, more, arrival, activity);
+  root.append(topLeft, topRight, minimap,cameraBtn, actions, joystick, hint, context, dock, more, arrival, activity,speed,area);
   document.body.append(root);
 
   let arrivalTimer = 0;
   return {
     root, joystick, miniCanvas,
+    setVehicle(type){cycleBtn.querySelector('.i').textContent=({walk:'🚶',cycle:'🚲',auto:'🛺',car:'🚗'})[type];cycleBtn.classList.toggle('on',type!=='walk');},
+    setDrive(type,kmh,locked){speed.hidden=!['car','auto'].includes(type);speed.textContent=`${Math.round(kmh)} / ${type==='auto'?35:80} km/h`;area.hidden=!locked;},
     setPlace(p) {
       placeName.textContent = p ? p.name : "Gandhinagar";
       placeGu.textContent = p ? p.gu : "ગાંધીનગર · Green City";

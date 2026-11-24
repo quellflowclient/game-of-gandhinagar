@@ -260,7 +260,8 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
   const sorted = renderRoads.sort((a, b) => (ROAD[a.kind]?.[0] || 6) - (ROAD[b.kind]?.[0] || 6));
   const lightSpots = new Map();
   for (const r of sorted) {
-    const [width, cls] = ROAD[r.kind] || [6, 0];
+    const [defaultWidth, cls] = ROAD[r.kind] || [6, 0];
+    const width=r.width||defaultWidth;
     const y = 0.2 + width * 0.004;
     // Split long roads by chunk so culling works.
     let seg = [r.pts[0]], k0 = key(r.pts[0][0], r.pts[0][1]);
@@ -269,7 +270,7 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
       const g = ribbonGeo(seg, width, y, 8);
       if (g) (C(k0).roads[cls] ||= []).push(g);
       if (MAJOR.has(r.kind)) {
-        for (const side of [-1, 1]) { const s = ribbonGeo(seg, 2.6, y + 0.1, 4, side * (width / 2 + 1.3)); if (s) C(k0).walks.push(s); }
+        for (const side of r.sidewalkSides||[-1, 1]) { const s = ribbonGeo(seg, 2.6, y + 0.1, 4, side * (width / 2 + 1.3)); if (s) C(k0).walks.push(s); }
       }
     };
     for (let i = 1; i < r.pts.length; i++) {

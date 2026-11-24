@@ -161,3 +161,36 @@ OSM ring bounding centre, removing a roughly 5.5 m offset caused by an earlier
 111320 m/degree test-origin approximation. Geometry tests use placePos(LDRP),
 and Road 5 checks the authored island against the mapped circle centre. The
 gate forecourt bridges the campus boundary to the public footpath.
+
+## Two-location release and clean HD controls
+
+The visible catalogue is now limited to LDRP and Mahatma Mandir. Full PLACES,
+other builders and original content remain in source. `live-content.js` provides
+supported mission goals and hides unavailable stories, gigs and sample events.
+Travel rejects inactive destinations. Runtime map geometry is clipped to the
+two active areas; the complete source map stays unchanged. The active release
+uses 538 nearby background buildings instead of 24,857 citywide buildings.
+
+The canvas targets a 1080-pixel short edge (up to 3× DPR / 8 megapixels) and no
+longer drops resolution to 0.65× when frame rate falls. Texture anisotropy improves
+oblique road/material sampling. HUD keeps compact place/time, a small map, the
+joystick, ride/camera controls and a three-action dock. Social and mission tools
+remain in Menu; duplicate street order prompts and the large mission/arrival
+overlays are removed.
+
+LDRP's road-facing iron compound fence is removed; a low masonry boundary keeps
+the shared entry/exit logic. Metro-side mesh is allowed only between paired
+carriageways, with no planting/fence crossing asphalt. Carriageways run outside
+the central support clearance; junction asphalt spans have no support placed
+inside them. The deck alignment is retained. Geometry checks verify every visible
+support is clear of road edges and every median fence is between carriageways.
+
+Reference audit resumed on working Google Maps Street View (Road 5, Mar 2026).
+Observed: stalls directly along a dusty shoulder, mature shade trees, parked
+two-wheelers/autos, a continuous rear wall, green diagonal median mesh and
+black/yellow kerbs; no extra metal fence between the college frontage and road.
+KH-5 photo (Aug 2023) also shows the central gear monument and traffic-signal
+poles. These dated images must be distinguished from today's live conditions.
+
+`npm run test:live` verifies the two-destination whitelist, retained source
+catalogue, supported mission goals, clipped road extents and HD buffers.

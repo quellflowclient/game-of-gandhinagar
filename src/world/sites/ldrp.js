@@ -119,7 +119,8 @@ export function buildLdrp(scene, map, origin) {
   K.palm(g,gu,gv,0.75);solids.push({circle:[gu,gv,2.2]});
 
   // ---------- compound wall, gates, security ----------
-  const walls = K.compoundWall(g, LDRP.area, LDRP.gates, { height: 1.9 });
+  // Low masonry boundary: no iron fence between the college and public road.
+  const walls = K.compoundWall(g, LDRP.area, LDRP.gates, { height: 0.7,railing:false });
   const main = LDRP.gates[0];
   const gate=new THREE.Group();gate.position.set(main.u,0,main.v);gate.rotation.y=-Math.atan2(68,117);g.add(gate);
   for (const s of [-1, 1]) { K.box(gate, 1.6, 5.4, 1.6, 0xa5aaa6, s * 5.6, 0, 0); solids.push({ circle: [main.u + s * 4.84, main.v+s*2.81, 1] }); }

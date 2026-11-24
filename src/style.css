@@ -392,3 +392,27 @@ body.on-landing #hud, body.on-landing #labels { visibility: hidden; }
 .play-area-label{position:fixed;top:192px;left:14px;padding:5px 9px;border-radius:10px;font-size:10px;letter-spacing:.08em;pointer-events:none;}
 .vehicle-speed[hidden],.play-area-label[hidden]{display:none;}
 @media(max-width:600px){.play-area-label{top:192px;left:10px;}.pc-time{max-width:240px;white-space:normal;font-size:11px;}}
+
+/* Immersive game HUD: three navigation actions, compact status, contextual tasks. */
+.hud-tl{top:max(12px,env(safe-area-inset-top));left:12px;max-width:calc(100vw - 92px);gap:0;}
+.place-card{padding:10px 13px;border-radius:16px;min-width:0;max-width:310px;gap:9px;background:rgba(249,250,244,.95);box-shadow:0 3px 16px #182a2415;}
+.pc-name{font-size:15px;line-height:1.3;}.pc-gu{display:none;}.pc-dot{width:9px;height:9px;border-radius:50%;box-shadow:none;}
+.pc-time{font-size:11px;background:transparent;padding:2px 0;max-width:250px;white-space:normal;min-height:22px;}
+.minimap{width:64px;height:64px;top:max(12px,env(safe-area-inset-top));right:12px;box-shadow:0 3px 12px #182a2420;}
+.camera-view{top:auto!important;bottom:calc(232px + env(safe-area-inset-bottom));right:14px;width:44px;height:44px;}
+.hud-actions{right:14px;bottom:calc(108px + env(safe-area-inset-bottom));gap:8px;}.hud-actions .fab{width:48px;height:48px;font-size:22px;}
+.hud-actions .wave{display:none;}.hud-actions .run{display:none;}
+.camera-view{bottom:calc(164px + env(safe-area-inset-bottom));}
+.dock{width:220px;bottom:max(14px,env(safe-area-inset-bottom));padding:4px 10px;border-radius:22px;gap:4px;background:rgba(249,250,244,.96);}
+.dock button{min-width:56px;min-height:48px;padding:6px 12px;}.dock button.main{transform:none;border-radius:15px;}.dock .i{font-size:20px;}.dock .l{font-size:10px;}
+.joystick{width:100px;height:100px;left:18px;bottom:calc(104px + env(safe-area-inset-bottom));backdrop-filter:none;background:#ffffff25;border:1.5px solid #ffffffa0;}
+.joy-label{font-size:9px;}.joystick .knob{width:42px;height:42px;}
+.street-actions{bottom:calc(88px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:auto;max-width:calc(100vw - 124px);gap:6px;}
+.street-actions button{min-height:43px;border-radius:13px;font-size:12px;padding:9px 12px;max-width:180px;}
+.arrival{top:92px;left:50%;transform:translateX(-50%);width:auto;padding:8px 14px;border-radius:20px;background:#f8fbf2e8;color:#294039;font-size:13px;box-shadow:0 3px 12px #182a2420;pointer-events:none;}
+.hint{bottom:80px;font-size:11px;padding:7px 10px;max-width:260px;}.hint.fade{display:none;}
+.context{bottom:calc(90px + env(safe-area-inset-bottom));}.context .ctx{min-height:42px;font-size:12px;padding:8px 13px;}
+.more{max-height:65dvh;overflow-y:auto;bottom:78px;}.more-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+.vehicle-speed{bottom:calc(218px + env(safe-area-inset-bottom));font-size:13px;padding:5px 10px;}
+@media(max-height:500px) and (orientation:landscape){.dock{bottom:8px;}.joystick{bottom:20px;}.hud-actions{bottom:22px;flex-direction:column;}.camera-view{bottom:80px;}.street-actions{bottom:76px;max-width:55vw;}.arrival{top:66px;}.more{bottom:66px;}}
+@media(max-width:700px) and (min-height:501px){.street-actions{left:134px;right:76px;bottom:calc(108px + env(safe-area-inset-bottom));transform:none;width:auto;max-width:none;flex-direction:column;}.street-actions button{width:100%;max-width:none;}.context{left:134px;right:76px;bottom:108px;transform:none;max-width:none;}.context .ctx{white-space:normal;}}

@@ -1,4 +1,4 @@
-import { CHAPTER, STORIES, GIGS, REAL_MISSIONS, BADGES, FIRSTS, DAY_ONE } from "../data/content.js";
+import { CHAPTER, STORIES, GIGS, REAL_MISSIONS, BADGES, FIRSTS, DAY_ONE } from "../data/live-content.js";
 import { hubs } from "../data/places.js";
 
 // Missions, story missions, gigs, badges, firsts, passport stamps, day-one tasks,
@@ -31,6 +31,7 @@ function load(key=KEY) {
 
 export function createProgress(key=KEY) {
   let s = load(key);
+  if(s.activeStory&&!STORIES.some(st=>st.id===s.activeStory))s.activeStory=null;
   const subs = [];
   const toast = (msg, kind = "info") => subs.forEach((f) => f({ toast: msg, kind }));
   const save = () => {
@@ -107,6 +108,7 @@ export function createProgress(key=KEY) {
     // Active story mission.
     if (s.activeStory && ev === "checkpoint" && payload.story === s.activeStory) {
       const def = STORIES.find((x) => x.id === s.activeStory);
+      if(!def)return;
       const st = (s.stories[def.id] ||= { found: [], done: false });
       if (!st.found.includes(payload.index)) {
         st.found.push(payload.index);

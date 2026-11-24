@@ -4,9 +4,9 @@ import { CITY } from "../config.js";
 // "24h in 60s" timelapse) and live weather + air quality from Open-Meteo (free, no key).
 const PRESETS = { Morning: 8, Day: 13, Evening: 18.5, Night: 22 };
 const MOOD = {
-  Morning: "Morning: joggers at Sarita Udyan, chai and fafda, the sectors wake up slowly.",
-  Day: "Day: Infocity and GIFT City are busy, campus canteens are full.",
-  Evening: "Evening: everyone heads out. Lake Garden fills up, Akshardham lights come on.",
+  Morning: "Morning: a walk around LDRP, fresh chai and the campus waking up.",
+  Day: "Day: explore the campus roads, gardens and KH-5 food stalls.",
+  Evening: "Evening: stop for chai near LDRP or walk through Mahatma Mandir as the lights come on.",
   Night: "Night: quiet green roads, late chai near the campuses.",
 };
 

@@ -10,7 +10,7 @@ import { createPlayer, isTyping } from "./world/player.js";
 import { createPeople } from "./world/people.js";
 import { preloadAvatarAssets,createAvatar } from './world/avatar.js';
 import { MAHATMA, siteToWorld, bridgeHeight } from "./world/mahatma-layout.js";
-import { placedPlaces, placePos, placeById, hubs } from "./data/places.js";
+import { placedPlaces, placePos, placeById, hubs,isLivePlace } from "./data/places.js";
 import { createProgress } from "./systems/progress.js";
 import { createSound } from "./systems/sound.js";
 import { createClock, fmtHour } from "./systems/clock.js";
@@ -30,6 +30,8 @@ import {createDrivingSurface} from './world/driving.js';
 import {inLdrpArea} from './world/sites/ldrp-market-layout.js';
 import {openVehicles} from './ui/vehicles.js';
 import {buildMetroGarden} from './world/metro-garden.js';
+import {createLiveMap} from './world/live-map.js';
+import {alignMetroRoads,roadClearance,roadMedian} from './world/metro-road-clearance.js';
 
 const loading = document.getElementById("loading");
 const tourMode = new URLSearchParams(location.search).has('tour');
@@ -40,12 +42,13 @@ const backend = await loadBackend();
 const { renderer, scene, camera, setHour, follow, lowEnd } = createScene(document.getElementById("app"));
 const humanAssets=preloadAvatarAssets();
 setLoading("Loading the map of Gandhinagar…");
-const mapData = await loadMap();
+const mapData = alignMetroRoads(createLiveMap(await loadMap()));
 setLoading("Building landmarks…");
 await preloadParkedModels(renderer);
 const world = buildLandmarks(scene, mapData);
 const metro = buildMetro(scene, mapData, { lowEnd });
-const metroGarden=buildMetroGarden(scene,metro.piers||[],placePos(placeById('ldrp')));
+const metroOffRoad=roadClearance(mapData),inRoadMedian=roadMedian(mapData);
+const metroGarden=buildMetroGarden(scene,metro.piers||[],placePos(placeById('ldrp')),(x,z,r)=>metroOffRoad(x,z,r)&&inRoadMedian(x,z));
 world.navigation.zones.push(metroGarden.zone);world.clearings.push(metroGarden.zone.clearing);
 world.navigation.addObstacles(metroGarden.obstacles);
 setLoading("Laying roads and planting trees…");
@@ -57,6 +60,8 @@ world.navigation.zones.push({id:'metro-supports',contains:()=>false,heights:()=>
 world.cameraObstacles.push(...metro.cameraObstacles);
 setLoading('Loading detailed male and female characters…');
 await humanAssets;
+const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+scene.traverse(o=>{for(const m of [].concat(o.material||[]))for(const key of ['map','normalMap','roughnessMap'])if(m[key]?.isTexture){m[key].anisotropy=anisotropy;m[key].needsUpdate=true;}});
 
 const PAD = 300;
 const bounds = (() => {
@@ -149,7 +154,7 @@ const people = createPeople({ scene, camera, labelsEl, spawns: world.spawns, nav
 app.people = people;
 
 // Start at Infocity's welcome sign.
-const startSpawn = world.spawns.infocity || Object.values(world.spawns)[0];
+const startSpawn = world.spawns.ldrp;
 player.teleport(startSpawn.x, startSpawn.z);
 
 // ---------- panels by name ----------
@@ -206,7 +211,7 @@ function travel(placeId) {
   if(player.sitting||player.carrying)return toast('Pehle table se utho ya carry ki hui table rakh do.');
   if(app.street?.service.meal?.item&&app.street.service.meal.phase!=='paid')return toast('Pehle apna khana aur pending bill complete karo.');
   const p = placeById(placeId);
-  if (!p || p.pending) return;
+  if (!p || p.pending || !isLivePlace(placeId)) return;
   const spawn = world.spawns[p.id] || { x: placePos(p).x, z: placePos(p).z + 40 };
   fade.querySelector("span").textContent = `Jaiye chhiye ${p.name}…`;
   fade.classList.add("on");
@@ -372,7 +377,7 @@ function proximity() {
   const p = player.position;
   nearStall = world.stalls.find((s) => Math.hypot(p.x - s.x, p.z - s.z) < 5) || null;
   nearStage = !!world.stage && Math.hypot(p.x - world.stage.x, p.z - world.stage.z) < 9;
-  hud.setInteract(nearStall ? nearStall.street?`${nearStall.caller} ko bulao · E`:`${nearStall.emoji} ${nearStall.name} · BUY / BHAAV KARO (E)` : nearStage ? "🎤 Open mic stage (E)" : null);
+  hud.setInteract(nearStall ? nearStall.street?null:`${nearStall.emoji} ${nearStall.name} · Order (E)` : nearStage ? "🎤 Open mic stage (E)" : null);
   const n = people.nearest(p, 6);
   hud.setNearest(nearStall || nearStage ? null : n);
   // Story checkpoints.
@@ -401,7 +406,7 @@ const landing = h("div", { id: "landing" },
   h("main", { class: "land-card glass" },
     h("div", { class: "kicker" }, "ગાંધીનગરના લોકો · THE GREEN CITY, IN 3D"),
     h("h1", {}, "Gandhinagar", h("span", { class: "gu" }, "ગાંધીનગર")),
-    h("p", { class: "tagline" }, "Walk from Infocity to Akshardham. Meet real people by what they do. Leave an ", h("b", {}, "AI twin"), " to say kem cho while you're away."),
+    h("p", { class: "tagline" }, "Explore LDRP, the KH-5 stalls and Mahatma Mandir. Walk, ride, meet people and stop for chai."),
     h("div", { class: "pills" },
       h("span", {}, "🛕 ", h("b", {}, String(hubs().length)), " places to explore"),
       h("span", {}, "🤖 AI residents"), h("span", {}, "🪞 Your AI twin"), h("span", {}, "🎯 Missions & gigs")),
@@ -483,7 +488,7 @@ function frame() {
       renderer.domElement.dataset.trafficPositions=JSON.stringify(traffic.vehicles.filter(v=>v.pose).map(v=>({id:v.id,type:v.type,...v.pose})));
       renderer.domElement.dataset.humanAssets='male,female';
       renderer.domElement.dataset.driving=JSON.stringify({vehicle:player.vehicle,kmh:player.speedKmh,areaLocked:player.areaLocked});
-      renderer.domElement.dataset.renderStats=JSON.stringify({calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,pixelRatio:renderer.getPixelRatio()});
+      renderer.domElement.dataset.renderStats=JSON.stringify({calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,pixelRatio:renderer.getPixelRatio(),width:renderer.domElement.width,height:renderer.domElement.height});
     }
   }
   if (t - lastHourTick > 1) {
@@ -504,28 +509,13 @@ function frame() {
     backend.updatePresence({ x: Math.round(player.position.x*10)/10, y: player.position.y, z: Math.round(player.position.z*10)/10 });
   }
   sound.update({ near: { road: true, water: app.currentPlace?.kind === "park" || app.currentPlace?.id === "lakegarden" }, speed: player.speed });
-  adaptQuality(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
-}
-// Adaptive quality: if frames stay slow for a few seconds, step the resolution down.
-const qualitySteps = [renderer.getPixelRatio(), 1, 0.8, 0.65].filter((v, i, a) => i === 0 || v < a[0]);
-let qStep = 0, qTime = 0, qFrames = 0;
-function adaptQuality(dt) {
-  if (document.hidden || !entered) return;
-  qTime += dt; qFrames++;
-  if (qTime < 3) return;
-  const fps = qFrames / qTime;
-  qTime = 0; qFrames = 0;
-  if (fps < 32 && qStep < qualitySteps.length - 1) {
-    qStep++;
-    renderer.setPixelRatio(qualitySteps[qStep]);
-  }
 }
 let cycAcc = 0;
 let lastMini = 0;
 let wasNight = null;
-const showcase = placePos(placeById("akshardham"));
+const showcase = placePos(placeById("ldrp"));
 const minimap = createMinimap(hud.miniCanvas, cityObj.map);
 // Hour tracking every second would spam saves; throttle "hour" events to place changes and minutes.
 const origTrack = progress.track;

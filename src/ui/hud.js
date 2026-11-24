@@ -19,7 +19,7 @@ export function createHud({ open, act }) {
   const msCount = h("span", { class: "ms-c" }, "0/6");
   const mission = h("button", { type: "button", class: "mission-card glass", onclick: () => open("mission"), "aria-label": "Current mission" },
     h("span", { class: "ms-ic" }, "🎯"), h("div", { class: "ms-body" }, h("div", { class: "ms-k" }, "MISSION ", msCount), msTitle, h("div", { class: "ms-bar" }, msBar)));
-  const topLeft = h("div", { class: "hud-tl" }, placeCard, mission);
+  const topLeft = h("div", { class: "hud-tl" }, placeCard);
 
   // ---- top right: me, online, world chat ----
   const meAv = h("span", { class: "me-av" }, "🙂");
@@ -45,7 +45,7 @@ export function createHud({ open, act }) {
 
   const joystick = h("div", { class: "joystick",role:'group','aria-label':'Movement joystick. Drag to walk, push to outer ring to run.' }, h("div", { class: "knob" }),h('span',{class:'joy-label'},'WALK · RUN'));
   const hint = h("div", { class: "hint glass" }, h("b", {}, "Kem cho! "), "Walk with WASD or the left thumb · drag to look · tap a name to say hi");
-  setTimeout(() => hint.classList.add("fade"), 9000);
+  setTimeout(() => hint.classList.add("fade"), 3500);
 
   const context = h("div", { class: "context" });
   const nearBtn = h("button", { type: "button", class: "ctx glass", hidden: true, onclick: () => act("nearest") });
@@ -55,13 +55,12 @@ export function createHud({ open, act }) {
   // ---- dock ----
   const chatsBadge = h("span", { class: "badge", hidden: true });
   const dock = h("nav", { class: "dock glass" },
-    ibtn("🔍", "Find", "Find someone", () => open("find")),
-    h("button", { type: "button", "aria-label": "Connections and chats", onclick: () => open("chats") }, h("span", { class: "i" }, "🤝"), h("span", { class: "l" }, "Chats"), chatsBadge),
+    ibtn("🗺", "Map", "Open map", () => open("map")),
     ibtn("🚌", "BRTS", "Travel", () => open("travel"), "main"),
-    ibtn("🎬", "Plans", "Plans: find someone to do things with", () => open("plans")),
-    ibtn("✨", "More", "More city menu buttons", () => toggleMore()));
+    ibtn("☰", "Menu", "Game menu", () => toggleMore()));
 
   const MORE = [
+    ['◉','Camera','camera'],['🙂','Profile','profile'],['🔍','Find people','find'],['🤝','Chats','chats'],['🎬','Plans','plans'],['👥','Online','online'],
     ["🎯", "Missions", "missions"], ["🌅", "Day one", "dayone"], ["🎟", "Passport", "passport"], ["🏆", "Scores", "scores"],
     ["🗺️", "Map", "map"], ["🎉", "Utsav", "utsav"], ["💬", "City chat", "world"], ["🪪", "My card", "card"],
     ["🪞", "My twin", "twin"], ["🧑‍💻", "About me", "about"], ["🔊", "Sound", "sound"], ["🕒", "Time", "time"],
@@ -82,7 +81,7 @@ export function createHud({ open, act }) {
   const arrival = h("div", { class: "arrival", hidden: true });
   const activity = h("div", { class: "activity" });
 
-  root.append(topLeft, topRight, minimap,cameraBtn, actions, joystick, hint, context, dock, more, arrival, activity,speed,area);
+  root.append(topLeft, minimap,cameraBtn, actions, joystick, hint, context, dock, more, arrival, activity,speed);
   document.body.append(root);
 
   let arrivalTimer = 0;
@@ -98,14 +97,11 @@ export function createHud({ open, act }) {
     arrive(p) {
       clearTimeout(arrivalTimer);
       arrival.replaceChildren(
-        h("div", { class: "ar-k" }, "WELCOME TO"),
-        h("div", { class: "ar-n" }, p.name),
-        h("div", { class: "ar-gu" }, p.gu),
-        h("div", { class: "ar-b" }, p.blurb));
+        h('span',{},`📍 ${p.name}`));
       arrival.style.setProperty("--pc", "#" + p.color.toString(16).padStart(6, "0"));
       arrival.hidden = false;
       arrival.classList.remove("out");
-      arrivalTimer = setTimeout(() => { arrival.classList.add("out"); setTimeout(() => { arrival.hidden = true; }, 600); }, 3200);
+      arrivalTimer = setTimeout(() => { arrival.classList.add("out"); setTimeout(() => { arrival.hidden = true; }, 300); }, 1800);
     },
     setTime(text, night, weather) {
       timeChip.textContent = `${night ? "🌙" : "☀"} ${text}${weather ? " · " + weather : ""}`;

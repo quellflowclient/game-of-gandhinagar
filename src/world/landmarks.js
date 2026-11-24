@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { placedPlaces, placePos } from "../data/places.js";
-import { STALLS, STORIES } from "../data/content.js";
+import { STALLS, STORIES } from "../data/live-content.js";
 import * as T from "./textures.js";
 import { buildMahatma } from "./mahatma.js";
 import { MAHATMA, createMahatmaZone, siteToWorld, bridgeHeight } from "./mahatma-layout.js";

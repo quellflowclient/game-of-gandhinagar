@@ -1,8 +1,8 @@
 // Pedestrian capsule movement, shared by the player, NPCs and presence avatars.
 // Swept substeps prevent running/cycling through thin walls and water edges.
 export function createNavigation(zones = [],{roads,parks=[]}={}) {
-  const obstacles=[];
-  const obstacleAt=(x,z,r=0.38)=>obstacles.some(p=>Math.abs(x-p.x)<p.r+r&&Math.abs(z-p.z)<p.r+r&&Math.hypot(x-p.x,z-p.z)<p.r+r);
+  const obstacleGrid=new Map();
+  const obstacleAt=(x,z,r=0.38)=>(obstacleGrid.get(`${Math.floor(x/20)},${Math.floor(z/20)}`)||[]).some(p=>Math.abs(x-p.x)<p.r+r&&Math.abs(z-p.z)<p.r+r&&Math.hypot(x-p.x,z-p.z)<p.r+r);
   const grid=new Map(),cell=50,widths={motorway:26,trunk:22,primary:18,secondary:13,tertiary:10,residential:7,unclassified:7,living_street:6,service:5,pedestrian:6,footway:2.5,path:2,cycleway:3};
   const parkSurfaces=parks.map(p=>({pts:p.pts,minX:Math.min(...p.pts.map(q=>q[0])),maxX:Math.max(...p.pts.map(q=>q[0])),minZ:Math.min(...p.pts.map(q=>q[1])),maxZ:Math.max(...p.pts.map(q=>q[1]))}));
   if(roads)for(const road of roads)for(let i=1;i<road.pts.length;i++) {
@@ -63,5 +63,5 @@ export function createNavigation(zones = [],{roads,parks=[]}={}) {
     move(p, to.x - from.x, to.z - from.z, radius);
     return Math.hypot(p.x - to.x, p.z - to.z) < 0.3;
   }
-  return { move, safePoint, surface, canTravel, zones,obstacleAt,addObstacles(list){obstacles.push(...list);} };
+  return { move, safePoint, surface, canTravel, zones,obstacleAt,addObstacles(list){for(const p of list)for(let x=Math.floor((p.x-p.r-2)/20);x<=Math.floor((p.x+p.r+2)/20);x++)for(let z=Math.floor((p.z-p.r-2)/20);z<=Math.floor((p.z+p.r+2)/20);z++){const key=`${x},${z}`;if(!obstacleGrid.has(key))obstacleGrid.set(key,[]);obstacleGrid.get(key).push(p);}} };
 }

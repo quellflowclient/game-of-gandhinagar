@@ -1,5 +1,5 @@
 import { h, openPanel, setPanelBody, toast, closePanel } from "./dom.js";
-import { CHAPTER, STORIES, GIGS, REAL_MISSIONS, BADGES, FIRSTS } from "../data/content.js";
+import { CHAPTER, STORIES, GIGS, REAL_MISSIONS, BADGES, FIRSTS } from "../data/live-content.js";
 import { hubs, placeById } from "../data/places.js";
 
 // ---------- current mission brief ----------

@@ -66,5 +66,9 @@ KH-5 reference view, rebuilt roundabout, single central circular metro supports,
 no grass gap at stalls, 25 sitting tables per tea/snack tapri, Walk/Cycle/Auto/Car
 selector (35/80 km/h caps), LDRP exploration bounds, live IST/seasonal lighting,
 night lamps and locally bundled textured parking GLBs with CC0 credits.
-New checks: test:driving, test:clock, test:site. No deployment performed.
-
+New checks: test:driving, test:clock, test:site, test:live.
+Latest release limits visible destinations to LDRP + Mahatma Mandir, preserves
+the full source catalogue, clips runtime geometry, fixes HD buffer resolution,
+simplifies the HUD and removes the extra college-side iron railing. Metro mesh
+is restricted to the road median and supports never occupy asphalt. See
+STREET-LIFE.md for the map/photo audit and release verification details.

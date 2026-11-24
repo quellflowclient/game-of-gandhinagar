@@ -38,7 +38,7 @@ export const PLACES = [
   { id: "swarnim", name: "Swarnim Park", gu: "સ્વર્ણિમ પાર્ક", kind: "park", hub: false,
     lat: 23.2221505, lon: 72.6519822, color: 0x76c26b,
     blurb: "Park in the middle of the sectors" },
-  { id: "dandi", name: "Dandi Kutir", gu: "દાંડી કુટીર", kind: "museum", hub: true,
+  { id: "dandi", name: "Mahatma Mandir", gu: "મહાત્મા મંદિર · દાંડી કુટીર", kind: "museum", hub: true,
     lat: 23.2328055, lon: 72.631196, color: 0xeeeeee,
     blurb: "Mahatma Mandir campus, waterside walks and Dandi Bridge" },
   { id: "lakegarden", name: "Sector 1 Lake Garden", gu: "સેક્ટર ૧ લેક ગાર્ડન", kind: "park", hub: true,
@@ -58,7 +58,9 @@ export const PLACES = [
     lat: 23.2389922, lon: 72.6390652, color: 0x2f5fa8, blurb: "KSV campus, Sector 15: engineering students, the arc and its garden" },
 ];
 
-export const placedPlaces = () => PLACES.filter((p) => !p.pending && p.lat != null);
+export const LIVE_PLACE_IDS = new Set(['ldrp','dandi']);
+export const isLivePlace = id => LIVE_PLACE_IDS.has(id);
+export const placedPlaces = () => PLACES.filter((p) => isLivePlace(p.id) && !p.pending && p.lat != null);
 export const hubs = () => placedPlaces().filter((p) => p.hub);
 export const placeById = (id) => PLACES.find((p) => p.id === id);
 

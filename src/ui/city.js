@@ -1,5 +1,5 @@
 import { h, openPanel, toast, chips, closePanel, ago } from "./dom.js";
-import { PLAN_CATEGORIES, SAMPLE_EVENTS, FESTIVALS, STALLS } from "../data/content.js";
+import { PLAN_CATEGORIES, SAMPLE_EVENTS, FESTIVALS, STALLS } from "../data/live-content.js";
 import { hubs, placedPlaces, placePos, HOME_DISTRICTS } from "../data/places.js";
 import { fmtHour } from "../systems/clock.js";
 
@@ -105,7 +105,7 @@ export function openTravel(app) {
       h("div", { class: "small" }, p.id === here ? "YOU ARE HERE" : `${counts[p.id] || 0} PEOPLE HERE · START MEETING NEW PEOPLE ▸`))),
     app.world.stage ? h("button", { type: "button", class: "dest", onclick: () => { closePanel(); app.goNear(app.world.stage.x, app.world.stage.z + 8); } },
       h("div", { class: "nm" }, "🎤 OPEN MIC STAGE"), h("div", { class: "muted small" }, "Sector 1 Lake Garden · take the mic or just listen"), h("div", { class: "small" }, "GO TO THE STAGE ▸")) : null,
-    h("h3", { class: "sec" }, "OTHER PLACES (WALK OR CYCLE)"),
+    placedPlaces().some(p=>!p.hub)?h("h3", { class: "sec" }, "OTHER PLACES (WALK OR CYCLE)"):null,
     placedPlaces().filter((p) => !p.hub).map((p) => h("button", { type: "button", class: "dest small-dest", onclick: () => { closePanel(); app.travel(p.id); } },
       h("div", { class: "nm" }, p.name, p.approx ? h("span", { class: "muted small" }, " (approx. spot)") : null), h("div", { class: "muted small" }, p.blurb)))));
 }

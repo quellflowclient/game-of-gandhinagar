@@ -13,6 +13,7 @@
     "test:driving": "node scripts/test-driving.mjs",
     "test:clock": "node scripts/test-clock.mjs",
     "test:site": "node scripts/test-site-geometry.mjs",
+    "test:live": "node scripts/test-live-release.mjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"

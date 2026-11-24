@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
+import {hdPixelRatio} from './render-quality.js';
 
 // Realistic rendering: physically based sky with a sun that follows the real path over
 // Gujarat, image-based lighting from that sky, soft shadows that follow the player,
@@ -7,7 +8,7 @@ import { Sky } from "three/examples/jsm/objects/Sky.js";
 export function createScene(container) {
   const lowEnd = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)||matchMedia('(pointer:coarse)').matches||window.innerWidth<700;
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, lowEnd ? 1.25 : 2));
+  renderer.setPixelRatio(hdPixelRatio(window.innerWidth,window.innerHeight,window.devicePixelRatio));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -121,6 +122,7 @@ export function createScene(container) {
   }
 
   window.addEventListener("resize", () => {
+    renderer.setPixelRatio(hdPixelRatio(window.innerWidth,window.innerHeight,window.devicePixelRatio));
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);

@@ -7,14 +7,20 @@ import {buildMetro} from '../src/world/metro.js';
 import {updateParkedVehicles} from '../src/world/parked-models.js';
 import {placePos,placeById} from '../src/data/places.js';
 import {buildMetroGarden} from '../src/world/metro-garden.js';
+import {alignMetroRoads,roadClearance,roadMedian} from '../src/world/metro-road-clearance.js';
+import {createLiveMap} from '../src/world/live-map.js';
 import {marketPoint,MARKET_SHOPS,MARKET_GROUND} from '../src/world/sites/ldrp-market-layout.js';
 // Canvas drawing is stubbed only for this CPU geometry test. This does not
 // substitute for the actual rendered screenshots/browser interaction checks.
 const noop=()=>{};
 globalThis.document={createElement(){const canvas={width:1,height:1};const context=new Proxy({canvas,createLinearGradient:()=>({addColorStop:noop}),createRadialGradient:()=>({addColorStop:noop}),measureText:t=>({width:String(t).length*8}),createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)})},{get:(o,k)=>k in o?o[k]:noop});canvas.getContext=()=>context;return canvas;}};
-const map=JSON.parse(fs.readFileSync(new URL('../public/data/gandhinagar-map.json',import.meta.url))),scene=new THREE.Scene(),origin=placePos(placeById('ldrp'));
+const map=alignMetroRoads(createLiveMap(JSON.parse(fs.readFileSync(new URL('../public/data/gandhinagar-map.json',import.meta.url))))),scene=new THREE.Scene(),origin=placePos(placeById('ldrp'));
 const ldrp=buildLdrp(scene,map,origin),metro=buildMetro(scene,map,{lowEnd:true});scene.updateMatrixWorld(true);
-const pierSnapshot=JSON.stringify(metro.piers),garden=buildMetroGarden(scene,metro.piers,origin);assert.equal(JSON.stringify(metro.piers),pierSnapshot,'Garden must not move existing columns');
+const offRoad=roadClearance(map),median=roadMedian(map),pierSnapshot=JSON.stringify(metro.piers),garden=buildMetroGarden(scene,metro.piers,origin,(x,z,r)=>offRoad(x,z,r)&&median(x,z));assert.equal(JSON.stringify(metro.piers),pierSnapshot,'Garden must not move existing columns');
+assert.ok(metro.piers.length>3,'Keep visible median supports');
+for(const [x,z] of metro.piers)assert.ok(offRoad(x,z),'No circular support footprint on any road');
+for(const s of garden.segments)assert.ok(offRoad((s.a[0]+s.b[0])/2,(s.a[1]+s.b[1])/2,1.45),'No fence/planting strip across asphalt');
+for(const s of garden.segments)assert.ok(median((s.a[0]+s.b[0])/2,(s.a[1]+s.b[1])/2),'Iron mesh belongs between carriageways, not between college and road');
 updateParkedVehicles(scene,origin);scene.updateMatrixWorld(true);
 let meshes=0,vertices=0;
 scene.traverse(o=>{if(!o.isMesh)return;assert.ok(o.matrixWorld.elements.every(Number.isFinite),o.name);for(const a of Object.values(o.geometry.attributes))assert.ok([...a.array].every(Number.isFinite),`Finite ${o.name} geometry`);meshes++;vertices+=o.geometry.attributes.position.count;});

@@ -14,6 +14,7 @@ export async function preloadParkedModels(renderer){
   const loader=new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).setKTX2Loader(ktx);
   await Promise.all(['scooter','motorcycle'].map(async(type,i)=>{
     const gltf=await loader.loadAsync(`/models/vehicles/${type}-parking.glb`);
+    gltf.scene.traverse(o=>{for(const m of [].concat(o.material||[]))if(m.map)m.map.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());});
     installParkedModel(gltf.scene,i);
   }));
   ktx.dispose();

@@ -1,0 +1,28 @@
+{
+  "name": "gandhinagar-walk",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "map": "node scripts/build-map.mjs",
+    "test:navigation": "node scripts/test-navigation.mjs",
+    "test:traffic": "node scripts/test-traffic.mjs",
+    "test:cycling": "node scripts/test-cycling.mjs",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
+    "@supabase/supabase-js": "^2.45.4",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10"
+  },
+  "private": true
+}

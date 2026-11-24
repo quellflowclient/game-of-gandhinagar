@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.env.local
+# Raw OpenStreetMap downloads (large); the built map in public/data is kept.
+data/*.json
+data/*.ql
+data/avatar-sources/

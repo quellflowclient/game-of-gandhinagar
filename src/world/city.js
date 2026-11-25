@@ -20,7 +20,9 @@ const MAJOR = new Set(["motorway", "trunk", "primary", "secondary", "tertiary"])
 const STYLE_SLOTS = ["plaster", "peach", "brick", "govt", "glass", "white"]; // 2 x 3 atlas
 
 export async function loadMap() {
-  return fetch("/data/gandhinagar-map.json").then((r) => r.json());
+  // Small pre-clipped live map (LDRP + Mahatma Mandir); full map as fallback.
+  const live = await fetch("/data/gandhinagar-live.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  return live || fetch("/data/gandhinagar-map.json").then((r) => r.json());
 }
 
 const key = (x, z) => `${Math.floor(x / CHUNK)},${Math.floor(z / CHUNK)}`;
@@ -273,7 +275,10 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
       const g = ribbonGeo(seg, width, y, 8);
       if (g) (C(k0).roads[cls] ||= []).push(g);
       if (MAJOR.has(r.kind)) {
-        for (const side of r.sidewalkSides||[-1, 1])for(const points of sidewalk.sections(r,seg,side)){const s=ribbonGeo(points,2.6,y+.1,4);if(s)C(k0).walks.push(s);}
+        for (const side of r.sidewalkSides||[-1, 1])for(const points of sidewalk.sections(r,seg,side)){
+          let run=[];const emit=()=>{if(run.length>1){const s=ribbonGeo(run,2.6,y+.1,4);if(s)C(k0).walks.push(s);}run=[];};
+          for(let i=1;i<points.length;i++){const a=points[i-1],b=points[i];if(clearings.some(c=>c.replacesWalk?.((a[0]+b[0])/2,(a[1]+b[1])/2))){emit();continue;}if(!run.length)run.push(a);run.push(b);}emit();
+        }
       }
     };
     for (let i = 1; i < r.pts.length; i++) {

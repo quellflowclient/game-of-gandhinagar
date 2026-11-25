@@ -12,15 +12,15 @@ export function createActivityPose(root,model,bones) {
     if(middle)aim(hand,middle,hand.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0,-0.02,0.12).transformDirection(root.matrixWorld)));
   }
   return {apply(kind,t) {
-    const seated=['sit','eat','cash','sell'].includes(kind);
+    const seated=['sit','eat','cash','sell','ground-sit'].includes(kind),ground=kind==='ground-sit';
     model.rotation.x=kind==='cook'||kind==='tea'?0.12:0;
     root.updateWorldMatrix(true,true);
     if(seated) {
       const hip=root.worldToLocal(b('Hips').getWorldPosition(new THREE.Vector3()));
-      model.position.add(new THREE.Vector3(0,0.57,-0.05).sub(hip));root.updateWorldMatrix(true,true);
+      model.position.add(new THREE.Vector3(0,ground?.3:.57,-0.05).sub(hip));root.updateWorldMatrix(true,true);
       const q=root.getWorldQuaternion(new THREE.Quaternion());
       for(const [side,sign] of [['Left',1],['Right',-1]]) {
-        solve(b(`${side}UpLeg`),b(`${side}Leg`),b(`${side}Foot`),root.localToWorld(new THREE.Vector3(sign*0.12,0.09,0.43)),new THREE.Vector3(sign*0.1,0,1).transformDirection(root.matrixWorld));
+        solve(b(`${side}UpLeg`),b(`${side}Leg`),b(`${side}Foot`),root.localToWorld(new THREE.Vector3(sign*(ground?.25:.12),0.09,ground?.62:.43)),new THREE.Vector3(sign*0.1,0,1).transformDirection(root.matrixWorld));
         orient(b(`${side}Foot`),q.clone().multiply(feet[side]));
       }
     }
@@ -37,6 +37,10 @@ export function createActivityPose(root,model,bones) {
     if(kind==='stern'){left.set(-0.08,1.16,0.17);right.set(0.08,1.12,0.19);}
     if(kind==='argue'){left.set(.25,1.12,.3);right.set(-.22,1.28+Math.sin(t*4)*.08,.48);}
     if(kind==='calm'){left.set(.47,1.12,.28);right.set(-.47,1.12,.28);}
+    if(kind==='helmet'){left=head.clone().add(new THREE.Vector3(.14,.12,.04));right=head.clone().add(new THREE.Vector3(-.14,.12,.04));}
+    if(kind==='phone'){left.set(.15,1.16,.24);right.set(-.07,1.15,.31);}
+    if(kind==='selfie'){right.set(-.22,1.6,.65);left.set(.12,1.0,.1);}
+    if(kind==='check-id'){left.set(.18,1.02,.28);right.set(-.11,1.1,.46);}
     arm('Left',left);arm('Right',right);root.updateWorldMatrix(true,true);
   }};
 }

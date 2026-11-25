@@ -103,10 +103,13 @@ export function createStreetLife(app,market) {
     const seat=seats.all().filter(s=>!s.carriedBy&&Math.hypot(s.x-p.x,s.z-p.z)<1.9).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
     const meal=service.meal,active=meal&&meal.phase!=='paid'&&Math.hypot(meal.shop.x-p.x,meal.shop.z-p.z)<15;
     const nearby=['car','auto'].includes(player.vehicle)?null:active?meal.shop:closest&&atStallCounter(closest.s,p)?closest.s:null;
-    const key=[nearby?.id,seat?.id,seat?.occupant,seat?.permission,carried,player.sitting,meal?.phase].join('|');
-    strip.hidden=!nearby&&!seat&&!player.sitting&&!carried;
+    const streetSitting=player.sitting&&!!seats.get(player.sitting);
+    const sitSeat=streetSitting?seats.get(player.sitting):null,room=app.voiceRoom?.room;
+    if(room&&(!sitSeat||room!==`table-${sitSeat.circle}`))app.voiceRoom.leave();
+    const key=[nearby?.id,seat?.id,seat?.occupant,seat?.permission,carried,player.sitting,meal?.phase,app.voiceRoom?.room].join('|');
+    strip.hidden=!nearby&&!seat&&!streetSitting&&!carried;
     if(key!==lastKey){lastKey=key;strip.replaceChildren();const btn=(text,fn)=>strip.append(h('button',{type:'button',onclick:fn},text));
-      if(player.sitting)btn('Utho',stand);
+      if(streetSitting){btn('Utho',stand);if(app.voiceRoom&&sitSeat?.circle&&!app.voiceRoom.room)btn('🎙 Table voice join karo',()=>app.voiceRoom.join(`table-${sitSeat.circle}`,`${market.shops.find(s=>s.id===sitSeat.shopId)?.name||'Tapri'} table`));}
       else if(carried)btn('Table yahan rakho',drop);
       else if(seat)btn(seat.occupant?'Table occupied':'Baitho / Table lo',()=>seatMenu(seat));
       if(nearby)btn(active?meal.phase==='bill-due'?`Bill ₹${meal.price} do`:'Apna order dekho':`${nearby.caller} ko bulao / Order`,()=>openMenu(nearby));

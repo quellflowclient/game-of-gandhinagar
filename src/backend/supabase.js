@@ -136,6 +136,14 @@ export const supabase = {
   presenceList() { return online; },
   async listSeats(){return ok(await sb.from('city_seats').select('*'))||[];},
   async tableAction(id,action,pose={}){return ok(await sb.rpc('table_action',{sid:id,action,px:pose.x??null,pz:pose.z??null,ph:pose.yaw??null}));},
+  // Low-latency group voice signalling: realtime presence + broadcast, no table writes.
+  voiceRoom(room,who,{onPeers,onSignal}){
+    const ch=sb.channel(`voice-room:${room}`,{config:{broadcast:{self:false,ack:false},presence:{key:who.userId}}});
+    ch.on('presence',{event:'sync'},()=>onPeers(Object.keys(ch.presenceState())));
+    ch.on('broadcast',{event:'signal'},({payload})=>{if(payload?.to===who.userId)onSignal(payload);});
+    ch.subscribe(async status=>{if(status==='SUBSCRIBED')await ch.track({name:who.name,at:Date.now()});});
+    return {send:payload=>ch.send({type:'broadcast',event:'signal',payload}),leave:()=>{ch.untrack().catch(()=>{});sb.removeChannel(ch);}};
+  },
   onCall(fn){callFns.push(fn);},onVoiceSignal(fn){signalFns.push(fn);},
   async startCall(target){return ok(await sb.rpc('start_voice_call',{target}));},
   async setCall(id,status){return ok(await sb.rpc('set_voice_call',{cid:id,next_status:status}));},

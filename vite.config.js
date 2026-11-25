@@ -28,13 +28,26 @@ function devApi(env) {
   };
 }
 
+// Dev-only: /admin and every /admin/<page> load the admin app (same as vercel.json).
+function adminRoutes() {
+  const middleware = (req,res,next) => {
+    const [path,query] = (req.url || "").split("?");
+    if(path==="/admin.html"){res.statusCode=302;res.setHeader("Location","/admin"+(query?"?"+query:""));return res.end();}
+    if(path==="/admin"||(path.startsWith("/admin/")&&!path.includes(".")))req.url="/admin/index.html"+(query?"?"+query:"");
+    next();
+  };
+  return {name:"admin-routes",configureServer(server){server.middlewares.use(middleware);},configurePreviewServer(server){server.middlewares.use(middleware);}};
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   return {
-    plugins: [devApi(env)],
+    plugins: [devApi(env), adminRoutes()],
     build: {
       target: "esnext", // allows top-level await
       chunkSizeWarningLimit: 1200,
+      // Separate admin page: players never download the admin code.
+      rollupOptions: { input: { main: "index.html", admin: "admin/index.html" } },
     },
   };
 });

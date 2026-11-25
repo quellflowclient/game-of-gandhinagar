@@ -14,7 +14,7 @@ for(const type of ['auto','car']){
  let z=180,v=VEHICLES[type].maxKmh/3.6;for(let frame=0;frame<40;frame++){const n=Math.ceil(v*.05/.15);for(let i=0;i<n;i++){const next=z+v*.05/n;if(!surface.pose(0,next,0,type)){v=0;break;}z=next;}}assert.ok(z<190-VEHICLES[type].length/2);
 }
 const o={x:0,z:0};for(const s of MARKET_SHOPS){const p=marketPoint(o,s.u,s.v);assert.ok(inLdrpArea(o,p.x,p.z,1.5));}for(const [x,z] of LDRP.area)assert.ok(inLdrpArea(o,x,z,1.5));
-for(const [u,v] of [[-376,0],[213,0],[0,-296],[0,66]]){const p=marketPoint(o,u,v);assert.equal(inLdrpArea(o,p.x,p.z),false);}
+for(const [u,v] of [[-433,0],[213,0],[0,-296],[0,66]]){const p=marketPoint(o,u,v);assert.equal(inLdrpArea(o,p.x,p.z),false);}
 const map=JSON.parse(fs.readFileSync(new URL('../public/data/gandhinagar-map.json',import.meta.url)));applyRoad5Profile(map);const actual=createDrivingSurface(map.roads);
 let valid=0;for(const road of map.roads.filter(r=>ROAD5_WAYS.includes(r.id)))for(let i=1;i<road.pts.length;i++){const [a,b]=[road.pts[i-1],road.pts[i]],x=(a[0]+b[0])/2,z=(a[1]+b[1])/2,yaw=Math.atan2(b[0]-a[0],b[1]-a[1]);for(const type of ['auto','car'])if(actual.pose(x,z,yaw,type))valid++;}assert.ok(valid>40);
 console.log(`Driving passed: 35/80 km/h caps, braking, footprint road/zone/boundary checks, no high-speed tunnelling, all campus/stalls inside area, ${valid} actual Road 5 poses.`);

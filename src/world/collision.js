@@ -40,7 +40,7 @@ export function createCollisionSystem(onImpact) {
         a.stop?.(hit.a);b.stop?.(hit.b);
         Object.assign(a,hit.a);Object.assign(b,hit.b);
         now.set(a.id,{...a,...hit.a});now.set(b.id,{...b,...hit.b});
-        if(speed>1.2&&(cooldown.get(key)||0)<time){cooldown.set(key,time+4);impacts++;
+        if(speed>2.8&&(cooldown.get(key)||0)<time){cooldown.set(key,time+4);impacts++;
           a.hit?.({speed,direction:{x:-direction.x,z:-direction.z}});b.hit?.({speed,direction});
           onImpact?.({x:(hit.a.x+hit.b.x)/2,y:Math.max(hit.a.y||0,hit.b.y||0)+.5,z:(hit.a.z+hit.b.z)/2,speed,player:a.player||b.player,a,b});}
       }

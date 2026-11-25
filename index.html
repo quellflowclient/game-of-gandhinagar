@@ -4,23 +4,53 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>People of Gandhinagar · Walk the city, meet Gandhinagaris</title>
-    <meta name="description" content="A little 3D Gandhinagar you can walk through. Infocity, GIFT City, Akshardham, Sarita Udyan and more. Find people by what they do, wave, and say kem cho." />
-    <meta name="theme-color" content="#14182b" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="A living 3D Gandhinagar. Walk LDRP campus and Mahatma Mandir, ride, stop for chai and meet real people." />
+    <meta name="theme-color" content="#0b1116" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="People of Gandhinagar · Faro. Malo. Tamaro adda shodho." />
-    <meta property="og:description" content="A little 3D Gandhinagar you can walk through. Find people by what they do, wave, and say kem cho." />
+    <meta property="og:title" content="People of Gandhinagar" />
+    <meta property="og:description" content="A living 3D Gandhinagar. Walk, ride, stop for chai and meet real people." />
     <meta property="og:locale" content="en_IN" />
     <meta name="twitter:card" content="summary_large_image" />
+    <!-- Start the heavy downloads before any script runs. -->
+    <link rel="preload" href="/data/gandhinagar-live.json" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="/models/humans/male.glb" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="/models/humans/female.glb" as="fetch" crossorigin="anonymous" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhai+2:wght@500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhai+2:wght@600;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/premium.css" />
+    <link rel="stylesheet" href="/src/game-shell.css" />
+    <style>
+      /* Inline so the loader paints on the very first frame. */
+      #loading{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:radial-gradient(1200px 600px at 20% 10%,#14302a 0%,transparent 60%),radial-gradient(900px 500px at 90% 90%,#2b2113 0%,transparent 55%),#0b1116;color:#e8eee9;font-family:Inter,system-ui,sans-serif;transition:opacity .6s ease}
+      #loading.done{opacity:0;pointer-events:none}
+      #loading .ld{width:min(360px,84vw);display:grid;gap:18px;justify-items:center;text-align:center}
+      #loading .mark{width:64px;height:64px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(145deg,#1f8f63,#0f5d41);box-shadow:0 12px 40px rgba(31,143,99,.35),inset 0 1px 0 rgba(255,255,255,.25);animation:ld-breathe 2.4s ease-in-out infinite}
+      #loading .mark svg{width:34px;height:34px}
+      #loading h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.02em}
+      #loading h1 span{display:block;font:600 13px Inter,sans-serif;letter-spacing:.18em;color:#8fa79c;margin-top:6px;text-transform:uppercase}
+      #loading .bar{width:100%;height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+      #loading .bar i{display:block;height:100%;width:4%;border-radius:inherit;background:linear-gradient(90deg,#1fb27a,#f2a33a);box-shadow:0 0 18px rgba(31,178,122,.6);transition:width .45s cubic-bezier(.2,.8,.2,1)}
+      #loading .meta{display:flex;justify-content:space-between;width:100%;font-size:12.5px;color:#9db1a8}
+      #loading .meta b{color:#e8eee9;font-weight:600}
+      #loading .meta p{margin:0}
+      @keyframes ld-breathe{50%{transform:translateY(-4px) scale(1.03)}}
+      @media (prefers-reduced-motion:reduce){#loading .mark{animation:none}}
+    </style>
+    <script type="module" src="/src/ui/landscape.js"></script>
   </head>
   <body>
     <div id="app"></div>
     <div id="labels"></div>
-    <div id="loading"><div class="spinner"></div><p>Waking up the city…</p></div>
+    <div id="loading" role="status" aria-live="polite">
+      <div class="ld">
+        <div class="mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19c8 0 14-5 14-14-7 0-13 4-13 11" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M5 19c2-5 5-8 9-10" stroke="#cdeee0" stroke-width="2" stroke-linecap="round"/></svg></div>
+        <h1>People of Gandhinagar<span>Gandhinagar · ગાંધીનગર</span></h1>
+        <div class="bar"><i></i></div>
+        <div class="meta"><p>Waking up the city…</p><b>0%</b></div>
+      </div>
+    </div>
     <noscript>People of Gandhinagar needs JavaScript and WebGL to run.</noscript>
     <script type="module" src="/src/main.js"></script>
   </body>

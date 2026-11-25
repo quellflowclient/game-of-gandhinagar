@@ -20,7 +20,7 @@ export function createCrashScene({scene,camera,traffic,player,navigation,look=()
     get timeScale(){if(!incident)return 1;return incident.t<2.2?.2:incident.t<3.1?.2+(incident.t-2.2)/.9*.8:1;},
     start(hit){
       if(incident||Math.hypot(player.position.x-hit.x,player.position.z-hit.z)>(hit.player?55:28))return;
-      const vehicles=[hit.a,hit.b].filter(v=>v.motor),pair=vehicles.length===2;
+      const vehicles=[hit.a,hit.b].filter(v=>v.motor&&!v.twoWheeler),pair=vehicles.length===2;
       incident={t:0,hit,vehicles,pair,playerMotor:vehicles.some(v=>v.player),actors:[],original:camera.position.clone(),exited:false,cues:new Set()};
       for(const v of vehicles)if(v.trafficId!=null){traffic.hold(v.trafficId,pair?26:9);traffic.damage(v.trafficId,Math.min(1.5,hit.speed/9));}
       if(!pair)return;

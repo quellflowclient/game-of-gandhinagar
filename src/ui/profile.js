@@ -21,41 +21,58 @@ function listen(lang = "en-IN") {
 
 // ---------- sign in ----------
 export function openSignIn(app, reason) {
-  const contact = h("input", { type: "email", placeholder: "Your email address", autocomplete: "email" });
-  const adult = h("input", { type: "checkbox", id: "adult" });
-  const terms = h("input", { type: "checkbox", id: "terms" });
-  const note = h("p", { class: "muted small" });
-  const step1 = h("div", {},
-    h("p", {}, reason ? `Sign in to ${reason}.` : "Sign in to become visible, wave and chat."),
-    h("p", { class: "muted small" }, "Verify your email to meet real players. Your email stays private. AI residents have an AI tag."),
-    contact,
+  // Step 1: email + consent. Step 2: 6-digit code from the email (OTP).
+  const contact = h("input", { type: "email", placeholder: "you@example.com", autocomplete: "email", class: "auth-input", "aria-label": "Email address" });
+  const adult = h("input", { type: "checkbox" });
+  const terms = h("input", { type: "checkbox" });
+  const note = h("p", { class: "auth-error", role: "alert" });
+  const sendBtn = h("button", { type: "button", class: "btn primary wide", onclick: send }, "Send sign-in code");
+  const friendly = (e) => /rate|seconds|too many/i.test(e?.message || "") ? "Too many codes requested. Please wait a minute and try again." : /invalid|expired/i.test(e?.message || "") ? "That code is wrong or expired. Check the latest email or send a new code." : e?.message || "Something went wrong. Try again.";
+  const step1 = h("div", { class: "auth" },
+    h("div", { class: "auth-hero" }, h("div", { class: "auth-mark" }, "🌿"), h("h3", {}, "Welcome to Gandhinagar"),
+      h("p", { class: "muted" }, reason ? `Sign in to ${reason}.` : "Sign in to be seen by other players, chat, call and save your progress.")),
+    h("label", { class: "auth-label" }, "Email address", contact),
     h("label", { class: "check" }, adult, " I am 18 or older"),
     h("label", { class: "check" }, terms, " I agree to the ", h("a", { href: "/terms.html", target: "_blank" }, "house rules"), " and ", h("a", { href: "/privacy.html", target: "_blank" }, "privacy note")),
-    h("button", { type: "button", class: "btn primary wide", onclick: send }, "Send code ▸"), note);
+    sendBtn, note,
+    h("p", { class: "muted small auth-foot" }, "No password needed. We email you a one-time 6-digit code. Your email is never shown to other players."));
+  contact.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
   async function send() {
-    if (!adult.checked || !terms.checked) return toast("Please confirm both boxes.");
-    if(!contact.checkValidity() || !contact.value.trim()) return toast('Enter a valid email address.');
-    const sendButton=step1.querySelector('button');sendButton.disabled=true;
-    try {
-      const r = await app.backend.signInWithOtp(contact.value);
-      const code = h("input", { type: "text", inputmode: "numeric", autocomplete:"one-time-code", maxlength: 8, placeholder: "Email code" });
-      setPanelBody(h("div", {},
-        h("p", {}, `Check your email: ${contact.value}.`),
-        h('p',{class:'muted small'},'Email mein sign-in link mila ho to use khol sakte ho. Code mila ho to neeche enter karo.'),
-        r.demoCode ? h("p", { class: "demo-note" }, `Demo mode (no email is sent): your code is ${r.demoCode}`) : null,
-        code,
-        h("button", { type: "button", class: "btn primary wide", onclick: async () => {
-          try {
-            await app.backend.verifyOtp(contact.value, code.value);
-            closePanel();
-            await app.onSignedIn();
-          } catch (e) { toast(e.message, "bad"); }
-        } }, "Verify and walk in ▸")));
-      setTimeout(() => code.focus(), 50);
-    } catch (e) { note.textContent = e.message; sendButton.disabled=false; }
+    note.textContent = "";
+    if (!contact.value.trim() || !contact.checkValidity()) { note.textContent = "Enter a valid email address."; return contact.focus(); }
+    if (!adult.checked || !terms.checked) { note.textContent = "Please confirm both boxes to continue."; return; }
+    sendBtn.disabled = true; sendBtn.textContent = "Sending…";
+    try { const r = await app.backend.signInWithOtp(contact.value); codeStep(r); }
+    catch (e) { note.textContent = friendly(e); sendBtn.disabled = false; sendBtn.textContent = "Send sign-in code"; }
   }
-  openPanel("SIGN IN", step1);
-  setTimeout(() => contact.focus(), 50);
+  function codeStep(r) {
+    const email = contact.value.trim();
+    const code = h("input", { type: "text", inputmode: "numeric", autocomplete: "one-time-code", maxlength: 8, placeholder: "••••••", class: "otp-input", "aria-label": "6-digit code" });
+    const err = h("p", { class: "auth-error", role: "alert" });
+    const verifyBtn = h("button", { type: "button", class: "btn primary wide", onclick: verify }, "Verify and enter");
+    const resend = h("button", { type: "button", class: "link", disabled: true }, "Resend code in 30s");
+    let left = 30; const timer = setInterval(() => { left--; if (left <= 0) { clearInterval(timer); resend.disabled = false; resend.textContent = "Resend code"; } else resend.textContent = `Resend code in ${left}s`; }, 1000);
+    resend.onclick = async () => { resend.disabled = true; try { await app.backend.signInWithOtp(email); toast("New code sent."); left = 30; resend.textContent = "Resend code in 30s"; const t2 = setInterval(() => { left--; if (left <= 0) { clearInterval(t2); resend.disabled = false; resend.textContent = "Resend code"; } else resend.textContent = `Resend code in ${left}s`; }, 1000); } catch (e) { err.textContent = friendly(e); resend.disabled = false; } };
+    async function verify() {
+      const value = code.value.replace(/\D/g, "");
+      if (value.length < 6) { err.textContent = "Enter the 6-digit code from the email."; return code.focus(); }
+      verifyBtn.disabled = true; verifyBtn.textContent = "Checking…";
+      try { await app.backend.verifyOtp(email, value); clearInterval(timer); closePanel(); toast("Signed in. Welcome!", "good"); await app.onSignedIn(); }
+      catch (e) { err.textContent = friendly(e); verifyBtn.disabled = false; verifyBtn.textContent = "Verify and enter"; code.select(); }
+    }
+    code.addEventListener("input", () => { code.value = code.value.replace(/\D/g, "").slice(0, 8); err.textContent = ""; if (code.value.length === 6) verify(); });
+    code.addEventListener("keydown", (e) => { if (e.key === "Enter") verify(); });
+    setPanelBody(h("div", { class: "auth" },
+      h("div", { class: "auth-hero" }, h("div", { class: "auth-mark" }, "✉️"), h("h3", {}, "Check your email"),
+        h("p", { class: "muted" }, "We sent a 6-digit code to ", h("b", {}, email), ". It expires in 1 hour.")),
+      r?.demoCode ? h("p", { class: "demo-note" }, `Demo mode (no email is sent): your code is ${r.demoCode}`) : null,
+      code, verifyBtn, err,
+      h("div", { class: "auth-row" }, resend, h("button", { type: "button", class: "link", onclick: () => { clearInterval(timer); openSignIn(app, reason); } }, "Use a different email")),
+      h("p", { class: "muted small auth-foot" }, "Can't find it? Check Spam or Promotions. The email comes from Game of Gandhinagar.")));
+    setTimeout(() => code.focus(), 60);
+  }
+  openPanel("Sign in", step1);
+  setTimeout(() => contact.focus(), 60);
 }
 
 // ---------- EDIT hub: make your AI twin ----------
@@ -262,6 +279,7 @@ export async function openProfile(app, startStep = 0) {
 
   function render() {
     setPanelBody(h("div", {},
+      h("div",{class:"profile-step-title"},h("b",{},["Your identity","Your introduction","Your interests","Your plans","Your links","Your character","Your routine","Your privacy"][step]),h("span",{},`${step+1} / ${STEPS}`)),
       h("div", { class: "steps" }, Array.from({ length: STEPS }, (_, i) => h("i", { class: i === step ? "on" : i < step ? "done" : "" }))),
       stepNode(),
       h("p", { class: "muted small" }, "Others see your name, what you do and where you hang out. Never your email."),
@@ -350,4 +368,27 @@ export async function openResidentCard(app) {
     h("h3", {}, "CAPTION, READY TO PASTE"), h("p", { class: "caption" }, caption),
     h("button", { type: "button", class: "btn", onclick: async () => { try { await navigator.clipboard.writeText(caption); toast("Caption copied ✓", "good"); } catch { toast("Copy blocked by the browser."); } } }, "COPY CAPTION")));
   render();
+}
+
+// ---------- Account overview (menu → Profile) ----------
+export async function openAccount(app) {
+  if (!app.requireSignIn("open your profile")) return;
+  const me = (await app.backend.getMyProfile()) || {};
+  const initials = (me.name || "?").split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const row = (icon, title, sub, fn) => h("button", { type: "button", class: "acct-row", onclick: fn },
+    h("span", { class: "acct-ic" }, icon), h("span", { class: "acct-tx" }, h("b", {}, title), h("small", {}, sub)), h("span", { class: "acct-go" }, "›"));
+  openPanel("Profile", h("div", { class: "acct" },
+    h("div", { class: "acct-head" },
+      h("div", { class: "acct-av" }, initials),
+      h("div", {}, h("h3", {}, me.name || "Add your name"), h("p", { class: "muted" }, me.role || "Tell people what you do"),
+        me.residentNo ? h("span", { class: "acct-tag" }, `Resident #${me.residentNo}`) : null)),
+    me.oneLiner ? h("p", { class: "acct-line" }, `“${me.oneLiner}”`) : null,
+    h("div", { class: "acct-list" },
+      row("ID", "Campus ID", "Your virtual card and gate status", () => app.campus?.inventory()),
+      row("✏️", "Edit profile", "Name, one-liner, interests, links", () => openProfile(app)),
+      row("🪞", "AI twin", "What your twin says when you are away", () => openTwin(app)),
+      row("🧑", "Character", "Look, clothes and skin tone", () => openProfile(app, 5)),
+      row("👁", "Visibility", "Who can see you, email alerts", () => openProfile(app, 7)),
+      row("🔒", "Privacy & rules", "How your data is used", () => window.open("/privacy.html", "_blank"))),
+    h("button", { type: "button", class: "btn wide acct-out", onclick: async () => { try { await app.backend.signOut(); closePanel(); app.onSignedOut?.(); toast("Signed out."); } catch (e) { toast(e.message, "bad"); } } }, "Sign out")));
 }

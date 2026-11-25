@@ -10,11 +10,12 @@ import {createSoleContact} from './sole-contact.js';
 // captured idle/walk/wave clips, cloned with independent skeletons and mixers.
 const templates=new Map();
 let loading;
-export function preloadAvatarAssets() {
+export function preloadAvatarAssets(onProgress) {
   if(!loading) {
-    const loader=new GLTFLoader();
+    const loader=new GLTFLoader(),bytes={male:[0,4371592],female:[0,6326132]};
+    const report=()=>{const done=bytes.male[0]+bytes.female[0],total=bytes.male[1]+bytes.female[1];onProgress?.(Math.min(1,done/total));};
     loading=Promise.all(['male','female'].map(async gender=>{
-      const gltf=await loader.loadAsync(`/models/humans/${gender}.glb`);
+      const gltf=await loader.loadAsync(`/models/humans/${gender}.glb`,e=>{bytes[gender]=[e.loaded,e.total||bytes[gender][1]];report();});
       for(const clip of gltf.animations) for(const track of clip.tracks) {
         if(/Hips\.position$/.test(track.name)) {
           // Captured walks contain root motion. Navigation owns translation;
@@ -31,7 +32,7 @@ export function preloadAvatarAssets() {
 const bikeMat={frame:new THREE.MeshStandardMaterial({color:0x813b31,metalness:0.65,roughness:0.32}),
   tyre:new THREE.MeshStandardMaterial({color:0x171918,roughness:0.88}),
   metal:new THREE.MeshStandardMaterial({color:0x9da5a4,metalness:0.85,roughness:0.24})};
-function bicycle() {
+export function bicycle() {
   const g=new THREE.Group(),wheels=[],pedals=[],cranks=[];
   const tube=(a,b,r,m)=>{const x=new THREE.Vector3(...a),y=new THREE.Vector3(...b),d=y.clone().sub(x);const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,d.length(),8),m);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());mesh.position.copy(x.add(y).multiplyScalar(0.5));g.add(mesh);};
   for(const z of [-0.57,0.57]) {
@@ -91,19 +92,21 @@ export function createAvatar(lookId,skin=0xa86b47) {
   const cyclePose=createCyclingPose(root,model,bones);
   const activityPose=createActivityPose(root,model,bones);
   let activity=null,activityBlend=1,exitActivity=null,exitBlend=0;
-  const boneList=Object.values(bones),seated=k=>['sit','eat','cash','sell'].includes(k);
+  const boneList=Object.values(bones),seated=k=>['sit','eat','cash','sell','ground-sit'].includes(k);
   let bike=null,cycling=false,waveT=0,time=Math.random()*4,shadow=true,cyclePhase=0,gestureT=0,gestureKind='yes',hitT=0;
-  let fallen=null;
+  let fallen=null,motorcycle=false;
   const floorBones=['Hips','Spine','Spine2','Head','LeftHand','RightHand','LeftFoot','RightFoot','LeftLeg','RightLeg'].map(n=>bones[`mixamorig${n}`]).filter(Boolean),floorPoint=new THREE.Vector3();
   function play(name){if(name===current)return;actions[current]?.fadeOut(0.22);actions[name].reset().fadeIn(0.22).play();current=name;}
   return {root,look,gender,get soleHeight(){return sole.minimum();},
     setActivity(kind){if(kind===activity)return;if(!kind&&activity){exitActivity=activity;exitBlend=1;}if(kind&&!(seated(kind)&&seated(activity)))activityBlend=0;activity=kind;},
     setFirstPerson(on){for(const mesh of meshes)if(mesh.name==='Body'||mesh.name==='Hair')mesh.visible=!on;},
     socket(name){root.updateWorldMatrix(true,true);return root.worldToLocal(bones[`mixamorig${name}`].getWorldPosition(new THREE.Vector3()));},
+    setBuild(k=1){model.scale.x*=k;model.scale.z*=k;},
     setOlder(){for(const mesh of meshes)if(mesh.name==='Hair')mesh.material.color.setHex(0xb8b6aa);},
     setClothes(top,bottom=0x39444c){for(const mesh of meshes){if(/^Top_/.test(mesh.name))mesh.material.color.setHex(top);if(mesh.name==='Trousers')mesh.material.color.setHex(bottom);}},
     setShadow(on){if(on===shadow)return;shadow=on;for(const mesh of meshes)mesh.castShadow=on;},
     setCycling(on){cycling=on;if(on&&!bike){bike=bicycle();root.add(bike);}if(bike)bike.visible=on;},
+    setMotorcycle(on){motorcycle=on;cycling=on;if(on&&!bike){bike=bicycle();root.add(bike);}if(bike)bike.visible=cycling&&!motorcycle;},
     wave(){waveT=actions.Wave.getClip().duration;play('Wave');},
     hit(){hitT=2.4;waveT=0;},
     setFall(tilt=null,height=0){fallen=tilt===null?null:{tilt,height};if(fallen){hitT=0;waveT=0;}},
@@ -120,7 +123,7 @@ export function createAvatar(lookId,skin=0xa86b47) {
       }
       if(cycling){
         // Stopped riders hold their pedals still; cadence follows travel speed.
-        cyclePhase+=dt*speed/1.7;
+        if(!motorcycle)cyclePhase+=dt*speed/1.7;else cyclePhase=0;
         cyclePose.apply(cyclePhase);
         for(const {mesh,sign} of bike.userData.pedals)mesh.position.copy(pedalPosition(sign,cyclePhase));
         for(const {mesh,sign} of bike.userData.cranks) {

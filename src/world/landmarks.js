@@ -424,7 +424,7 @@ function stageModel() {
 
 export function buildLandmarks(scene, map) {
   const clearings = [], stalls = [], checkpoints = [], spawns = {};
-  const navigationZones = [], cameraObstacles = [], animations = [],markets=[];
+  const navigationZones = [], cameraObstacles = [], animations = [],markets=[],campuses=[];
   let stage = null;
 
   for (const p of placedPlaces()) {
@@ -436,6 +436,7 @@ export function buildLandmarks(scene, map) {
       navigationZones.push(site.zone); clearings.push(site.zone.clearing);
       for(const zone of site.extraZones||[]){navigationZones.push(zone);clearings.push(zone.clearing);}
       if(site.market){markets.push(site.market);stalls.push(...site.market.shops);}
+      if(site.campus)campuses.push(site.campus);
       spawns[p.id] = site.spawn; animations.push(site);
       continue;
     }
@@ -513,7 +514,7 @@ export function buildLandmarks(scene, map) {
   }
 
   scene.updateMatrixWorld(true);
-  return { clearings, stalls, checkpoints, spawns, navigation, cameraObstacles,markets,
+  return { clearings, stalls, checkpoints, spawns, navigation, cameraObstacles,markets,campuses,
     update(time,playerPos) { for (const detail of animations) detail.update(time,playerPos); },
     stage: stage ? { x: stage.position.x, z: stage.position.z } : null };
 }

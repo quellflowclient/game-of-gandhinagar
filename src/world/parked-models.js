@@ -5,10 +5,16 @@ import {MeshoptDecoder} from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 const assets=[];
 const anchors=[],pools=[];
+export function createRideTwoWheeler(type='scooter'){
+ const source=assets[type==='bike'?1:0];if(!source)throw new Error('Two-wheeler model is still loading.');
+ const root=source.clone(true);root.traverse(o=>{if(o.isMesh){o.geometry=o.geometry.clone();o.material=o.material.clone();o.castShadow=o.receiveShadow=true;}});
+ const size=new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());if(size.x>size.z)root.rotation.y=Math.PI/2;
+ return root;
+}
 export function installParkedModel(root,i){
   root.updateMatrixWorld(true);
   const b=new THREE.Box3().setFromObject(root),size=b.getSize(new THREE.Vector3()),scale=(i?2.05:1.85)/Math.max(size.x,size.z);
-  const wrapper=new THREE.Group();root.position.sub(new THREE.Vector3((b.min.x+b.max.x)/2,b.min.y,(b.min.z+b.max.z)/2));wrapper.add(root);wrapper.scale.setScalar(scale);assets[i]=wrapper;
+  const wrapper=new THREE.Group();root.position.sub(new THREE.Vector3((b.min.x+b.max.x)/2,b.min.y,(b.min.z+b.max.z)/2));wrapper.add(root);wrapper.scale.setScalar(scale);if(size.x>size.z)wrapper.rotation.y=Math.PI/2;assets[i]=wrapper;
 }
 export async function preloadParkedModels(renderer){
   const ktx=new KTX2Loader().setTranscoderPath('/models/vehicles/basis/').detectSupport(renderer);
@@ -35,6 +41,6 @@ export function updateParkedVehicles(scene,position,{lowEnd=false}={}){
     for(const near of [false,true]){const mesh=new THREE.InstancedMesh(geometry,material,512);mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.castShadow=near;mesh.receiveShadow=true;mesh.name=`GLB parking ${type}`;scene.add(mesh);pools.push({mesh,type,near});}
    }
  }
- const visible=anchors.filter(a=>{a.anchor.updateWorldMatrix(true,false);const p=new THREE.Vector3().setFromMatrixPosition(a.anchor.matrixWorld);a.distance=Math.hypot(p.x-position.x,p.z-position.z);return a.distance<(lowEnd?55:85);});
+ const visible=anchors.filter(a=>{if(a.anchor.userData.parkingVisible===false)return false;a.anchor.updateWorldMatrix(true,false);const p=new THREE.Vector3().setFromMatrixPosition(a.anchor.matrixWorld);a.distance=Math.hypot(p.x-position.x,p.z-position.z);return a.distance<(lowEnd?55:85);});
  for(const {mesh,type,near} of pools){let count=0;for(const a of visible)if(a.index===type&&(a.distance<22)===near&&count<512)mesh.setMatrixAt(count++,a.anchor.matrixWorld);mesh.count=count;mesh.visible=count>0;mesh.instanceMatrix.needsUpdate=true;if(count){mesh.computeBoundingSphere();mesh.computeBoundingBox();}}
 }

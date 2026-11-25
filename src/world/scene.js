@@ -28,11 +28,13 @@ export function createScene(container) {
 
   // Physically based sky.
   const sky = new Sky();
+  // Deeper Gujarat-noon blue: the stock shader washes out under ACES at our exposure.
+  sky.material.fragmentShader = sky.material.fragmentShader.replace("gl_FragColor = vec4( retColor, 1.0 );", "float up = smoothstep(0.0, 0.45, direction.y); retColor = mix(vec3(dot(retColor, vec3(.299,.587,.114))), retColor, 1.45) * 0.66; retColor = mix(retColor, retColor * vec3(.62,.8,1.18), up * .75); gl_FragColor = vec4( retColor, 1.0 );");
   sky.scale.setScalar(3000);
   const su = sky.material.uniforms;
-  su.turbidity.value = 6;
-  su.rayleigh.value = 1.6;
-  su.mieCoefficient.value = 0.006;
+  su.turbidity.value = 3.2;
+  su.rayleigh.value = 2.3;
+  su.mieCoefficient.value = 0.004;
   su.mieDirectionalG.value = 0.82;
   scene.add(sky);
 
@@ -70,7 +72,7 @@ export function createScene(container) {
 
   const sunDir = new THREE.Vector3();
   const moonDir = new THREE.Vector3(-0.35, 0.8, 0.45).normalize();
-  const fogDay = new THREE.Color(0xc9d6e2), fogDusk = new THREE.Color(0xe9b98f), fogNight = new THREE.Color(0x10172a);
+  const fogDay = new THREE.Color(0xbcd1e8), fogDusk = new THREE.Color(0xe9b98f), fogNight = new THREE.Color(0x10172a);
 
   function setHour(hour,{sunrise=6,sunset=18}={}) {
     // Sun rises in the east (+x) and arcs through the southern sky (+z) over Gujarat.
@@ -93,13 +95,13 @@ export function createScene(container) {
     hemi.intensity = night ? 0.55 : 0.3 + height * 0.4;
     hemi.color.set(night ? 0x6f86c8 : 0xdfeaff);
     hemi.groundColor.set(night ? 0x2a2a35 : 0x5b5a48);
-    renderer.toneMappingExposure = night ? 0.85 : dusk ? 0.72 : 0.78;
+    renderer.toneMappingExposure = night ? 0.85 : dusk ? 0.74 : 0.84;
     stars.material.opacity = night ? 0.85 : 0;
     sky.visible = true;
 
     const fog = scene.fog.color;
     if (night) fog.copy(fogNight); else if (dusk) fog.copy(fogDusk).lerp(fogDay, height * 4); else fog.copy(fogDay);
-    scene.fog.near = night ? 200 : 350;
+    scene.fog.near = night ? 200 : 650;
     renderer.setClearColor(fog);
 
     if (Math.abs(hour - lastEnvHour) > 0.5) {

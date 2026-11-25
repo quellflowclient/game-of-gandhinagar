@@ -34,25 +34,37 @@ let current = null;
 const closeFns = [];
 export function onPanelClose(fn) { closeFns.push(fn); }
 
+// Shouted ALL-CAPS copy reads as noise; panels use calm sentence case.
+const SHOUT=/^[^a-z]*[A-Z]{3,}[^a-z]*$/;
+export function calmCase(text){if(typeof text!=='string'||!SHOUT.test(text))return text;const t=text.toLowerCase().replace(/(^|[.!?·]\s*)([a-z])/g,(m,a,b)=>a+b.toUpperCase());return t.replace(/\b(ai|ldrp|kh-5|id|gift|brts|otp|upi|itr|sos)\b/gi,w=>w.toUpperCase()).replace(/\b(gandhinagar|mahatma|mandir|gujarat|india|paaji|kh)\b/gi,w=>w[0].toUpperCase()+w.slice(1));}
+function calmHeadings(root){root?.querySelectorAll?.('h2,h3,h4').forEach(el=>{if(el.children.length===0)el.textContent=calmCase(el.textContent);});}
 export function openPanel(title, body, { wide = false, onClose } = {}) {
+  const previousFocus=document.activeElement;
   closePanel();
-  const sheet = h("section", { class: "sheet" + (wide ? " wide" : ""), role: "dialog", "aria-label": title },
+  document.body.classList.add("game-panel-open");
+  title = calmCase(title);
+  const sheet = h("section", { class: "sheet" + (wide ? " wide" : ""), role: "dialog", "aria-modal":"true", tabindex:"-1", "aria-label": title },
     h("div", { class: "grip" }),
     h("header", { class: "sheet-head" },
-      h("h2", {}, title),
+      h("div",{class:"panel-title"},h("span",{class:"panel-kicker"},"GOG / GAME HUB"),h("h2", {}, title)),
       h("button", { class: "esc", type: "button", onclick: closePanel, "aria-label": "Close (Esc)", title: "Close (Esc)" }, "✕")),
     h("div", { class: "sheet-body" }, body));
   const back = h("div", { class: "sheet-back", onclick: (e) => { if (e.target === back) closePanel(); } }, sheet);
+  calmHeadings(sheet);
   document.body.append(back);
-  current = { back, onClose };
+  current = { back, onClose, previousFocus };
+  sheet.focus({preventScroll:true});
+  sheet.addEventListener("keydown",e=>{if(e.key==="Escape"){e.stopPropagation();closePanel();return;}if(e.key!=="Tab")return;const nodes=[...sheet.querySelectorAll("button:not(:disabled),a[href],input:not(:disabled),textarea:not(:disabled),select:not(:disabled),[tabindex=\"0\"]")].filter(n=>n.getClientRects().length);const first=nodes[0],last=nodes.at(-1);if(!first){e.preventDefault();return;}if(e.shiftKey&&(document.activeElement===first||document.activeElement===sheet)){e.preventDefault();last.focus();}else if(!e.shiftKey&&(document.activeElement===last||document.activeElement===sheet)){e.preventDefault();first.focus();}});
   return sheet.querySelector(".sheet-body");
 }
 
 export function closePanel() {
   if (!current) return;
-  current.back.remove();
-  current.onClose?.();
-  current = null;
+  const old=current;current=null;
+  old.back.remove();
+  document.body.classList.remove("game-panel-open");
+  old.onClose?.();
+  if(old.previousFocus?.isConnected)old.previousFocus.focus({preventScroll:true});
   closeFns.forEach((f) => f());
 }
 export const panelOpen = () => !!current;
@@ -62,6 +74,7 @@ export function setPanelBody(node) {
   if (!current) return;
   const b = current.back.querySelector(".sheet-body");
   b.replaceChildren(node);
+  calmHeadings(b);
 }
 
 // ---------- toasts ----------

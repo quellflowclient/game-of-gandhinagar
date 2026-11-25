@@ -25,10 +25,10 @@ for(const s of garden.segments)assert.ok(median((s.a[0]+s.b[0])/2,(s.a[1]+s.b[1]
 updateParkedVehicles(scene,origin);scene.updateMatrixWorld(true);
 let meshes=0,vertices=0;
 scene.traverse(o=>{if(!o.isMesh)return;assert.ok(o.matrixWorld.elements.every(Number.isFinite),o.name);for(const a of Object.values(o.geometry.attributes))assert.ok([...a.array].every(Number.isFinite),`Finite ${o.name} geometry`);meshes++;vertices+=o.geometry.attributes.position.count;});
-assert.equal(ldrp.market.shops.length,8);assert.equal(ldrp.market.seats.length,166);
-for(const shop of MARKET_SHOPS.filter(s=>s.kind!=='food'))assert.equal(ldrp.market.seats.filter(s=>s.shopId===shop.id).length,25);
+assert.equal(ldrp.market.shops.length,8);assert.equal(ldrp.market.seats.length,148);for(const shop of MARKET_SHOPS.filter(s=>s.kind!=="food")){const c=new Map();for(const s of ldrp.market.seats.filter(s=>s.shopId===shop.id))c.set(s.circle,(c.get(s.circle)||0)+1);assert.deepEqual([...c.values()],[4,4,4,5,5]);};
+for(const shop of MARKET_SHOPS.filter(s=>s.kind!=='food'))assert.equal(ldrp.market.seats.filter(s=>s.shopId===shop.id).length,22);
 assert.ok(ldrp.market.seats.every(s=>s.y===MARKET_GROUND));assert.ok(metro.obstacles.length>0&&metro.obstacles.every(p=>p.r===0.85));
 for(const s of MARKET_SHOPS){const p=marketPoint(origin,s.u,s.v>0?11:-10);assert.ok(ldrp.market.zone.contains(p.x,p.z),'No unowned grass gap beside the shop row');}
 for(const s of garden.segments){const x=(s.a[0]+s.b[0])/2,z=(s.a[1]+s.b[1])/2;assert.ok(garden.zone.contains(x,z));assert.equal(garden.zone.heights(x,z).length,0,'Every rendered median strip blocks walking');assert.ok(garden.zone.forbidsVehicles(x,z));}
 for(const s of garden.segments)if(s.tree){const nearest=metro.piers.reduce((d,p)=>Math.min(d,Math.hypot(s.tree[0]-p[0],s.tree[1]-p[1])),Infinity);assert.ok(nearest>7,'Trees go between piers, clear of columns');}
-console.log(`Site geometry passed: ${meshes} finite meshes / ${vertices} vertices, 8 shops, 25 sitting tables per tea tapri (166 total), decoded GLB parked vehicles, shoulder and fenced median.`);
+console.log(`Site geometry passed: ${meshes} finite meshes / ${vertices} vertices, 8 shops, 22 seats per tea tapri in circles of 4-5 (148 total), decoded GLB parked vehicles, shoulder and fenced median.`);

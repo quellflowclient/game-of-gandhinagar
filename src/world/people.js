@@ -72,6 +72,7 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
         loadedPlaces.add(place.id);
         const n = lowEnd?4:place.hub ? PER_PLACE : 4;
         const home = spawns[place.id] || { x, z: z + 40 };
+        if(home.customCrowd)continue;
         residentsFor(place, n).forEach((r, i) => {
           const a = (i / n) * Math.PI * 2;
           const anchor = home.residents?.[i];

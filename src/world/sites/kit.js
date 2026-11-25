@@ -2,6 +2,7 @@ import * as THREE from "three";
 import {parkedTwoWheeler} from '../parked-models.js';
 import * as BGU from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import * as T from '../textures.js';
+import {offsetPath} from '../road-path.js';
 
 // Shared kit for hand-built real-life sites (LDRP/KSV, GIFT City, Swagat, Indroda).
 // Every site works in its own local frame: u = metres to the site's right, v = metres
@@ -96,13 +97,14 @@ export function slab(g, ring, y, m, thickness = 0, uvScale = 4) {
 // Strip along a polyline (curbs, paths, medians). u across 0..1, v along per metre / tile.
 export function strip(g, path, width, y, m, { offset = 0, height = 0, tile = 4 } = {}) {
   const pos = [], uv = [];
+  const left=offsetPath(path,offset+width/2),right=offsetPath(path,offset-width/2);
   let along = 0;
   for (let i = 0; i < path.length - 1; i++) {
     const [x1, z1] = path[i], [x2, z2] = path[i + 1];
     const len = Math.hypot(x2 - x1, z2 - z1); if (len < 0.01) continue;
     const nx = -(z2 - z1) / len, nz = (x2 - x1) / len, w = width / 2;
     const ox = nx * offset, oz = nz * offset;
-    const P = (x, z, s, t) => { pos.push(x + ox + nx * s, y + t, z + oz + nz * s); };
+    const P = (x, z, s, t) => {const index=x===x1&&z===z1?i:i+1,p=s<0?right[index]:left[index];pos.push(p[0],y+t,p[1]);};
     const v0 = along / tile, v1 = (along + len) / tile;
     const quad = (s0, t0, s1, t1, u0, u1) => {
       P(x1, z1, s0, t0); P(x2, z2, s0, t0); P(x1, z1, s1, t1);
@@ -141,7 +143,7 @@ export function building(g, ring, h, facade, { roof = 0xb9b4aa, parapet = 0.9, b
   walls.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
   walls.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
   walls.computeVertexNormals();
-  const wm = new THREE.Mesh(walls, mat(facade.tex, { roughness: facade.rough ?? 0.75, metalness: facade.metal ?? 0.02, side: THREE.DoubleSide }));
+  const wm = new THREE.Mesh(walls, mat(facade.tex, { roughness: facade.rough ?? 0.75, metalness: facade.metal ?? 0.02, side: THREE.DoubleSide, ...(facade.roughMap ? { roughnessMap: facade.roughMap } : {}) }));
   wm.castShadow = wm.receiveShadow = true; wm.userData.cameraSolid = true;
   g.add(wm);
   const roofRing = pts.map((p) => [p.x, p.y]);
@@ -152,23 +154,50 @@ export function building(g, ring, h, facade, { roof = 0xb9b4aa, parapet = 0.9, b
 
 // ---------- facade textures ----------
 // White plaster with continuous blue-tinted ribbon windows (KSV / LDRP campus).
-export const ksvFacade = () => ({ bay: 6, floor: 3.6, parapet: 0xf3f1ea, tex: canvasTex(256, 256, (c, w, h) => {
-  c.fillStyle = "#bec2bf"; c.fillRect(0, 0, w, h);
-  const g = c.createLinearGradient(0, h * 0.3, 0, h * 0.72);
-  g.addColorStop(0, "#5f8fc0"); g.addColorStop(1, "#2d5f93");
-  c.fillStyle = g; c.fillRect(0, h * 0.3, w, h * 0.42);
-  c.fillStyle = "rgba(255,255,255,0.35)"; c.fillRect(0, h * 0.3, w, 5);
-  c.fillStyle = "#d9d6cd"; for (let x = 0; x < w; x += 64) c.fillRect(x, h * 0.3, 5, h * 0.42); // mullions
-  // Road-side panorama: alternating glazed bays and recessed open windows,
-  // set into grey concrete rather than a continuous white office facade.
-  for(const x of [5,133]) {
-    c.fillStyle='#bec2bf';c.fillRect(x,h*0.28,58,h*0.47);
-    c.fillStyle='#404a49';c.fillRect(x+14,h*0.32,29,h*0.36);
-    c.strokeStyle='#8a9693';c.lineWidth=2;c.strokeRect(x+15,h*0.33,27,h*0.34);
-  }
-  c.fillStyle = "rgba(0,0,0,0.12)"; c.fillRect(0, h * 0.72, w, 6); // sill shadow
-  c.fillStyle = "#c9c5bb"; c.fillRect(0, 0, w, 4);
-}) });
+export const ksvFacade = () => {
+  // Two bays per tile (12 m x one 3.6 m floor), as in the LDRP Street View: a wide
+  // blue reflective glass band beside a punched window with a grey AC grille, set
+  // in weathered grey concrete with a slab band. A matching roughness map makes
+  // only the glass glossy, so it picks up the sky.
+  const W = 768, H = 232, seed = { v: 9 }, r = () => ((seed.v = (seed.v * 16807) % 2147483647) / 2147483647);
+  const draw = (c, w, h, rough) => {
+    seed.v = 9;
+    const C = (col, gl) => (rough ? gl : col);
+    c.fillStyle = C("#b4b7b3", "#d8d8d8"); c.fillRect(0, 0, w, h);
+    if (!rough) {
+      for (let i = 0; i < 2600; i++) { const v = 150 + r() * 60 | 0; c.fillStyle = `rgba(${v},${v + 2},${v},.25)`; c.fillRect(r() * w, r() * h, 2, 2); }
+      for (let i = 0; i < 14; i++) { const x = r() * w, g = c.createLinearGradient(0, h * .6, 0, h); g.addColorStop(0, "rgba(70,72,68,0)"); g.addColorStop(1, "rgba(70,72,68,.16)"); c.fillStyle = g; c.fillRect(x, h * .6, 6 + r() * 14, h * .4); }
+    }
+    c.fillStyle = C("#c7c9c4", "#d0d0d0"); c.fillRect(0, h * .86, w, h * .14);
+    c.fillStyle = C("rgba(0,0,0,.18)", "#d0d0d0"); c.fillRect(0, h * .86, w, 3);
+    // Bay 1: continuous blue glass band with aluminium mullions.
+    const gx = w * .03, gw = w * .47, gy = h * .2, gh = h * .55;
+    c.fillStyle = C("#6c7471", "#c8c8c8"); c.fillRect(gx - 4, gy - 4, gw + 8, gh + 10);
+    if (rough) { c.fillStyle = "#1a1a1a"; c.fillRect(gx, gy, gw, gh); }
+    else {
+      const g = c.createLinearGradient(0, gy, 0, gy + gh); g.addColorStop(0, "#8fb6dc"); g.addColorStop(.45, "#3f74b4"); g.addColorStop(1, "#24508c");
+      c.fillStyle = g; c.fillRect(gx, gy, gw, gh);
+      c.fillStyle = "rgba(255,255,255,.18)"; c.beginPath(); c.moveTo(gx + gw * .1, gy); c.lineTo(gx + gw * .32, gy); c.lineTo(gx + gw * .18, gy + gh); c.lineTo(gx - gw * .04, gy + gh); c.fill();
+      c.fillStyle = "#c9ccc8"; for (let x = gx; x <= gx + gw + 1; x += gw / 4) c.fillRect(x - 2, gy, 4, gh); c.fillRect(gx, gy + gh * .62, gw, 3);
+      c.fillStyle = "rgba(0,0,0,.25)"; c.fillRect(gx, gy, gw, 5);
+    }
+    // Bay 2: punched window with a louvered AC grille box beneath its lintel.
+    const wx = w * .64, ww = w * .2, wy = h * .24, wh = h * .48;
+    c.fillStyle = C("#7d8380", "#cccccc"); c.fillRect(wx - 5, wy - 5, ww + 10, wh + 12);
+    if (rough) { c.fillStyle = "#2a2a2a"; c.fillRect(wx, wy, ww * .48, wh); c.fillStyle = "#555"; c.fillRect(wx + ww * .52, wy, ww * .48, wh); }
+    else {
+      const g = c.createLinearGradient(0, wy, 0, wy + wh); g.addColorStop(0, "#6f95bd"); g.addColorStop(1, "#2e5687");
+      c.fillStyle = g; c.fillRect(wx, wy, ww * .48, wh);
+      c.fillStyle = "#8d928e"; c.fillRect(wx + ww * .52, wy, ww * .48, wh);
+      c.fillStyle = "#5d625f"; for (let y = wy + 4; y < wy + wh; y += 7) c.fillRect(wx + ww * .52, y, ww * .48, 3);
+      c.fillStyle = "rgba(0,0,0,.22)"; c.fillRect(wx, wy + wh, ww, 4);
+    }
+  };
+  const tex = canvasTex(W, H, (c, w, h) => draw(c, w, h, false));
+  const roughMap = canvasTex(W, H, (c, w, h) => draw(c, w, h, true));
+  roughMap.colorSpace = THREE.NoColorSpace;
+  return { bay: 12, floor: 3.6, parapet: 0xd9d9d2, tex, roughMap, rough: 1, metal: 0.05 };
+};
 // Hostel / apartment blocks: cream plaster, punched windows, small balconies.
 export const residentialFacade = (wall = "#e8dcc6", trim = "#c96f45") => ({ bay: 4, floor: 3.1, tex: canvasTex(128, 128, (c, w, h) => {
   c.fillStyle = wall; c.fillRect(0, 0, w, h);

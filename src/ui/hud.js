@@ -44,7 +44,7 @@ export function createHud({ open, act }) {
   const cameraBtn=ibtn('◉',null,'Camera view',()=>open('camera'),'fab camera-view');
 
   const joystick = h("div", { class: "joystick",role:'group','aria-label':'Movement joystick. Drag to walk, push to outer ring to run.' }, h("div", { class: "knob" }),h('span',{class:'joy-label'},'WALK · RUN'));
-  const hint = h("div", { class: "hint glass" }, h("b", {}, "Kem cho! "), "Walk with WASD or the left thumb · drag to look · tap a name to say hi");
+  const hint = h("div", { class: "hint glass" }, h("b", {}, "Kem cho! "), "Move with WASD or the joystick · drag to look around · tap a name to say hi");
   setTimeout(() => hint.classList.add("fade"), 3500);
 
   const context = h("div", { class: "context" });
@@ -52,30 +52,32 @@ export function createHud({ open, act }) {
   const interactBtn = h("button", { type: "button", class: "ctx glass green", hidden: true, onclick: () => act("interact") });
   context.append(nearBtn, interactBtn);
 
-  // ---- dock ----
+  // One top-corner launcher; navigation never occupies the driving area.
   const chatsBadge = h("span", { class: "badge", hidden: true });
-  const dock = h("nav", { class: "dock glass" },
-    ibtn("🗺", "Map", "Open map", () => open("map")),
-    ibtn("🚌", "BRTS", "Travel", () => open("travel"), "main"),
-    ibtn("☰", "Menu", "Game menu", () => toggleMore()));
+  const dock = h("nav", { class: "hub-launcher", "aria-label":"Game navigation" },
+    ibtn("☰", "Hub", "Open game hub", () => toggleMore(), "hub-toggle"));
 
-  const MORE = [
-    ['◉','Camera','camera'],['🙂','Profile','profile'],['🔍','Find people','find'],['🤝','Chats','chats'],['🎬','Plans','plans'],['👥','Online','online'],
-    ["🎯", "Missions", "missions"], ["🌅", "Day one", "dayone"], ["🎟", "Passport", "passport"], ["🏆", "Scores", "scores"],
-    ["🗺️", "Map", "map"], ["🎉", "Utsav", "utsav"], ["💬", "City chat", "world"], ["🪪", "My card", "card"],
-    ["🪞", "My twin", "twin"], ["🧑‍💻", "About me", "about"], ["🔊", "Sound", "sound"], ["🕒", "Time", "time"],
-    ["📣", "Advertise", "ads"], ["💡", "Suggest", "suggest"],
+  // Grouped, trimmed menu. Every entry opens a real, working panel.
+  const MENU = [
+    ["You", [["🙂","Profile","profile"],["🪪","Campus ID","campus"],["🪞","AI twin","twin"]]],
+    ["People", [["🤝","Chats","chats"],["🔍","Find people","find"],["👥","Online now","online"],["💬","City chat","world"]]],
+    ["Explore", [["🗺","Map","map"],["🚌","Travel","travel"],["🚗","Choose ride","vehicles"],["🎯","Missions","missions"]]],
+    ["Settings", [["✥","Controls","controls"],["◉","Camera","camera"],["🔊","Sound","sound"],["🕒","Time & weather","time"],["⛶","Fullscreen","fullscreen"]]],
   ];
   const moreBadges = {};
-  const more = h("div", { class: "more glass", hidden: true },
-    h("div", { class: "more-head" }, h("b", {}, "Gandhinagar menu"), h("button", { type: "button", class: "x", "aria-label": "Close menu", onclick: () => toggleMore(false) }, "✕")),
-    h("div", { class: "more-grid" }, MORE.map(([icon, label, name]) => {
-      const badge = h("span", { class: "mini-badge", hidden: true });
-      moreBadges[name] = badge;
-      return h("button", { type: "button", "aria-label": label, onclick: () => { toggleMore(false); open(name); } },
-        h("span", { class: "i" }, icon), h("span", { class: "l" }, label), badge);
-    })));
-  function toggleMore(on = more.hidden) { more.hidden = !on; }
+  const more = h("div", { class: "more glass", hidden: true, id:"game-hub", role: "dialog", "aria-label": "Game hub" },
+    h("div", { class: "more-head" }, h("b", {}, "Game hub"), h("button", { type: "button", class: "x", "aria-label": "Close menu", onclick: () => toggleMore(false) }, "✕")),
+    ...MENU.map(([section, items]) => h("section", { class: "more-sec" }, h("h4", {}, section),
+      h("div", { class: "more-grid" }, items.map(([icon, label, name]) => {
+        const badge = h("span", { class: "mini-badge", hidden: true });
+        moreBadges[name] = badge;
+        return h("button", { type: "button", "aria-label": label, onclick: () => { toggleMore(false); open(name); } },
+          h("span", { class: "i" }, icon), h("span", { class: "l" }, label), badge);
+      })))));
+  function toggleMore(on = more.hidden) { more.hidden = !on; document.body.classList.toggle("game-menu-open",on);dock.lastChild.setAttribute("aria-expanded",String(on));if(on)more.querySelector("button")?.focus();else dock.lastChild.focus({preventScroll:true}); }
+  dock.lastChild.setAttribute("aria-controls","game-hub");
+  dock.lastChild.setAttribute("aria-expanded","false");
+  document.addEventListener("pointerdown",e=>{if(!more.hidden&&!more.contains(e.target)&&!dock.contains(e.target))toggleMore(false);});
 
   // ---- arrival banner and activity ----
   const arrival = h("div", { class: "arrival", hidden: true });
@@ -87,8 +89,9 @@ export function createHud({ open, act }) {
   let arrivalTimer = 0;
   return {
     root, joystick, miniCanvas,
-    setVehicle(type){cycleBtn.querySelector('.i').textContent=({walk:'🚶',cycle:'🚲',auto:'🛺',car:'🚗'})[type];cycleBtn.classList.toggle('on',type!=='walk');},
-    setDrive(type,kmh,locked){speed.hidden=!['car','auto'].includes(type);speed.textContent=`${Math.round(kmh)} / ${type==='auto'?35:80} km/h`;area.hidden=!locked;},
+    get menuOpen(){return !more.hidden;},
+    setVehicle(type){cycleBtn.querySelector('.i').textContent=({walk:'🚶',cycle:'🚲',bike:'🏍️',scooter:'🛵',auto:'🛺',car:'🚗'})[type];cycleBtn.classList.toggle('on',type!=='walk');},
+    setDrive(type,kmh,locked){speed.hidden=!['car','auto','bike','scooter'].includes(type);speed.textContent=`${Math.round(kmh)} / ${({auto:35,car:80,bike:45,scooter:35})[type]||0} km/h`;area.hidden=!locked;},
     setPlace(p) {
       placeName.textContent = p ? p.name : "Gandhinagar";
       placeGu.textContent = p ? p.gu : "ગાંધીનગર · Green City";

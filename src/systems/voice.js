@@ -39,11 +39,11 @@ export function createVoice(app,{Peer=globalThis.RTCPeerConnection,media=navigat
     if(['ended','declined'].includes(c.status)){toast(c.status==='declined'?'Call declined.':'Call ended.');cleanup();return;}
     if(c.status==='accepted'&&c.caller===app.session?.userId&&!offerSent){offerSent=true;render('Connecting…');const peer=await connection(),offer=await peer.createOffer();await peer.setLocalDescription(offer);await backend.sendVoiceSignal(c.id,{type:'offer',sdp:offer.sdp});}
   }
-  function watch(){clearTimeout(timeout);timeout=setTimeout(()=>{toast('Call timed out. Try text chat.');end();},35000);clearInterval(poll);poll=setInterval(async()=>{if(!call)return;try{const c=await backend.getCall(call.id);if(!c)return end();await sync(c);if(call?.status==='accepted'){await backend.setCall(call.id,'accepted');for(const s of await backend.voiceSignals(call.id))enqueue(s);}}catch(e){fail(e);}},12000);}
+  function watch(){clearTimeout(timeout);timeout=setTimeout(()=>{toast('Call timed out. Try text chat.');end();},35000);clearInterval(poll);poll=setInterval(async()=>{if(!call)return;try{const c=await backend.getCall(call.id);if(!c)return end();await sync(c);if(call?.status==='accepted'){await backend.setCall(call.id,'accepted');for(const s of await backend.voiceSignals(call.id))enqueue(s);}}catch(e){fail(e);}},call?.status==="accepted"?4000:3000);}
   async function accept(){if(starting)return;starting=true;try{await mic();if(!call)return;await connection();await sync(await backend.setCall(call.id,'accepted'));render('Connecting…');for(const s of await backend.voiceSignals(call.id))enqueue(s);}catch(e){fail(e);}finally{starting=false;}}
   backend.onCall(c=>sync(c).catch(fail));backend.onVoiceSignal(enqueue);
   window.addEventListener('pagehide',()=>end());
   return{get active(){return !!call;},async start(target){if(!app.requireSignIn('voice chat'))return;if(call||starting)return toast('Pehle current call finish karo.');starting=true;
     try{await mic();call=await backend.startCall(target.id);render(`Calling ${target.name}…`);watch();}catch(e){fail(e);}finally{starting=false;}
-  },end};
+  },updateDistance(){if(!call)return;const peer=call.caller===app.session?.userId?call.callee:call.caller,p=backend.presenceList().find(p=>p.userId===peer);audio.volume=p?Math.max(0,Math.min(1,1-Math.hypot(p.x-app.player.position.x,p.z-app.player.position.z)/28)):0;},end};
 }

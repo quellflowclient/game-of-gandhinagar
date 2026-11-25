@@ -21,7 +21,11 @@
     "test:email": "node scripts/test-email.mjs",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:yield": "node scripts/test-yield.mjs",
+    "test:voice-room": "node scripts/test-voice-room.mjs",
+    "test:reverse": "node scripts/test-reverse.mjs",
+    "map:live": "node scripts/build-live-map.mjs"
   },
   "keywords": [],
   "author": "",

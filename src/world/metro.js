@@ -1,7 +1,9 @@
+import {offsetPath} from './road-path.js';
 import * as THREE from "three";
 import * as BGU from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { canvasTex,mergeStatic } from "./sites/kit.js";
 import {metroCenterlines,singleRowPiers} from './metro-layout.js';
+import {createMetroTrains} from './metro-trains.js';
 import {roadClearance,medianCenter} from './metro-road-clearance.js';
 
 // Ahmedabad–Gandhinagar metro (OSM railway=subway): elevated viaduct on hammerhead piers
@@ -15,21 +17,22 @@ export function pierGeometry() {
   return BGU.mergeGeometries([col.toNonIndexed(), cap.toNonIndexed()]);
 }
 
-function deckGeometry(path) {
-  // U-girder: deck slab + two parapets, as one ribbon set along the path.
+function deckGeometry(raw) {
+  // U-girder: deck slab + two parapets. Every edge uses shared mitred offsets
+  // (like the roads), so curves have no wedge-shaped gaps between segments.
+  const path=raw.filter((p,i)=>i===0||Math.hypot(p[0]-raw[i-1][0],p[1]-raw[i-1][1])>=0.5);
   const pos = [];
+  if(path.length<2){const g=new THREE.BufferGeometry();g.setAttribute("position",new THREE.Float32BufferAttribute([],3));return g;}
   const quad = (a, b, c, d) => pos.push(...a, ...b, ...c, ...c, ...b, ...d);
+  const w = 4.6, top = DECK_Y + 0.9, bot = DECK_Y;
+  const edge={};for(const s of [-w,w,-w*0.94,w*0.94])edge[s]=offsetPath(path,s);
+  const P=(s,i,y)=>[edge[s][i][0],y,edge[s][i][1]];
   for (let i = 0; i < path.length - 1; i++) {
-    const [x1, z1] = path[i], [x2, z2] = path[i + 1];
-    const len = Math.hypot(x2 - x1, z2 - z1); if (len < 0.5) continue;
-    const nx = -(z2 - z1) / len, nz = (x2 - x1) / len;
-    const P = (x, z, s, y) => [x + nx * s, y, z + nz * s];
-    const w = 4.6, top = DECK_Y + 0.9, bot = DECK_Y;
-    quad(P(x1, z1, -w, top), P(x2, z2, -w, top), P(x1, z1, w, top), P(x2, z2, w, top));   // deck top
-    quad(P(x1, z1, -w, bot), P(x1, z1, w, bot), P(x2, z2, -w, bot), P(x2, z2, w, bot));   // underside
+    quad(P(-w,i,top), P(-w,i+1,top), P(w,i,top), P(w,i+1,top));   // deck top
+    quad(P(-w,i,bot), P(w,i,bot), P(-w,i+1,bot), P(w,i+1,bot));   // underside
     for (const s of [-w, w]) {
-      quad(P(x1, z1, s, bot), P(x2, z2, s, bot), P(x1, z1, s, top + 1.1), P(x2, z2, s, top + 1.1)); // side + parapet
-      quad(P(x1, z1, s * 0.94, top), P(x2, z2, s * 0.94, top), P(x1, z1, s * 0.94, top + 1.1), P(x2, z2, s * 0.94, top + 1.1));
+      quad(P(s,i,bot), P(s,i+1,bot), P(s,i,top+1.1), P(s,i+1,top+1.1)); // side + parapet
+      const t=s*0.94;quad(P(t,i,top), P(t,i+1,top), P(t,i,top+1.1), P(t,i+1,top+1.1));
     }
   }
   const g = new THREE.BufferGeometry();
@@ -119,5 +122,6 @@ export function buildMetro(scene, map, { lowEnd = false } = {}) {
     stations.push({ name: s.name, x: p.x, z: p.z, a: p.a });
   }
   scene.add(group);
-  return { group, stations,piers:centralSpots, deckY: DECK_Y,pierCount:centralSpots.length,centerlines:lines.length,obstacles:centralSpots.map(([x,z])=>({x,z,r:0.85})),cameraObstacles:[deck,piers] };
+  const trains=createMetroTrains(scene,lines,stations,{deckTop:DECK_Y+1.1});
+  return { trains, group, stations,piers:centralSpots, deckY: DECK_Y,pierCount:centralSpots.length,centerlines:lines.length,obstacles:centralSpots.map(([x,z])=>({x,z,r:0.85})),cameraObstacles:[deck,piers] };
 }

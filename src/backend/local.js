@@ -140,6 +140,16 @@ export const local = {
   _prune() {
     for (const [k, p] of this._presence) if (now() - p.at > 6000) this._presence.delete(k);
   },
+  // Demo group voice: one BroadcastChannel per room, members heartbeat every 2 s.
+  voiceRoom(room,who,{onPeers,onSignal}){
+    if(typeof BroadcastChannel==='undefined')return{send(){},leave(){}};
+    const ch=new BroadcastChannel(`gnr-voice-${room}`),seen=new Map([[who.userId,Infinity]]);
+    const report=()=>{const t=now();for(const[id,at]of seen)if(at<t-6000)seen.delete(id);onPeers([...seen.keys()]);};
+    ch.onmessage=({data})=>{if(data.kind==='hello'){const fresh=!seen.has(data.id);seen.set(data.id,now());if(fresh)report();}
+      else if(data.kind==='bye'){seen.delete(data.id);report();}else if(data.kind==='signal'&&data.payload.to===who.userId)onSignal(data.payload);};
+    const hello=()=>ch.postMessage({kind:'hello',id:who.userId});hello();const timer=setInterval(()=>{hello();report();},2000);
+    return{send:payload=>ch.postMessage({kind:'signal',payload}),leave:()=>{clearInterval(timer);ch.postMessage({kind:'bye',id:who.userId});ch.close();}};
+  },
   presenceList() {
     this._prune();
     return [...this._presence.values()];

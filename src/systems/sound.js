@@ -119,6 +119,7 @@ export function createSound() {
   }
 
   return {
+    honk() { if (ctx && cityGain) { horn(ctx.currentTime); horn(ctx.currentTime + 0.45); } },
     state: st,
     isPhone,
     start,

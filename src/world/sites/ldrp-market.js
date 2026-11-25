@@ -39,9 +39,9 @@ export function buildLdrpMarket(scene,origin) {
       const label=new THREE.Mesh(new THREE.PlaneGeometry(0.26,0.1),packetLabels.get(brand));label.position.set(x,y+0.15,z+0.045);g.add(label);
     }
   }
-  function smallTable(id,s,x,z,occupant=null,group=null,allowBorrow=true,relativeYaw=0) {
+  function smallTable(id,s,x,z,occupant=null,group=null,allowBorrow=true,relativeYaw=0,circle=null) {
     const [u,v]=shopPoint(s,x,z),p=f.toWorld(u,v);
-    seats.push({id,shopId:s.id,x:p.x,y:MARKET_GROUND,z:p.z,yaw:MARKET.yaw+shopYaw(s)+relativeYaw,occupant,group,allowBorrow,local:[u,v]});
+    seats.push({id,shopId:s.id,x:p.x,y:MARKET_GROUND,z:p.z,yaw:MARKET.yaw+shopYaw(s)+relativeYaw,occupant,group,allowBorrow,local:[u,v],circle:circle||group});
   }
   function actor(s,name,role,x,z,options={}) {
     actors.push({shopId:s.id,name,role,x,z,home:[x,z],yaw:0,phase:name.length*0.8,options,avatar:null,position:new THREE.Vector2(x,z)});
@@ -80,7 +80,9 @@ export function buildLdrpMarket(scene,origin) {
     K.textPlane(gate,['LDRP / KH-5 AREA','Exploration ends here'],{bg:'#384b40',fg:'#fff0c9'},5,1,0,2.2,0);
   }
   const soil=K.mat(K.dryGround(),{color:0xc5b691,roughness:1}),wallStone=K.mat(0xb0a58b,{roughness:1});
-  for(const plot of shoulders)K.slab(root,plot,MARKET_GROUND-0.012,soil,0,5);
+  // The 4th shoulder sits in front of the LDRP gate: still walkable, but drawn as
+  // plain road (no separate sand patch) so the gate floor is one surface.
+  for(const plot of shoulders.slice(0,3))K.slab(root,plot,MARKET_GROUND-0.012,soil,0,5);
   for(const [a,b,v] of [[-175,-24,25.6],[23,185,25.6],[20,185,-23.9]]) {
     K.box(root,b-a,1.8,0.24,wallStone,(a+b)/2,MARKET_GROUND,v);
     for(let u=a;u<=b;u+=3.5){K.box(root,0.25,2.3,0.3,wallStone,u,MARKET_GROUND,v);for(let d=0.3;d<3.3&&u+d<b;d+=0.4)K.box(root,0.02,0.5,0.02,0x3e624a,u+d,MARKET_GROUND+1.8,v);}
@@ -140,14 +142,22 @@ export function buildLdrpMarket(scene,origin) {
       for(let guest=0;guest<2;guest++)actor(s,`${s.id==='babu'?'Jay':s.id==='chintu'?'Meet':'Guest'} ${n*2+guest+1}`,'eat',x,z+(guest?1:-1),{seatId:idFor(s,n*4+guest),customer:true,group,female:guest===1&&n===1});
     }
     if(s.kind!=='food'){
-      // Tea tapris have sitting tables only: five rows of five, no dining table.
-      // 1.65 m centre spacing leaves walkable aisles between 64 cm tops.
-      const group=`${s.id}-friends-0`;
-      for(let row=0;row<5;row++)for(let col=0;col<5;col++){
-        const n=row*5+col,x=(col-2)*1.65,z=-2.6-row*1.45;
-        smallTable(idFor(s,n),s,x,z,n<2?`${s.id}-guest-0-${n}`:null,n<4?group:null,n!==3);
-        if(n<2)actor(s,`Guest ${n+1}`,'eat',x,z,{seatId:idFor(s,n),customer:true,group,female:n===1});
-      }
+      // Tea tapris: friends sit in circles of 4-5 low seats around one shared
+      // chai table, so a group can talk together (and join one voice room).
+      const circles=[[-2.8,-3.3,4,Math.PI/4],[0,-3.3,4,Math.PI/4],[2.8,-3.3,4,Math.PI/4],[-1.6,-6.9,5,0],[1.6,-6.9,5,0]];
+      let n=0;
+      circles.forEach(([cx,cz,count,turn],c)=>{
+        const circle=`${s.id}-circle-${c}`,group=c===0?`${s.id}-friends-0`:null,r=count===4?1.0:1.1;
+        K.cyl(g,0.36,0.36,0.04,K.mat(0x9a7656,{roughness:0.8}),cx,0.62,cz,20);K.cyl(g,0.04,0.05,0.62,dark,cx,0,cz,8);K.cyl(g,0.22,0.22,0.03,dark,cx,0,cz,14);
+        cup(g,cx-0.08,0.66,cz);cup(g,cx+0.1,0.66,cz+0.06);
+        solids.push({rect:[...at(cx,cz),0.75,0.75,shopYaw(s)]});
+        for(let k=0;k<count;k++){
+          const a=turn+k*Math.PI*2/count,ox=Math.sin(a)*r,oz=-Math.cos(a)*r;
+          smallTable(idFor(s,n),s,cx+ox,cz+oz,c===0&&k<2?`${s.id}-guest-0-${k}`:null,group,!(c===0&&k===3),Math.atan2(-ox,-oz),circle);
+          if(c===0&&k<2)actor(s,`Guest ${k+1}`,'eat',cx+ox,cz+oz,{seatId:idFor(s,n),customer:true,group,female:k===1});
+          n++;
+        }
+      });
     }
     if(s.id==='babu') {
       actor(s,'Saras','cook',-1.1,-0.65,{prop:'spatula',apron:true});actor(s,'Masi','cash',2.1,-0.55,{female:true,older:true});chair(g,2.1,-0.55);actor(s,'Babu','serve',4.9,1,{server:true,prop:'plate'});
@@ -174,8 +184,8 @@ export function buildLdrpMarket(scene,origin) {
   for(const s of shops){s.group3d.clear();root.add(s.group3d);}
   // Sitting tables are separate dynamic objects: never baked into static mesh.
   const tableModel=new THREE.Group();
-  K.box(tableModel,0.64,0.06,0.64,K.mat(0x8c6951,{roughness:0.85}),0,0.43,0);
-  for(const x of [-0.24,0.24])for(const z of [-0.24,0.24])K.box(tableModel,0.05,0.43,0.05,dark,x,0,z);
+  K.box(tableModel,0.46,0.06,0.46,K.mat(0x8c6951,{roughness:0.85}),0,0.43,0);
+  for(const x of [-0.18,0.18])for(const z of [-0.18,0.18])K.box(tableModel,0.045,0.43,0.045,dark,x,0,z);
   K.mergeStatic(tableModel);
   const tableBatches=[];
   tableModel.traverse(part=>{if(!part.isMesh)return;const batch=new THREE.InstancedMesh(part.geometry,part.material,seats.length);batch.name='Movable small sitting tables';batch.instanceMatrix.setUsage(THREE.DynamicDrawUsage);batch.castShadow=batch.receiveShadow=true;batch.frustumCulled=false;scene.add(batch);tableBatches.push(batch);});

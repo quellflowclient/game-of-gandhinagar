@@ -5,7 +5,7 @@
 export const MARKET = {circle:[-116.4718436661,-155.4405480674],yaw:Math.PI*5/6};
 export const MARKET_GROUND=0.33;
 // Entire campus plus KH-5 junction and all eight stalls, in the road frame.
-export const LDRP_PLAY_AREA={minU:-375,maxU:212,minV:-295,maxV:65};
+export const LDRP_PLAY_AREA={minU:-432,maxU:212,minV:-295,maxV:65};
 export function inLdrpArea(origin,x,z,margin=0){const p=toMarket(origin,x,z),b=LDRP_PLAY_AREA;return p.u>=b.minU+margin&&p.u<=b.maxU-margin&&p.v>=b.minV+margin&&p.v<=b.maxV-margin;}
 export const ROAD5_WAYS=[326054220,386749311,386751118,903991653];
 export const CARRIAGEWAY_WIDTH=4.8;

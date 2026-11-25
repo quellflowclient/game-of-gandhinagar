@@ -1,4 +1,164 @@
-# Handoff · People of Gandhinagar (last updated 2026-11-25)
+## Landscape-only / single Hub correction · 2026-11-25
+- Supersedes the earlier portrait-form exception: shared `src/ui/landscape.js` + CSS run from both game and admin HTML before their main apps. Portrait touch devices cannot use landing, login, sheets or gameplay; background is inert until landscape. Physical orientation avoids keyboard-resize false positives.
+- First landing interaction and the rotate gate button request fullscreen, then best-effort landscape lock. Browser restrictions can require manual physical rotation; no fake CSS rotation or bypass is provided.
+- Removed the three-button bottom dock from HUD markup. One upper-right Hub launcher opens Map, Travel, Ride, Profile, Campus ID, Camera, Controls, Sound, Time and Fullscreen. Non-movement quick buttons/minimap hidden; movement, run and driving controls remain at thumb positions.
+- Panels and Hub have short-landscape sizing, safe areas and internal scrolling. Production build passed. No agents, browser/device tests, deployment or building changes in this correction.
+
+## UI pass · 2026-11-25 (local)
+- User scope: admin, menu/profile/ID styling, landscape phone play and riding controls only; no building edits in this pass. No agents or tests.
+- Separate admin entry `admin/index.html`, routes `/admin`, `/admin/live`, `/admin/users`, `/admin/connections`, `/admin/settings`; middleware now covers Vite preview as well as dev. Existing Vercel rewrites preserved.
+- Admin email/OTP are native labelled forms, immediately rendered before session restoration; validation, error recovery, manual verification and input-safe CSS. Authorised `public.admins` account and installed admin RPCs still required; no privileges bypassed.
+- `src/game-shell.css` is the final UI layer: dark HUD/Game hub, light responsive sheets, profile/card/ride layouts and safe areas. Dock: Explore / Travel / Game hub. Help under Controls.
+- `game-controls.js`: independent multi-pointer steering, accelerator, separate stopping brake, D/R switch only when stopped, fullscreen and portrait gameplay rotate gate. Forms/admin remain usable in portrait. Orientation locking is best-effort browser support.
+- `player.js`: touch drive input, Space brake, independent motor axes, adaptive joystick radius, reset on blur/panels/visibility. Shared panels manage focus and Tab/Esc.
+- Production compilation passed during this pass. No browser or device gameplay checks run, per user instruction. No new deployment made during this pass.
+
+# Handoff · People of Gandhinagar (last updated 2026-11-25, session 2)
+
+## Session 2026-11-25 part 5 (shops, trains, premium UI, OTP, admin)
+- Campus: CAMPUS_SHOPS (stationery/xerox at local (-31,1.4), bike garage (-44.5,1.6),
+  paved yard), WEST_JUNCTION paved, strip along drive 1 (westPassage +-11 m) paved and
+  kept free of plants. Wall pulled ~2.5 m back from the roundabout/road edges.
+- `world/metro-trains.js`: 3-car white/blue/orange sets on both tracks (left-hand),
+  accel 1 m/s2, 70 km/h, 20 s station dwell, 210 s headway; drawn only within 1.4 km.
+  `metro.trains.update(t,center)` + setNight. Metro deck mitred (no gaps).
+- Loading: `public/data/gandhinagar-live.json` (141 KB, `npm run map:live`) replaces the
+  4.7 MB map download (createLiveMap is idempotent via `smoothed` flag); index.html
+  preloads live map + both GLBs; branded loader with % (setLoading(text,pct)).
+- UI: `src/premium.css` design layer (Inter, graphite ink, green brand). New landing
+  (Enter the city / Sign in with email / start-at cards). Menu grouped You/People/City/
+  Settings (removed Day one, Passport, Scores, Utsav, Advertise, Suggest, dup Map/Card).
+  Sign-in: email step + 6-digit OTP screen (auto-submit, resend 30 s, change email,
+  friendly errors). `openAccount` profile page. dom.js `calmCase` turns ALL-CAPS panel
+  titles/headings into sentence case. Campus/street chips hidden on landing.
+- OTP email: `supabase/templates/otp.html` (uses {{ .Token }}); also referenced in
+  config.toml. MUST be pasted in Dashboard -> Authentication -> Emails -> Templates for
+  "Confirm signup" and "Magic Link" (subject: Your Gandhinagar sign-in code: {{ .Token }}).
+- Admin: `admin.html` + `src/admin/` (separate Vite input). Needs `supabase/admin.sql`
+  run in the SQL editor + one `insert into public.admins` for the owner's email.
+  Views: Overview, Live map (3 s), Users (search, drawer with connections + movement
+  history), Connections (graph + table). Dev QA: /admin.html?mock. presence_log is
+  append-only (20 s sampling); delete triggers on profiles, threads, messages,
+  world_messages, waves, presence_log, plans, reports, voice_calls.
+
+## Session 2026-11-25 part 4 (gate rework, Paaji, bus depot)
+- "Left/right" = as seen from Road 5 facing the campus: left opening = local +u.
+- Left opening: pedestrian ENTRY only (yellow barricade lane at u 3.2-6.8, sign);
+  vehicles always forbidden there; walking out blocked once `entry.side==='inside'`.
+  Right opening: buses in/out, everyone exits; two-wheelers may only come OUT
+  (forbidden entering while `entry.side==='outside'`). Left boom removed.
+  NOTE: this means bikes/Activa currently have no way IN — confirm with user.
+- Security cabin, 2 umbrellas, bench moved OUTSIDE centre (cabin at 0,-5.4).
+  Market shoulder #4 (sand patch at gate) no longer drawn; still walkable.
+- `GATE_FORECOURT`, `BUS_DEPOT`, `FLAG_POINT` in ldrp-reference.js. Curbs are
+  cut wherever they would lie on another drive/path/forecourt/depot (`curbRuns`).
+  Flag moved off the central path to lawn (204,66 photo).
+- Bus depot (east strip beside departments block): 2 parked buses + scripted
+  trip bus out/in via right opening (waits 40 s, then 90/150 s), stops for player.
+- Paaji (campus.js `updatePaji`): heavy build (`avatar.setBuild`), turban+beard
+  meshes on head socket, desk with register + passes at local (15.2,-4.3),
+  Bajaj at (19.2,-4.9); rides a round on Road 5 edge every 6-10 min; jokes in
+  Punjabi-Hinglish bubbles; "Paaji · Register / Pass" panel gives visitor pass
+  (sets entry.allowed) or hostel going-home pass.
+
+- Part 4b: OUTSIDE_APRON concrete (u -10.6..19.5, v -13.6..0.15, y .29) replaces
+  asphalt stub/sand at the gate; outside furniture lives in `front` group (y .29);
+  outsideZone heights use APRON_Y there. Signs removed (rules only). Lane narrowed
+  to u 4.25-5.75. `D.patioUmbrella` (8 panels, ribs, base). Paaji desk at (13.9,-3.35)
+  next to left column, setBuild 1.55 + root scale 1.08. GATE_GARDEN half circle
+  (centre 0,.75 r 3.5) inside between openings: curb, soil, 3 small trees, bushes,
+  150 instanced flowers (added AFTER mergeStatic - mergeStatic drops instanced meshes),
+  solid poly so nobody walks in. GATE_FORECOURT widened to photo x 190-240.
+
+- Part 4c: security cabin moved INSIDE onto the gate island (cab 0,2.3, windows to
+  both openings + campus); GATE_GARDEN r 4.4 wraps its front (trees, bushes,
+  topiary, 190 flowers). Outside: one umbrella (1.05,-5.3), table (0,-5.6) and the
+  seated guard (campus.guard 0,-4.85, faces road / player, stands only to check
+  IDs). Lane moved to u 5.6-7.1; trip-bus gate waypoint x 203. FLAG_POINT (200,74)
+  is 2.6 m clear of every garden path.
+
+- Part 4d: all internal drives 5.5 m (gate throat 20 m). Front drive 0 is one
+  straight line (121,46)->(300,46) then gentle bend east; gate drive straight
+  (215,-1)->(215,44); GATE_FORECOURT is a clean rectangle x 191-239, y -1..44.
+  Cabin on concrete at (0,2.25) with its own solid; GATE_GARDEN (c 0,3.6 r 3.2)
+  only in FRONT of the cabin. FLAG_POINT photo (220,79): lawn below the two
+  bushes between the centre path and the right diagonal path (user's circle).
+
+- Part 4e: CAMPUS_BOUNDARY west corner now runs along the metro viaduct's outer
+  edge ((31,88),(45,56),(83,24),(124,3),(128,21)); WEST_BUS_PARK concrete (.149)
+  between it and the west drive, 4 parked buses on the campus side of the pillars
+  (slots need whole bus on slab + 2 m from every pier). WEST_METRO_PIERS (photo
+  (131,9),(89,31),(53,61)) get keep-clear hatch boxes + bollards + 1.6 m solid.
+  Hedges (2.4 m rects) and bush/topiary crowns are now zone solids via
+  `shrubs.solids()` — cycles (and walkers) cannot pass through them.
+
+- Part 4f: `drivingSpeed` is signed (reverse: car 14, auto 10, bike/scooter 6 km/h;
+  brake before reverse; coast when throttle released). Player motor steering is a
+  bicycle model (yaw = v/L*tan(steer), steer shrinks with speed, inverts in reverse).
+  Cycle rolls along heading and turns in an arc (no sideways slide). test:reverse.
+  Metro deck uses shared mitred offsets (offsetPath) - no wedge gaps on curves.
+  Gate: through the left opening only walkers inside the barricade lane (cycles
+  detected by nav radius > .45). Gardens (FOUR_GARDENS): walk only - cycles get no
+  heights, bike/scooter forbidden. Garden hedge replaced by `createGrassBorders`
+  (60 cm instanced grass, solid) with 3 openings: middle of both radial edges + arc.
+
+- Part 4g: whole west triangle inside: boundary follows Road 5 / roundabout /
+  south-road edges (measured with roadClearance): (25.5,92),(25.5,36),(31,25),
+  (44,16.5),(60,9.5),(78,6.5),(128,6.5),(128,21). WEST_BUS_PARK covers it all and
+  meets drive 1; up to 9 buses in 3 rows (-3.9/+6.2/+10.4 m from pier line), each
+  >2 m from piers and >1.2 m off drive 1. Drive 1 rerouted (121,46)->(104,42)->
+  (84,49)->(60,72)->(47,83)->(36,93)->(33,112)->(40,145): it previously ran through
+  the front ring's west end and the 7pi/8 wing (blocked). 54/54 samples now open.
+
+## Session 2026-11-25 part 3 (Street View look pass)
+- Reference: user's Street View walk-through of LDRP (frames in scratchpad only).
+- New `sites/ldrp-dressing.js`: concrete drive texture (joints, tyre polish),
+  red/cream wave-paver walkway texture, chunky stone curb ribbons, instanced
+  hedge clumps (no shadow) + topiary/bush crowns (shadow), hedge ribbons merged,
+  pink planter posts. `ldrp-campus.js` drives now concrete (not red brick), hedge
+  rows + topiary + shade trees line every internal drive, gardens get 1.05 m
+  hedges and topiary ring. `kit.ksvFacade` redrawn: 12 m two-bay tile with blue
+  reflective glass band + punched window/AC grille, roughness map (glossy glass).
+- Sky: turbidity 3.2, rayleigh 2.3, shader saturation/blue-with-elevation patch,
+  day fog near 650, exposure .84.
+- Perf at gate view: 1.74M tris / 773 calls (was 4.1M/1276 with first shrub try;
+  ~2.5M before this pass). Shadow pass ~570k tris / 345 calls is next target.
+- SMTP: user set Gmail SMTP; POST /auth/v1/otp returned 200 (one code email sent
+  to the sender address as a test).
+
+## Session 2026-11-25 (traffic realism, tapri circles, group voice) — read first
+- Traffic (`traffic-routes.js`): drivers brake for anything in their lane corridor
+  (player, residents, campus students, other vehicles incl. junctions; lower id has
+  priority so no deadlock), stop ~2.5 m short and move on when clear. Waiting >3 s
+  near the player = honk (`sound.honk`). `trafficDensity(hour)`: full 08:30-10:00
+  and 14:00-16:00 IST, ~0.4 midday/evening, ~0.1 night. Rare "distracted driver"
+  every 25-45 min is the only NPC-caused accident. Crash scene needs >4 m/s impact;
+  collision hit effects need >2.8 m/s (slow bumps just stop).
+- Vehicles (`vehicle-models.js`): seated driver in every car (right-hand drive) +
+  front passenger, auto driver + 2 rear passengers, bus driver + 6 passengers, new
+  procedural `bike`/`scooter` traffic with helmeted riders. Glass now transparent.
+  Autos green with yellow canopy, buses yellow.
+- Tea tapris: 5 circles (4,4,4,5,5 low seats) around a round chai table instead of
+  the 5x5 grid; seats carry `circle`. Seat stools are 46 cm.
+- Group voice (`systems/voice-room.js`): sitting at a circle shows "🎙 Table voice
+  join karo"; WebRTC mesh (max 6) with signalling over Supabase Realtime
+  broadcast/presence (`backend.voiceRoom`), demo backend uses BroadcastChannel.
+  Standing up leaves the room. 1:1 call: chip "🎙 Call / 💬 Chat" when another real
+  player is within 7 m; call polling fallback 3-4 s instead of 12 s.
+- Loader shows character download %; `vercel.json` caches /models and /data.
+- LDRP_PLAY_AREA minU -375 -> -432 so the east hostels of the new campus are reachable.
+- New tests: `test:yield`, `test:voice-room`; site/street/driving tests updated to
+  new layout. All 17 suites + build pass. In-game check: sedan 12 m/s stopped 2.7 m
+  before the player, then drove on.
+- EMAIL ROOT CAUSE: no custom SMTP; Supabase built-in mailer only delivers to the
+  project's team addresses (~2/hour). Owner must add SMTP (Gmail app password or
+  Brevo) in Supabase → Authentication → Emails → SMTP. Until then sign-in, chat,
+  multiplayer and voice cannot be used by the public. TURN server still not set
+  (needed for calls on many mobile networks).
+- NOT done: deploy (nothing committed/pushed), two-device voice test, accident
+  animation polish, campus visual matching items from the earlier list.
+
+## Earlier notes
 
 ## Latest release work — read before historical notes
 

@@ -21,24 +21,27 @@ function listen(lang = "en-IN") {
 
 // ---------- sign in ----------
 export function openSignIn(app, reason) {
-  const contact = h("input", { type: "text", placeholder: "Email or WhatsApp number", autocomplete: "email" });
+  const contact = h("input", { type: "email", placeholder: "Your email address", autocomplete: "email" });
   const adult = h("input", { type: "checkbox", id: "adult" });
   const terms = h("input", { type: "checkbox", id: "terms" });
   const note = h("p", { class: "muted small" });
   const step1 = h("div", {},
     h("p", {}, reason ? `Sign in to ${reason}.` : "Sign in to become visible, wave and chat."),
-    h("p", { class: "muted small" }, "We send a one-time code. Your email or number is never shown to anyone."),
+    h("p", { class: "muted small" }, "Verify your email to meet real players. Your email stays private. AI residents have an AI tag."),
     contact,
     h("label", { class: "check" }, adult, " I am 18 or older"),
     h("label", { class: "check" }, terms, " I agree to the ", h("a", { href: "/terms.html", target: "_blank" }, "house rules"), " and ", h("a", { href: "/privacy.html", target: "_blank" }, "privacy note")),
     h("button", { type: "button", class: "btn primary wide", onclick: send }, "Send code ▸"), note);
   async function send() {
     if (!adult.checked || !terms.checked) return toast("Please confirm both boxes.");
+    if(!contact.checkValidity() || !contact.value.trim()) return toast('Enter a valid email address.');
+    const sendButton=step1.querySelector('button');sendButton.disabled=true;
     try {
       const r = await app.backend.signInWithOtp(contact.value);
-      const code = h("input", { type: "text", inputmode: "numeric", maxlength: 6, placeholder: "6-digit code" });
+      const code = h("input", { type: "text", inputmode: "numeric", autocomplete:"one-time-code", maxlength: 8, placeholder: "Email code" });
       setPanelBody(h("div", {},
-        h("p", {}, `Code sent to ${contact.value}.`),
+        h("p", {}, `Check your email: ${contact.value}.`),
+        h('p',{class:'muted small'},'Email mein sign-in link mila ho to use khol sakte ho. Code mila ho to neeche enter karo.'),
         r.demoCode ? h("p", { class: "demo-note" }, `Demo mode (no email is sent): your code is ${r.demoCode}`) : null,
         code,
         h("button", { type: "button", class: "btn primary wide", onclick: async () => {
@@ -49,7 +52,7 @@ export function openSignIn(app, reason) {
           } catch (e) { toast(e.message, "bad"); }
         } }, "Verify and walk in ▸")));
       setTimeout(() => code.focus(), 50);
-    } catch (e) { note.textContent = e.message; }
+    } catch (e) { note.textContent = e.message; sendButton.disabled=false; }
   }
   openPanel("SIGN IN", step1);
   setTimeout(() => contact.focus(), 50);
@@ -169,7 +172,19 @@ function tryTwin(app, answers) {
     h("button", { type: "button", class: "link", onclick: () => openTwin(app, answers) }, "◀ Back to settings")));
 }
 
-// ---------- 8-step profile ----------
+export function openQuickJoin(app){
+  if(!app.requireSignIn('join other players'))return;
+  let look=app.me?.look||'casual';
+  const name=h('input',{type:'text',maxlength:40,autocomplete:'nickname',placeholder:'Your name',value:app.me?.name||''});
+  const choices=h('div',{class:'row'}),message=h('p',{class:'muted small'});
+  const paint=()=>{choices.replaceChildren(...[['casual','Male'],['fcasual','Female']].map(([id,label])=>h('button',{class:`btn ${look===id?'primary':''}`,onclick:()=>{look=id;app.player.setLook(id,app.me?.skin);paint();}},label)));};paint();
+  const join=h('button',{class:'btn primary wide',onclick:async()=>{if(!name.value.trim())return toast('Apna naam likho.');join.disabled=true;
+    try{await app.backend.saveProfile({name:name.value.trim(),look,visible:true});await app.refreshMe();closePanel();toast('Welcome! You can now meet other signed-in players.','good');}catch(e){message.textContent=e.message;join.disabled=false;}
+  }},'Join the city');
+  openPanel('Your character',h('div',{},h('p',{},'Naam aur character choose karo. Baaki profile baad mein Menu se edit kar sakte ho.'),name,choices,message,join));
+}
+
+// ---------- Optional detailed profile ----------
 export async function openProfile(app, startStep = 0) {
   if (!app.requireSignIn("set up your profile")) return;
   const p = { ...(await app.backend.getMyProfile()) };

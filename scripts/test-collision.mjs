@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import {overlaps,sweptContact,createCollisionSystem} from '../src/world/collision.js';
+const car={x:0,y:0,z:0,yaw:0,width:1.84,length:4.5,motor:true};
+const person={x:0,y:0,z:0,width:.55,length:.55};
+assert(overlaps(car,person));assert(!overlaps(car,{...person,x:2}));
+assert(!overlaps(car,{...person,y:4}),'bridge users must not hit cars below');
+const hit=sweptContact({...car,z:-5},{...car,z:5},person,person);
+assert(hit&&hit.t>0&&hit.t<1);assert(!overlaps(hit.a,hit.b),'swept stop must be before penetration');
+const perpendicular={...car,yaw:Math.PI/2,x:-6};
+assert(sweptContact(car,car,perpendicular,{...perpendicular,x:6}));
+assert.equal(sweptContact(car,{...car,z:5000},person,person),null,'teleports must not crash');
+let impacts=0,stops=0;const sim=createCollisionSystem(()=>impacts++);
+const p={...person,id:'person',player:true,stop:()=>stops++};
+sim.update(.05,[{...car,id:'car',z:-5},p]);
+sim.update(.05,[{...car,id:'car',z:5},p]);
+assert.equal(impacts,1);assert.equal(stops,1);
+sim.update(.05,[{...car,id:'car',z:0},p]);assert.equal(impacts,1,'impact cooldown');
+console.log('Collision checks passed: swept fast car/person, perpendicular cars, bridge separation, no contact penetration, teleport rejection, recovery callbacks and cooldown.');

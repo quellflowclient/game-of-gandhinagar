@@ -33,11 +33,11 @@ create table if not exists profiles (
 alter table profiles enable row level security;
 -- Visible profiles are readable, but only the public columns (links are never readable
 -- directly; they come through public_profiles, which hides them from blocked people).
-create policy "visible profiles read" on profiles for select using (visible or id = auth.uid());
+create policy "visible profiles read" on profiles for select to authenticated using (visible or id = auth.uid());
 create policy "own profile write" on profiles for update using (id = auth.uid());
 revoke select on profiles from anon, authenticated;
 grant select (id, resident_no, name, role, one_liner, open_to, interests, reasons, look, skin, home, hours, about,
-  visible, last_x, last_z, last_seen) on profiles to anon, authenticated;
+  visible, last_x, last_z, last_seen) on profiles to authenticated;
 grant update (name, role, one_liner, open_to, interests, reasons, links, look, skin, home, hours, about,
   visible, email_alerts, last_x, last_z) on profiles to authenticated;
 
@@ -77,7 +77,8 @@ create or replace view public_profiles with (security_barrier) as
     look, skin, home, hours, about, last_x, last_z, last_seen
   from profiles
   where visible and name <> '' and (auth.uid() is null or not is_blocked(auth.uid(), id));
-grant select on public_profiles to anon, authenticated;
+revoke all on public_profiles from anon;
+grant select on public_profiles to authenticated;
 
 -- ---------- profile views ----------
 create table if not exists profile_views (
@@ -181,7 +182,7 @@ create table if not exists world_messages (
   created_at timestamptz not null default now()
 );
 alter table world_messages enable row level security;
-create policy "anyone reads world" on world_messages for select using (true);
+create policy "anyone reads world" on world_messages for select to authenticated using (not is_blocked(auth.uid(), sender));
 create policy "signed in posts world" on world_messages for insert with check (sender = auth.uid());
 
 -- ---------- plans ----------
@@ -298,4 +299,4 @@ $$;
 -- select cron.schedule('expire-requests', '0 3 * * *', $$delete from threads where not accepted and created_at < now() - interval '7 days'$$);
 
 -- Realtime: add messages, world_messages and plans to the supabase_realtime publication.
-alter publication supabase_realtime add table messages, world_messages, plans;
+-- The authenticated game presence schema follows below.

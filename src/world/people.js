@@ -2,17 +2,18 @@ import * as THREE from "three";
 import { createAvatar } from "./avatar.js";
 import { placedPlaces, placePos } from "../data/places.js";
 import { residentsFor, OPEN_TO } from "../data/content.js";
+import {createVehicleModel} from './vehicle-models.js';
 
 // AI residents (spawned only around the place you are near, to keep the frame rate up),
 // other members' avatars from presence, and HTML name tags above everyone nearby.
 const SPAWN_R = 380, DESPAWN_R = 520, PER_PLACE = 9, LABEL_R = 40, MAX_LABELS = 8;
 
-export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navigation,lowEnd=false }) {
+export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navigation,lowEnd=false,furniture=()=>[] }) {
   const active = new Map(); // id -> person
   const loadedPlaces = new Set();
 
   function addPerson(data, x, z, home) {
-    const safe = navigation ? navigation.safePoint(x, z, data.y || 0) : { x, y: 0, z };
+    const safe = navigation && data.ai ? navigation.safePoint(x, z, data.y || 0) : { x, y:data.y||0, z };
     x = safe.x; z = safe.z;
     const avatar = createAvatar(data.look, data.skin);
     avatar.root.position.set(x, safe.y, z);
@@ -36,9 +37,17 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
     const p = active.get(id);
     if (!p) return;
     scene.remove(p.avatar.root);
+    removeRide(p);
     p.avatar.dispose?.();
     p.el.remove();
     active.delete(id);
+  }
+  function removeRide(p){if(!p.ride)return;scene.remove(p.ride);p.ride.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});p.ride=null;}
+  function syncRide(p){
+    const type=p.data.vehicle||'walk';if(type===p.rideType)return;
+    removeRide(p);p.rideType=type;p.avatar.setCycling(type==='cycle');
+    const motor=type==='car'||type==='auto';p.avatar.root.visible=!motor;
+    if(motor){const model=createVehicleModel(type==='car'?'sedan':'auto');p.ride=new THREE.Group();for(const part of model.parts){const mesh=new THREE.Mesh(part.geometry,part.material);if(part.paint)part.material.color.setHex(type==='car'?0x648b99:0x36764e);mesh.castShadow=mesh.receiveShadow=true;p.ride.add(mesh);}scene.add(p.ride);}
   }
 
   function renderTag(p) {
@@ -83,11 +92,12 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
       if (m.id === selfId || m.x == null) continue;
       seen.add(m.id);
       const p = active.get(m.id);
-      if (!p) addPerson({ ...m, ai: false }, m.x, m.z, null);
+      if (!p) {const added=addPerson({ ...m, ai: false }, m.x, m.z, null);syncRide(added);}
       else {
         p.data = { ...p.data, ...m, ai: false };
-        const safe = navigation ? navigation.safePoint(m.x, m.z, m.y || 0) : m;
+        const safe = m;
         p.tx = safe.x; p.tz = safe.z;
+        p.y=m.y||0;syncRide(p);
         // Presence is a network position, not an AI route. Honour the sender's
         // deck level even when the interpolation crosses a disconnected area.
         if (navigation && (Math.hypot(p.tx-p.x,p.tz-p.z) > 30 || Math.abs((safe.y || 0)-p.y) > 1)) {
@@ -101,6 +111,7 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
 
   const v = new THREE.Vector3();
   function update(dt, playerPos) {
+    const tables=furniture();
     for (const p of active.values()) {
       if (p.data.ai && p.home) {
         // Wander: pick a point near home, walk there, wait a bit.
@@ -126,10 +137,10 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
       // AI residents stop and face you when you come close.
       const stop = p.data.ai && near < 3.5;
       if (d > 0.05 && !stop && (p.wait <= 0 || !p.data.ai)) {
-        const sp = p.data.ai ? 1.4 : Math.min(9, d * 3);
+        const sp = p.data.ai ? 1.4 : Math.min(30, d * 10);
         const step = Math.min(d, sp * dt);
         const ox = p.x, oz = p.z;
-        if (navigation) navigation.move(p, (dx / d) * step, (dz / d) * step);
+        if (navigation && p.data.ai) navigation.move(p, (dx / d) * step, (dz / d) * step);
         else { p.x += (dx / d) * step; p.z += (dz / d) * step; }
         p.avatar.root.rotation.y = Math.atan2(dx, dz);
         p.speed = dt > 0 ? Math.hypot(p.x-ox,p.z-oz)/dt : 0;
@@ -138,11 +149,14 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
         p.speed = 0;
         if (stop) p.avatar.root.rotation.y = Math.atan2(playerPos.x - p.x, playerPos.z - p.z);
       }
-      if(navigation){const h=navigation.surface(p.x,p.z,p.y||0);if(h!==undefined)p.y=h;}
+      if(navigation&&p.data.ai){const h=navigation.surface(p.x,p.z,p.y||0);if(h!==undefined)p.y=h;}
       p.avatar.root.position.set(p.x, p.y || 0, p.z);
       // Far people: no shadows, and skip the walk animation unless they are fairly close.
       p.avatar.setShadow?.(near < 22);
-      p.avatar.root.visible = near < 160;
+      p.avatar.root.visible = near < 160 && !p.ride;
+      if(p.ride){p.ride.position.set(p.x,p.y||0,p.z);p.ride.rotation.y=p.data.heading||0;p.ride.visible=near<200;}
+      if(!p.data.ai&&p.data.heading!=null)p.avatar.root.rotation.y=p.data.heading;
+      if(!p.data.ai){const sit=tables.find(s=>s.occupant===p.id),carry=tables.some(s=>s.carriedBy===p.id);p.avatar.setActivity(sit?'sit':carry?'carry':null);if(sit){p.avatar.root.position.set(sit.x,sit.y||.33,sit.z);p.avatar.root.rotation.y=sit.yaw;}}
       if (near < 70) p.avatar.update(dt, p.speed);
       if (p.bubbleT > 0) { p.bubbleT -= dt; if (p.bubbleT <= 0) { p.bubble = null; renderTag(p); } }
     }

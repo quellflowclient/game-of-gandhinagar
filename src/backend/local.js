@@ -1,8 +1,9 @@
 // Local demo backend. Same interface as supabase.js, but the "database" is localStorage
 // (shared by every tab on this origin) and realtime is a BroadcastChannel. Each tab keeps
 // its own session in sessionStorage, so two tabs can be two different users for testing.
-// Sign-in codes are shown on screen because no email or WhatsApp is sent in demo mode.
+// Sign-in codes are shown on screen because no email is sent in demo mode.
 import { LIMITS, CONTACT_PATTERN } from "../config.js";
+import {emailAddress} from './email.js';
 
 const DB_KEY = "gnr-db-v1";
 const SESSION_KEY = "gnr-session";
@@ -54,15 +55,13 @@ export const local = {
   async getSession() { return session(); },
   onAuth(fn) { handlers.auth.push(fn); },
   async signInWithOtp(contact) {
-    contact = contact.trim().toLowerCase();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contact) && !/^\+?\d{10,13}$/.test(contact.replace(/\s/g, "")))
-      throw new Error("Enter an email address or a WhatsApp number.");
+    contact = emailAddress(contact);
     const code = String(Math.floor(100000 + Math.random() * 900000));
     tx((db) => { db.otps[contact] = { code, at: now() }; });
     return { sent: true, demoCode: code };
   },
   async verifyOtp(contact, code) {
-    contact = contact.trim().toLowerCase();
+    contact = emailAddress(contact);
     const userId = tx((db) => {
       const o = db.otps[contact];
       if (!o || o.code !== code.trim() || now() - o.at > 10 * 60000) throw new Error("That code is not right or has expired.");

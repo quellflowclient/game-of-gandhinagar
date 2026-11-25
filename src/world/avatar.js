@@ -4,6 +4,7 @@ import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.j
 import { lookById, CHARACTERS } from '../data/content.js';
 import { CYCLE, pedalPosition, createCyclingPose,orient } from './cycling-pose.js';
 import { createActivityPose } from './activity-pose.js';
+import {createSoleContact} from './sole-contact.js';
 
 // Local, licensed Rocketbox people: textured faces/clothes and gender-specific
 // captured idle/walk/wave clips, cloned with independent skeletons and mixers.
@@ -86,17 +87,14 @@ export function createAvatar(lookId,skin=0xa86b47) {
   const scale=(gender==='male'?1.76:1.66)/height;model.scale.multiplyScalar(scale);model.position.y-=bounds.min.y*scale;
   const basePosition=model.position.clone();
   const bones={};model.traverse(o=>{if(o.isBone)bones[o.name.replaceAll(':','')]=o;});
-  const soleBones=['LeftFoot','RightFoot','LeftToeBase','RightToeBase'].map(n=>bones[`mixamorig${n}`]).filter(Boolean);
-  root.updateWorldMatrix(true,true);
-  const floorProbe=()=>Math.min(...soleBones.map(b=>root.worldToLocal(b.getWorldPosition(new THREE.Vector3())).y));
-  const neutralSole=floorProbe();
+  const sole=createSoleContact(root,model);
   const cyclePose=createCyclingPose(root,model,bones);
   const activityPose=createActivityPose(root,model,bones);
   let activity=null,activityBlend=1,exitActivity=null,exitBlend=0;
   const boneList=Object.values(bones),seated=k=>['sit','eat','cash','sell'].includes(k);
-  let bike=null,cycling=false,waveT=0,time=Math.random()*4,shadow=true,cyclePhase=0,gestureT=0,gestureKind='yes';
+  let bike=null,cycling=false,waveT=0,time=Math.random()*4,shadow=true,cyclePhase=0,gestureT=0,gestureKind='yes',hitT=0;
   function play(name){if(name===current)return;actions[current]?.fadeOut(0.22);actions[name].reset().fadeIn(0.22).play();current=name;}
-  return {root,look,gender,
+  return {root,look,gender,get soleHeight(){return sole.minimum();},
     setActivity(kind){if(kind===activity)return;if(!kind&&activity){exitActivity=activity;exitBlend=1;}if(kind&&!(seated(kind)&&seated(activity)))activityBlend=0;activity=kind;},
     setFirstPerson(on){for(const mesh of meshes)if(mesh.name==='Body'||mesh.name==='Hair')mesh.visible=!on;},
     socket(name){root.updateWorldMatrix(true,true);return root.worldToLocal(bones[`mixamorig${name}`].getWorldPosition(new THREE.Vector3()));},
@@ -105,12 +103,13 @@ export function createAvatar(lookId,skin=0xa86b47) {
     setShadow(on){if(on===shadow)return;shadow=on;for(const mesh of meshes)mesh.castShadow=on;},
     setCycling(on){cycling=on;if(on&&!bike){bike=bicycle();root.add(bike);}if(bike)bike.visible=on;},
     wave(){waveT=actions.Wave.getClip().duration;play('Wave');},
+    hit(){hitT=2.4;waveT=0;},
     gesture(kind){gestureKind=kind;gestureT=2.2;},
     update(dt,speed){
       time+=dt;waveT=Math.max(0,waveT-dt);
       play(waveT>0?'Wave':!cycling&&speed>0.12?'Walk':'Idle');
       actions.Walk.setEffectiveTimeScale(Math.min(2.2,Math.max(0.4,speed/1.5)));
-      mixer.update(dt);model.position.copy(basePosition);model.rotation.x=0;
+      mixer.update(dt);model.position.copy(basePosition);model.rotation.x=0;model.rotation.z=0;
       for(const mesh of meshes)if(mesh.visible&&mesh.morphTargetDictionary){
         const pulse=time%4.7,blink=pulse<0.15?Math.sin(pulse/0.15*Math.PI):0;
         for(const name of ['eyeBlinkLeft','eyeBlinkRight']){const i=mesh.morphTargetDictionary[name];if(i!=null)mesh.morphTargetInfluences[i]=blink;}
@@ -133,10 +132,11 @@ export function createAvatar(lookId,skin=0xa86b47) {
         activityPose.apply(activity||exitActivity,time);
         if(base){for(let i=0;i<boneList.length;i++)boneList[i].quaternion.copy(base[i].slerp(boneList[i].quaternion,weight));model.position.lerp(basePosition,1-weight);model.rotation.x*=weight;root.updateWorldMatrix(true,true);}
       }
+      if(hitT>0){hitT=Math.max(0,hitT-dt);const f=Math.min(1,hitT/1.2);model.rotation.x=.32*f;model.rotation.z=Math.sin((2.4-hitT)*8)*.12*f;}
       if(!cycling&&!seated(activity)&&!(exitBlend>0&&seated(exitActivity))) {
         // Captured clips have vertical root motion. Keep the lowest planted
         // foot at the rendered surface instead of letting both soles sink.
-        root.updateWorldMatrix(true,true);model.position.y+=THREE.MathUtils.clamp(neutralSole-floorProbe()+0.004,-0.04,0.14);
+        sole.plant();
       }
       if(gestureT>0){gestureT=Math.max(0,gestureT-dt);root.updateWorldMatrix(true,true);const axis=new THREE.Vector3(gestureKind==='yes'?1:0,gestureKind==='no'?1:0,0).transformDirection(root.matrixWorld),q=new THREE.Quaternion().setFromAxisAngle(axis,Math.sin(gestureT*9)*0.16);orient(bones.mixamorigHead,q.multiply(bones.mixamorigHead.getWorldQuaternion(new THREE.Quaternion())));}
     },

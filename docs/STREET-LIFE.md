@@ -149,7 +149,7 @@ Additional checks: `npm run test:driving`, `npm run test:clock`,
 `npm run test:site`, and `node scripts/test-road5.mjs`.
 
 The later pillar screenshot correction replaces the straight Road 5 fence with
-two fences offset 1.22 m from the actual, unchanged metro support alignment,
+two fences offset 1.0 m from the surveyed median support alignment,
 including its curve. A tree sits halfway between each adjacent pair of supports.
 The college crossing stays open. The planted strip blocks pedestrians and
 vehicles; extra navigation obstacles enforce this even where campus zones overlap.
@@ -194,3 +194,29 @@ poles. These dated images must be distinguished from today's live conditions.
 
 `npm run test:live` verifies the two-destination whitelist, retained source
 catalogue, supported mission goals, clipped road extents and HD buffers.
+
+## November 25 release changes
+
+The KH-5 centre flag was replaced with the reference's three interlocking gears
+and blue/red/yellow figures. Straight Road 5 points remain unchanged; roundabout
+resampling and shared mitred offsets make continuous asphalt and pavement edges.
+The duplicate guessed market median is gone. Actual shared median strips block
+walking and driving. Pole/tree bases are kept clear of road footprints; stall
+lamp poles are beside the shop plots rather than through counters.
+
+Small-table rendering uses two shared instance batches, including moving/carry
+transforms. Supabase handles signed-in table claims atomically with 30-second
+leases and one occupied/carried table per player. Native AI seats remain reserved
+in the server catalogue. Visitor-only claims use local storage/Web Locks.
+
+Swept oriented vehicle/person footprints stop intersections before penetration;
+energetic impacts show dust, impact sound, camera/edge feedback, a stagger and
+damaged vehicle paint. Recovery returns the player safely and releases a carried
+table. This remains simple arcade collision feedback, not deformable crash physics.
+
+Live auth is email-only, not SMS/WhatsApp. Authenticated presence, private text
+chat, exclusive seats and private call signaling passed transaction-only database
+checks. Voice is opt-in WebRTC with accept/decline, mute and teardown. Actual
+email delivery needs the owner's custom SMTP configuration. Restrictive mobile
+networks can require the optional short-lived TURN endpoint. Neither real email
+delivery nor two-device audio has been verified yet.

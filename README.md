@@ -1,8 +1,8 @@
 # People of Gandhinagar
 
-A little 3D Gandhinagar you can walk through: Infocity, GIFT City, Akshardham, Dandi Kutir,
-Sarita Udyan, Indroda Park, Swagat Holiday Mall and more. Find people by what they do, wave,
-chat, post plans, do missions, and leave an AI twin to say kem cho while you are away.
+A 3D Gandhinagar game focused on LDRP / KH-5 street life and Mahatma Mandir.
+Walk, cycle, drive on public roads, order food, move a small sitting table, and
+meet signed-in players. Other locations remain archived in the source catalogue.
 
 The city is built from real OpenStreetMap data (21k buildings, roads, lakes, the Sabarmati),
 and each landmark is a hand-built model based on photos of the real place.
@@ -14,9 +14,10 @@ npm install
 npm run dev
 ```
 
-Open the local URL Vite prints. With no `.env`, it runs in **demo mode**: everything is stored in
-this browser, sign-in codes are shown on screen, and two browser tabs can be two different
-users (good for testing waves and chat).
+Open the local URL Vite prints. The included browser-safe project configuration
+uses Supabase; `.env.local` overrides its public URL/key. Set `VITE_BACKEND=demo`
+explicitly for an offline localStorage/BroadcastChannel demo. Demo codes are
+labelled as such; they do not sign in to real multiplayer.
 
 Useful extras:
 
@@ -27,16 +28,28 @@ Useful extras:
 
 ## Go live
 
-1. **Supabase** (database, sign-in, realtime): create a project, run `supabase/schema.sql` in
-   its SQL editor, then put the URL and anon key in `.env` (see `.env.example`).
-   - Email codes work out of the box. **WhatsApp codes need a provider (for example Twilio)**
-     set up in Supabase Auth.
+1. **Supabase** (database, sign-in, realtime): on a new project, run `schema.sql`,
+   `multiplayer.sql`, `voice.sql`, `seats.sql`, `seats-seed.sql`, then `grants.sql`
+   from `supabase/` in that order. These initial schema policies are intended to
+   run once. The connected project already has these installed. Put public
+   project identifiers in `.env.local` (see `.env.example`). Never use a database
+   password or service role key in `VITE_` variables.
+   - For public email sign-in, configure [Custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp)
+     in Supabase Auth. The `SMTP_*` fields in `.env` are a private setup reference: copy the
+     host, port, username, password, sender email and sender name into those settings.
+     Adding these variables to Vercel alone does not configure hosted Supabase Auth.
+     Sign-in accepts email addresses only; SMS and WhatsApp login are not supported.
    - Optional: turn on `pg_cron` and the two retention jobs at the end of the schema.
 2. **Claude** (AI residents and AI twins): set `ANTHROPIC_API_KEY` (server only). Without it,
    simple offline replies are used.
 3. **Hosting**: Vercel works as is. It serves `dist/` and runs `api/ai.js` as `/api/ai`. Set
    the same env vars in the Vercel project. Build command `npm run build`, output `dist`.
 4. Review `public/terms.html` and `public/privacy.html` (both drafts) and add your contact email.
+5. Optional voice: calls need microphone permission and HTTPS. Direct WebRTC uses
+   STUN by default; configure `VITE_TURN_ENDPOINT` with an authenticated service
+   returning short-lived ICE servers for restrictive mobile/NAT networks. Audio
+   is not recorded. Real two-device email/voice acceptance tests remain necessary
+   after custom SMTP and TURN are configured.
 
 ## Rebuild the map
 

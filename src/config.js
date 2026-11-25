@@ -1,3 +1,4 @@
+import {PUBLIC_SUPABASE_PROJECT} from './backend/project.js';
 // App-wide settings. Values that come from the environment are read through Vite's
 // import.meta.env, so they can be set in a .env file (see .env.example).
 export const CITY = {
@@ -13,8 +14,9 @@ export const CITY = {
 };
 
 export const ENV = {
-  supabaseUrl: import.meta.env?.VITE_SUPABASE_URL || "",
-  supabaseAnonKey: import.meta.env?.VITE_SUPABASE_ANON_KEY || "",
+  demo:import.meta.env?.VITE_BACKEND==='demo',
+  supabaseUrl: import.meta.env?.VITE_SUPABASE_URL || PUBLIC_SUPABASE_PROJECT.url,
+  supabaseAnonKey: import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env?.VITE_SUPABASE_ANON_KEY || PUBLIC_SUPABASE_PROJECT.publishableKey,
   // Serverless endpoint for AI twin and AI resident replies. Empty = offline fallback replies.
   aiEndpoint: import.meta.env?.VITE_AI_ENDPOINT || "",
 };

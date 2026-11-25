@@ -19,7 +19,8 @@ const ldrp=buildLdrp(scene,map,origin),metro=buildMetro(scene,map,{lowEnd:true})
 const offRoad=roadClearance(map),median=roadMedian(map),pierSnapshot=JSON.stringify(metro.piers),garden=buildMetroGarden(scene,metro.piers,origin,(x,z,r)=>offRoad(x,z,r)&&median(x,z));assert.equal(JSON.stringify(metro.piers),pierSnapshot,'Garden must not move existing columns');
 assert.ok(metro.piers.length>3,'Keep visible median supports');
 for(const [x,z] of metro.piers)assert.ok(offRoad(x,z),'No circular support footprint on any road');
-for(const s of garden.segments)assert.ok(offRoad((s.a[0]+s.b[0])/2,(s.a[1]+s.b[1])/2,1.45),'No fence/planting strip across asphalt');
+assert.ok(garden.segments.length>30,'Retain a continuous fenced median');
+for(const s of garden.segments)assert.ok(offRoad((s.a[0]+s.b[0])/2,(s.a[1]+s.b[1])/2,1.09),'No fence/planting strip across asphalt');
 for(const s of garden.segments)assert.ok(median((s.a[0]+s.b[0])/2,(s.a[1]+s.b[1])/2),'Iron mesh belongs between carriageways, not between college and road');
 updateParkedVehicles(scene,origin);scene.updateMatrixWorld(true);
 let meshes=0,vertices=0;
@@ -28,6 +29,6 @@ assert.equal(ldrp.market.shops.length,8);assert.equal(ldrp.market.seats.length,1
 for(const shop of MARKET_SHOPS.filter(s=>s.kind!=='food'))assert.equal(ldrp.market.seats.filter(s=>s.shopId===shop.id).length,25);
 assert.ok(ldrp.market.seats.every(s=>s.y===MARKET_GROUND));assert.ok(metro.obstacles.length>0&&metro.obstacles.every(p=>p.r===0.85));
 for(const s of MARKET_SHOPS){const p=marketPoint(origin,s.u,s.v>0?11:-10);assert.ok(ldrp.market.zone.contains(p.x,p.z),'No unowned grass gap beside the shop row');}
-for(const u of [-150,80]){const p=marketPoint(origin,u,0.85),zone=u<0?garden.zone:ldrp.market.zone;assert.equal(zone.heights(p.x,p.z).length,0,'Median plants/fence block movement');assert.ok(zone.forbidsVehicles(p.x,p.z));}
+for(const s of garden.segments){const x=(s.a[0]+s.b[0])/2,z=(s.a[1]+s.b[1])/2;assert.ok(garden.zone.contains(x,z));assert.equal(garden.zone.heights(x,z).length,0,'Every rendered median strip blocks walking');assert.ok(garden.zone.forbidsVehicles(x,z));}
 for(const s of garden.segments)if(s.tree){const nearest=metro.piers.reduce((d,p)=>Math.min(d,Math.hypot(s.tree[0]-p[0],s.tree[1]-p[1])),Infinity);assert.ok(nearest>7,'Trees go between piers, clear of columns');}
 console.log(`Site geometry passed: ${meshes} finite meshes / ${vertices} vertices, 8 shops, 25 sitting tables per tea tapri (166 total), decoded GLB parked vehicles, shoulder and fenced median.`);

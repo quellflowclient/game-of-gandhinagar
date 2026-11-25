@@ -39,7 +39,8 @@ export async function openCard(app, target) {
   } else {
     actions.append(h("button", { type: "button", class: "btn primary", onclick: () => openThread(app, full) }, "💬 Connect"));
     if (twin?.enabled) actions.append(h("button", { type: "button", class: "btn", onclick: () => openTwinChat(app, full, twin) }, "🪞 Talk to their AI twin"));
-    if (target.x != null) actions.append(h("button", { type: "button", class: "btn", onclick: () => { closePanel(); app.goNear(target.x, target.z); } }, "🎙 Go and talk"));
+    if (online && app.voice) actions.append(h('button',{type:'button',class:'btn',onclick:()=>app.voice.start(full)},'🎙 Voice call'));
+    if (target.x != null) actions.append(h("button", { type: "button", class: "btn", onclick: () => { closePanel(); app.goNear(target.x, target.z); } }, "Go nearby"));
   }
 
   const about = full.about || {};

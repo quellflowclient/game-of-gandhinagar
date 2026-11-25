@@ -1,4 +1,52 @@
-# Handoff · People of Gandhinagar (last updated 2026-11-24)
+# Handoff · People of Gandhinagar (last updated 2026-11-25)
+
+## Latest release work — read before historical notes
+
+Only LDRP / KH-5 and Mahatma Mandir are exposed. Full other-location source is
+retained. Supabase project `wcnbaqxqmtbnmbmjyzfx` is installed and connected;
+browser-safe publishable configuration is in `src/backend/project.js` with
+environment overrides. `.env.local` is ignored. Email-only sign-in is enforced
+in both backends; hosted Email is enabled, Phone disabled, confirmation required.
+Production site URL and localhost 5175/5177 redirect URLs are saved in Supabase.
+Custom SMTP is NOT configured yet. Do not claim public email delivery works.
+
+Installed SQL: schema, multiplayer, voice, seats, seats-seed, grants. A real SQL
+transaction tested verified-player presence, exclusive table ownership, recipient
+chat access, and private voice signals; all account fixtures were rolled back.
+No passwords or email sends were involved. Anonymous API checks also passed.
+No two-device authenticated browser or actual microphone/audio test yet.
+
+Road 5 retains original straight surveyed points. Shared mitred ribbons and
+160-sample roundabout remove disconnected segment edges. Sidewalks clip before
+crossing asphalt. Median mesh is generated only between paired carriageways;
+the duplicate guessed market median was removed. KH-5 has the photographed
+gear/figure sculpture, signals and slim lamps. Trees, columns and lamps are
+checked against asphalt; stall lamps moved outside counters. Reconstruction
+remains approximate, not a survey-grade one-to-one digital twin.
+
+Actual shoe-sole grounding: 1,620 pose checks. Cycling: 5,760 contacts. Collision
+uses swept oriented footprints with stop, dust/sound/flash, body stagger, damaged
+paint and a safe recovery action. This is arcade accident feedback, not rigid
+body crash simulation. Table recovery releases carried tables.
+
+166 sitting tables now use two GPU instance batches rather than 332 individual
+meshes. CPU site check is ~330 meshes. Phone viewport 390×844 was inspected:
+1080×2337 drawing buffer, ~452 calls / 648k triangles in circle view. These are
+render statistics, not a physical-phone FPS measurement. Joystick, ride/camera,
+compact dock and contextual order sheet were visually checked.
+
+Shared tables use authenticated database leases (30 s, renewed every 4 s),
+atomic ownership and one table per player. Visitors retain isolated local demo
+claims. Optional 1:1 WebRTC voice has accept/decline, mute, hangup, timeout and
+track cleanup; no auto microphone. TURN setup is optional but needed for
+reliable restrictive-network calling. Quick join asks name + male/female;
+the detailed profile remains optional.
+
+Latest checks: navigation, traffic, cycling, activities, driving, clock, live,
+street, grounding, sidewalks, collision, voice consent/resources, Road 5 and
+site geometry. Rebuild after any remaining edits and verify public deployment.
+
+Historical notes below can describe superseded demo-only behavior.
 
 Read this first in a new session instead of re-exploring. See README.md for setup and full feature status.
 

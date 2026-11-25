@@ -4,6 +4,7 @@ import {createAvatar} from '../avatar.js';
 import {MARKET,MARKET_GROUND,MARKET_SHOPS,LDRP_PLAY_AREA,marketPoint,toMarket,shopYaw,shopPoint,shopPlot} from './ldrp-market-layout.js';
 import {referenceStall,referenceBackdrop,parkedReferenceVan} from './ldrp-stall-models.js';
 import {createVehicleModel} from '../vehicle-models.js';
+import {buildKh5Sculpture} from '../kh5-sculpture.js';
 
 const idFor=(s,n)=>`${s.id}-seat-${n}`;
 export function buildLdrpMarket(scene,origin) {
@@ -11,8 +12,10 @@ export function buildLdrpMarket(scene,origin) {
   const root=new THREE.Group();root.name='KH-5 street life';root.position.set(worldOrigin.x,0,worldOrigin.z);root.rotation.y=MARKET.yaw;scene.add(root);
   const solids=[],plots=MARKET_SHOPS.map(shopPlot),seats=[],actors=[],shops=[],smoke=[];
   const rect=(a,b,c,d)=>[[a,c],[b,c],[b,d],[a,d]];
-  const shoulders=[rect(-175,-24,9.9,25.65),rect(23,185,9.9,25.65),rect(20,185,-24,-8.8),rect(-117.5,-108.5,-13,-8.7)],walkAreas=[...plots,...shoulders];
-  const medianSections=[[24,57],[63,205]],medianAreas=medianSections.map(([a,b])=>rect(a,b,0.08,1.63));
+  const shoulders=[rect(-175,-24,9.5,25.65),rect(23,185,9.5,25.65),rect(20,185,-24,-8),rect(-117.5,-108.5,-13,-7.9)],walkAreas=[...plots,...shoulders];
+  // The shared metro-garden builder owns the surveyed median and both mesh fences.
+  // Do not add a second guessed strip beside the college carriageway.
+  const medianSections=[],medianAreas=[];
   const steel=K.mat(0xaab3b1,{metalness:0.8,roughness:0.32}),dark=K.mat(0x202725),wood=K.mat(0x82705a),cream=K.mat(0xe5ddc9);
   const roofTex=K.canvasTex(128,128,(c,w,h)=>{c.fillStyle='#bcb9a7';c.fillRect(0,0,w,h);for(let x=0;x<w;x+=12){c.fillStyle='rgba(0,0,0,.14)';c.fillRect(x,0,2,h);c.fillStyle='rgba(255,255,255,.2)';c.fillRect(x+3,0,2,h);}});
   const ground=K.mat(K.greyPavers(),{color:0xb7b1a2,roughness:1});
@@ -50,18 +53,17 @@ export function buildLdrpMarket(scene,origin) {
   const paving=K.canvasTex(256,256,(c,w,h)=>{c.fillStyle='#ddd4b9';c.fillRect(0,0,w,h);for(let y=0;y<h;y+=16)for(let x=-32;x<w;x+=64){c.fillStyle='#ae7665';c.fillRect(x+(y%32?32:0),y,30,14);}});paving.wrapS=paving.wrapT=THREE.RepeatWrapping;paving.repeat.set(10,10);
   K.cyl(root,9.12,9.12,0.24,K.mat(paving,{roughness:1}),0,0,0,96);
   K.cyl(root,7.35,7.35,0.45,cream,0,0.24,0,96);K.cyl(root,7.2,7.2,0.03,K.mat(K.lawnTex(),{color:0x788658}),0,0.69,0,96);
-  K.cyl(root,1.1,1.35,1.2,0xb6ad94,0,0.22,0,24);
-  const flagRoot=new THREE.Group();flagRoot.scale.setScalar(1.6);root.add(flagRoot);const circleFlag=K.flagPole(flagRoot,0,0);
+  const circleArt=buildKh5Sculpture(root);
   for(const radius of [7.38])for(const y of [1.06,1.48]){const rail=new THREE.Mesh(new THREE.TorusGeometry(radius,0.025,6,100),steel);rail.rotation.x=Math.PI/2;rail.position.y=y;root.add(rail);}
   for(let i=0;i<48;i++){const a=i*Math.PI/24;K.cyl(root,0.025,0.025,0.85,steel,Math.cos(a)*7.38,0.69,Math.sin(a)*7.38,6);if(i%2===0){const hoop=new THREE.Mesh(new THREE.TorusGeometry(.15,.014,5,16),steel);hoop.position.set(Math.cos(a)*7.38,1.24,Math.sin(a)*7.38);hoop.rotation.y=Math.PI/2-a;root.add(hoop);}}
   for(let i=0;i<12;i++){const a=i*Math.PI/6,shrub=K.sphere(root,0.78,K.mat(K.lawnTex(),{color:0x58714b}),Math.cos(a)*5.6,0.65,Math.sin(a)*5.6,12);shrub.scale.y=0.85;}
   // Red/cream paving and black/yellow curb follow the reference roundabout edge.
   for(let i=0;i<72;i++){const a=i*Math.PI/36;K.box(root,0.79,0.16,0.23,i%2?0xc3a44a:0x343b39,Math.cos(a)*9.1,0.08,Math.sin(a)*9.1,-a);}
-  for(const yaw of [0,Math.PI/2,Math.PI,Math.PI*1.5]){const sign=new THREE.Group();sign.rotation.y=yaw;root.add(sign);K.textPlane(sign,['KH-5 CIRCLE','ખ-૫ સર્કલ'],{bg:'#365c4a',fg:'#fff4d1'},3.5,.9,0,1.3,7.4);}
   solids.push({circle:[0,0,9.25]});
-  const nightLamps=[],lightPositions=[];
-  for(const [u,v] of [[-6,-5],[6,5],...MARKET_SHOPS.map(s=>[s.u,s.v])]){
-    K.streetLight(root,u,v,0,{h:7,double:true});lightPositions.push([u,7,v]);
+  const nightLamps=[],lightPositions=[...circleArt.lampPositions];
+  for(const shop of MARKET_SHOPS){
+    const u=shop.u+8,v=shop.v>0?11:-10.8;
+    K.streetLight(root,u,v,0,{h:7,double:true});lightPositions.push([u,7,v]);solids.push({circle:[u,v,.14]});
   }
   // Shared warm pools are cheap on phones; only the three nearest real lights
   // illuminate people/materials. No shadow maps per lamp.
@@ -171,13 +173,14 @@ export function buildLdrpMarket(scene,origin) {
   // animated staff and steam after the batching pass detaches nested groups.
   for(const s of shops){s.group3d.clear();root.add(s.group3d);}
   // Sitting tables are separate dynamic objects: never baked into static mesh.
-  for(const seat of seats) {
-    const g=new THREE.Group();g.name=seat.id;g.position.set(seat.x,MARKET_GROUND,seat.z);g.rotation.y=seat.yaw;scene.add(g);
-    K.box(g,0.64,0.06,0.64,K.mat(0x8c6951,{roughness:0.85}),0,0.43,0);
-    for(const x of [-0.24,0.24])for(const z of [-0.24,0.24])K.box(g,0.05,0.43,0.05,dark,x,0,z);
-    K.mergeStatic(g);
-    seat.mesh=g;
-  }
+  const tableModel=new THREE.Group();
+  K.box(tableModel,0.64,0.06,0.64,K.mat(0x8c6951,{roughness:0.85}),0,0.43,0);
+  for(const x of [-0.24,0.24])for(const z of [-0.24,0.24])K.box(tableModel,0.05,0.43,0.05,dark,x,0,z);
+  K.mergeStatic(tableModel);
+  const tableBatches=[];
+  tableModel.traverse(part=>{if(!part.isMesh)return;const batch=new THREE.InstancedMesh(part.geometry,part.material,seats.length);batch.name='Movable small sitting tables';batch.instanceMatrix.setUsage(THREE.DynamicDrawUsage);batch.castShadow=batch.receiveShadow=true;batch.frustumCulled=false;scene.add(batch);tableBatches.push(batch);});
+  const tableTransform=new THREE.Object3D(),tableHidden=new THREE.Matrix4().makeScale(0,0,0);
+  for(const [index,seat] of seats.entries()){seat.instance=index;seat.mesh=new THREE.Object3D();seat.mesh.position.set(seat.x,MARKET_GROUND,seat.z);seat.mesh.rotation.y=seat.yaw;tableTransform.position.copy(seat.mesh.position);tableTransform.rotation.y=seat.yaw;tableTransform.updateMatrix();for(const batch of tableBatches)batch.setMatrixAt(index,tableTransform.matrix);}
   // Soft, animated steam and occasional adult cigarette smoke.
   const mistTex=K.canvasTex(64,64,(c,w,h)=>{const r=c.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);r.addColorStop(0,'rgba(255,255,255,.4)');r.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=r;c.fillRect(0,0,w,h);});
   for(const puff of smoke){const mat=new THREE.SpriteMaterial({map:mistTex,transparent:true,opacity:0.25,depthWrite:false});puff.sprite=new THREE.Sprite(mat);root.add(puff.sprite);}
@@ -232,13 +235,12 @@ export function buildLdrpMarket(scene,origin) {
     setNight(on,playerPos){for(const m of nightLamps)m.emissiveIntensity=on?3:0;poolMat.visible=on;const nearest=lightPositions.map(([u,y,v])=>({...f.toWorld(u,v),y})).sort((a,b)=>Math.hypot(a.x-playerPos.x,a.z-playerPos.z)-Math.hypot(b.x-playerPos.x,b.z-playerPos.z));nightLights.forEach((l,i)=>{const p=nearest[i];l.position.set(p.x,p.y,p.z);l.intensity=on?90:0;});},
     furnitureChanged(){for(const a of actors)a.routeKey=null;},
     canDrop(x,z){const {u,v}=f.toLocal(x,z);return plots.some(p=>K.pointInPolygon(u,v,p))&&zone.heights(x,z,0.52).length>0;},
-    renderSeats(ledger,player,me){for(const s of ledger.all()){const original=seats.find(q=>q.id===s.id);if(!original)continue;const mesh=original.mesh;if(s.carriedBy===me){mesh.visible=true;mesh.position.set(player.position.x+Math.sin(player.heading)*0.6,player.position.y+0.5,player.position.z+Math.cos(player.heading)*0.6);mesh.rotation.y=player.heading;}else{mesh.position.set(s.x,MARKET_GROUND,s.z);mesh.rotation.y=s.yaw;mesh.visible=!s.carriedBy&&Math.hypot(s.x-player.position.x,s.z-player.position.z)<65;}}},
+    renderSeats(ledger,player,me,remote=[]){for(const s of ledger.all()){const original=seats.find(q=>q.id===s.id);if(!original)continue;const mesh=original.mesh,carrier=s.carriedBy===me?{...player.position,heading:player.heading}:remote.find(p=>p.userId===s.carriedBy);if(s.carriedBy&&carrier){mesh.visible=Math.hypot(carrier.x-player.position.x,carrier.z-player.position.z)<65;mesh.position.set(carrier.x+Math.sin(carrier.heading||0)*0.6,(carrier.y||0)+0.5,carrier.z+Math.cos(carrier.heading||0)*0.6);mesh.rotation.y=carrier.heading||0;}else{mesh.position.set(s.x,MARKET_GROUND,s.z);mesh.rotation.y=s.yaw;mesh.visible=!s.carriedBy&&Math.hypot(s.x-player.position.x,s.z-player.position.z)<65;}mesh.updateMatrix();for(const batch of tableBatches)batch.setMatrixAt(original.instance,mesh.visible?mesh.matrix:tableHidden);}for(const batch of tableBatches)batch.instanceMatrix.needsUpdate=true;},
     react(shopId,yes){for(const a of actors.filter(a=>a.shopId===shopId&&a.options.customer))a.avatar?.gesture(yes?'yes':'no');},
     bind(serviceState,seatLedger){service=serviceState;seatState=seatLedger;},
     staffDistance(){const meal=service?.meal;if(!meal)return Infinity;const a=actors.find(a=>a.shopId===meal.shop.id&&a.options.server);if(!a?.avatar)return Infinity;return a.avatar.root.getWorldPosition(new THREE.Vector3()).distanceTo(new THREE.Vector3(meal.customer.x,meal.customer.y??MARKET_GROUND,meal.customer.z));},
     update(t,playerPos) {
       if(!playerPos)return;const dt=Math.min(0.05,Math.max(0,t-lastTime));lastTime=t;
-      circleFlag.rotation.y=Math.sin(t*0.8)*0.15;
       for(const a of actors) {
         const s=shops.find(s=>s.id===a.shopId),shopDistance=Math.hypot(playerPos.x-s.x,playerPos.z-s.z);
         const active=shopDistance<(a.options.customer?32:50)&&(!a.options.occasional||Math.floor(t/55)%4===0);

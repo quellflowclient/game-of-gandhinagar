@@ -1,6 +1,9 @@
 import * as THREE from "three";
 import * as BGU from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import * as T from "./textures.js";
+import {createSidewalks} from './sidewalks.js';
+import {offsetPath} from './road-path.js';
+import {roadClearance} from './metro-road-clearance.js';
 
 // Realistic OpenStreetMap city, split into 500 m chunks so off-screen parts are culled
 // (for both the main view and shadows). Buildings get real facade textures chosen by
@@ -64,6 +67,7 @@ function polygonGeo(ring, y, uvScale) {
 // Ribbon along a polyline. u across (0..1), v along (metres / tileLen).
 function ribbonGeo(pts, width, y, tileLen, offset = 0) {
   const pos = [], uv = [];
+  const left=offsetPath(pts,offset+width/2),right=offsetPath(pts,offset-width/2);
   let along = 0;
   const w = width / 2;
   for (let i = 0; i < pts.length - 1; i++) {
@@ -72,8 +76,8 @@ function ribbonGeo(pts, width, y, tileLen, offset = 0) {
     if (len < 0.01) continue;
     const nx = -dz / len, nz = dx / len;
     const ox = nx * offset, oz = nz * offset;
-    const a = [x1 + nx * w + ox, y, z1 + nz * w + oz], b = [x1 - nx * w + ox, y, z1 - nz * w + oz];
-    const c = [x2 + nx * w + ox, y, z2 + nz * w + oz], d = [x2 - nx * w + ox, y, z2 - nz * w + oz];
+    const a = [left[i][0],y,left[i][1]], b = [right[i][0],y,right[i][1]];
+    const c = [left[i+1][0],y,left[i+1][1]], d = [right[i+1][0],y,right[i+1][1]];
     const v0 = along / tileLen, v1 = (along + len) / tileLen;
     pos.push(...a, ...c, ...b, ...b, ...c, ...d);
     uv.push(0, v0, 0, v1, 1, v0, 1, v0, 0, v1, 1, v1);
@@ -165,15 +169,12 @@ function pickStyle(kind, h, r) {
 
 // Tree: trunk plus three crown blobs, merged.
 function treeGeometry() {
-  const trunk = new THREE.CylinderGeometry(0.22, 0.38, 3.2, 6); trunk.translate(0, 1.6, 0);
-  const blobs = [[0, 4.6, 0, 2.4], [1.1, 4.0, 0.4, 1.7], [-0.9, 4.2, -0.5, 1.8]].map(([x, y, z, r]) => {
-    const g = new THREE.IcosahedronGeometry(r, 0); g.translate(x, y, z); return g; // 20 faces each
-  });
-  const color = (g, c) => { const col = new THREE.Color(c); const a = []; for (let i = 0; i < g.attributes.position.count; i++) a.push(col.r, col.g, col.b); g.setAttribute("color", new THREE.Float32BufferAttribute(a, 3)); return g; };
-  color(trunk, 0x5b4330);
-  blobs.forEach((b, i) => color(b, [0x4d7a32, 0x5a8a3a, 0x44702c][i]));
-  const parts = [trunk, ...blobs].map((g) => g.toNonIndexed());
-  return BGU.mergeGeometries(parts);
+  const trunk=new THREE.CylinderGeometry(.22,.38,3.2,9);trunk.translate(0,1.6,0);const wood=[trunk.toNonIndexed()],leaves=[];
+  for(const [x,y,z,r] of [[0,4.8,0,2.4],[1.1,4.0,.4,1.7],[-.9,4.2,-.5,1.8]]){
+    const a=new THREE.Vector3(0,2.6,0),b=new THREE.Vector3(x,y,z),d=b.clone().sub(a),branch=new THREE.CylinderGeometry(.06,.11,d.length(),7);branch.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize()));const mid=a.add(b).multiplyScalar(.5);branch.translate(mid.x,mid.y,mid.z);wood.push(branch.toNonIndexed());
+    for(let i=0;i<5;i++){const leaf=new THREE.PlaneGeometry(r*2,r*1.65);leaf.rotateY(i*Math.PI/5);leaf.translate(x,y,z);leaves.push(leaf.toNonIndexed());}
+  }
+  return{wood:BGU.mergeGeometries(wood),leaves:BGU.mergeGeometries(leaves)};
 }
 
 function streetLightGeometry() {
@@ -258,7 +259,9 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
     flush();
   }
   const sorted = renderRoads.sort((a, b) => (ROAD[a.kind]?.[0] || 6) - (ROAD[b.kind]?.[0] || 6));
+  const sidewalk=createSidewalks(sorted,Object.fromEntries(Object.entries(ROAD).map(([kind,[width]])=>[kind,width])));
   const lightSpots = new Map();
+  const roadClearanceForLights=roadClearance(map);
   for (const r of sorted) {
     const [defaultWidth, cls] = ROAD[r.kind] || [6, 0];
     const width=r.width||defaultWidth;
@@ -270,7 +273,7 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
       const g = ribbonGeo(seg, width, y, 8);
       if (g) (C(k0).roads[cls] ||= []).push(g);
       if (MAJOR.has(r.kind)) {
-        for (const side of r.sidewalkSides||[-1, 1]) { const s = ribbonGeo(seg, 2.6, y + 0.1, 4, side * (width / 2 + 1.3)); if (s) C(k0).walks.push(s); }
+        for (const side of r.sidewalkSides||[-1, 1])for(const points of sidewalk.sections(r,seg,side)){const s=ribbonGeo(points,2.6,y+.1,4);if(s)C(k0).walks.push(s);}
       }
     };
     for (let i = 1; i < r.pts.length; i++) {
@@ -280,7 +283,7 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
     }
     flush();
     // Street lights along major roads every ~35 m.
-    if (MAJOR.has(r.kind) && !lowEnd) {
+    if (MAJOR.has(r.kind) && !lowEnd && r.id!==386749312) {
       let acc = 0;
       for (let i = 0; i < r.pts.length - 1; i++) {
         const [x1, z1] = r.pts[i], [x2, z2] = r.pts[i + 1];
@@ -288,7 +291,7 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
         const nx = -(z2 - z1) / (len || 1), nz = (x2 - x1) / (len || 1);
         for (let d = (35 - acc) % 35; d < len; d += 35) {
           const t = d / len, x = x1 + (x2 - x1) * t + nx * (width / 2 + 0.6), z = z1 + (z2 - z1) * t + nz * (width / 2 + 0.6);
-          bucket(lightSpots, key(x, z)).push([x, z, Math.atan2(nx, nz)]); // arm points over the road
+          if(roadClearanceForLights(x,z,.35))bucket(lightSpots, key(x, z)).push([x, z, Math.atan2(nx, nz)]); // arm points over the road
         }
         acc = (acc + len) % 35;
       }
@@ -335,7 +338,8 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
     }
   }
   const treeSpots = new Map();
-  const addTree = (x, z) => { if (!roadCells.has(cell(x, z)) && !inLake(x, z) && !onSite(x, z)) bucket(treeSpots, key(x, z)).push([x, z]); };
+  const offAsphalt=roadClearance(map);
+  const addTree = (x, z) => { if (offAsphalt(x,z,.7) && !roadCells.has(cell(x, z)) && !inLake(x, z) && !onSite(x, z)) bucket(treeSpots, key(x, z)).push([x, z]); };
   for (const p of map.parks) {
     const ring = p.pts.slice(0, -1);
     if (ring.length < 3) continue;
@@ -349,7 +353,7 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
   }
   for (const r of map.roads) {
     if (!["tertiary", "residential", "secondary", "primary", "trunk"].includes(r.kind)) continue;
-    const off = (ROAD[r.kind]?.[0] || 8) / 2 + (MAJOR.has(r.kind) ? 4.5 : 3);
+    const off = (r.width || ROAD[r.kind]?.[0] || 8) / 2 + (MAJOR.has(r.kind) ? 4.5 : 3);
     for (let i = 0; i < r.pts.length - 1; i++) {
       const [x1, z1] = r.pts[i], [x2, z2] = r.pts[i + 1];
       const len = Math.hypot(x2 - x1, z2 - z1);
@@ -364,7 +368,8 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
 
   // ---------- emit meshes per chunk ----------
   const treeGeo = treeGeometry();
-  const treeMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true });
+  const treeMat = new THREE.MeshStandardMaterial({color:0x6f5a42,roughness:1});
+  const leafMat = new THREE.MeshStandardMaterial({map:T.foliage(),color:0xc2c8b1,alphaTest:.4,side:THREE.DoubleSide,roughness:1});
   const lightGeo = streetLightGeometry();
   const lightMat = new THREE.MeshStandardMaterial({ color: 0x5a5f66, roughness: 0.5, metalness: 0.6 });
   const lampGeo = new THREE.BoxGeometry(0.5, 0.18, 0.9); lampGeo.translate(0, 7.8, -1.7);
@@ -400,14 +405,16 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
   for (const k of allKeys) {
     const spots = treeSpots.get(k) || [];
     if (spots.length) {
-      const inst = new THREE.InstancedMesh(treeGeo, treeMat, spots.length);
+      const inst = new THREE.InstancedMesh(treeGeo.wood, treeMat, spots.length),crown=new THREE.InstancedMesh(treeGeo.leaves,leafMat,spots.length);
       spots.forEach(([x, z], i) => {
         const s = 0.8 + rand() * 0.7;
         q.setFromAxisAngle(up, rand() * Math.PI * 2);
         inst.setMatrixAt(i, m4.compose(v.set(x, 0, z), q, sc.set(s, s * (0.9 + rand() * 0.3), s)));
+        crown.setMatrixAt(i,m4);
         inst.setColorAt(i, tint.setHSL(0.24 + rand() * 0.06, 0.25 + rand() * 0.2, 0.75 + rand() * 0.25));
       });
       inst.castShadow = true; inst.receiveShadow = true;
+      crown.castShadow=true;crown.receiveShadow=true;crown.computeBoundingSphere();group.add(crown);
       inst.computeBoundingSphere();
       group.add(inst);
       treeCount += spots.length;

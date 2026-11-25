@@ -1,8 +1,8 @@
 // Supabase backend. Used when VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.
 // Needs the tables, policies and functions in supabase/schema.sql.
-// NOTE: written against supabase-js v2 but not yet run against a live project.
 import { createClient } from "@supabase/supabase-js";
 import { ENV, LIMITS, CONTACT_PATTERN } from "../config.js";
+import {emailAddress} from './email.js';
 
 const sb = createClient(ENV.supabaseUrl, ENV.supabaseAnonKey);
 const DAY = 86400000;
@@ -15,42 +15,69 @@ const toApp = (r) => r && ({
   visible: r.visible, emailAlerts: r.email_alerts, lastX: r.last_x, lastZ: r.last_z,
 });
 const toDb = (p) => {
-  const map = { residentNo: "resident_no", oneLiner: "one_liner", openTo: "open_to", emailAlerts: "email_alerts" };
+  const map = { residentNo: "resident_no", oneLiner: "one_liner", openTo: "open_to", emailAlerts: "email_alerts",lastX:'last_x',lastZ:'last_z' };
   const out = {};
-  for (const [k, v] of Object.entries(p)) out[map[k] || k] = v;
+  for (const [k, v] of Object.entries(p)) if(v!==undefined)out[map[k] || k] = v;
   return out;
 };
 const ok = ({ data, error }) => { if (error) throw new Error(error.message); return data; };
 const me = async () => (await sb.auth.getSession()).data.session?.user?.id || null;
 const clean = (t) => { if (CONTACT_PATTERN.test(t || "")) throw new Error("No phone numbers, emails or links, please."); };
 
-let channel = null;
+let channel = null, online = [], state = null, generation = 0, joinRevision=0, refreshTimer, heartbeat, sending = false, dirty = false, sendTask=null;
 const presenceFns = [];
+const messageFns = [], worldFns = [], waveFns = [], planFns = [];
+const callFns=[],signalFns=[];
+const sessionValue = s => s?.user?.email_confirmed_at ? { userId:s.user.id, contact:s.user.email } : null;
+const emitPresence = () => presenceFns.forEach(fn => fn(online));
+async function refreshOnline(epoch = generation) {
+  if (!state?.userId) return;
+  const {data,error} = await sb.rpc('online_players');
+  if (epoch !== generation || error) return;
+  online = data || []; emitPresence();
+}
+async function sendPosition() {
+  if (!state?.userId || sending || !dirty || !['ldrp','dandi'].includes(state.place)) return;
+  sending = true; dirty = false;
+  const p = {...state};
+  try {
+    sendTask=sb.rpc('update_player_presence', {px:p.x,py:p.y||0,pz:p.z,ph:p.heading||0,pv:p.vehicle||'walk',pp:p.place});
+    const {error} = await sendTask;
+    if(error) console.warn('Multiplayer position:',error.message);
+  } finally { sending=false;sendTask=null; }
+}
+async function leavePresence() {
+  generation++; clearTimeout(refreshTimer); clearInterval(heartbeat);
+  if(channel) { sb.removeChannel(channel); channel=null; }
+  const wasJoined = !!state?.userId;
+  state=null; dirty=false; online=[]; emitPresence();
+  if(wasJoined) {if(sendTask)await sendTask;await sb.rpc('leave_city');}
+}
 
 export const supabase = {
   mode: "live",
 
   async getSession() {
     const s = (await sb.auth.getSession()).data.session;
-    return s ? { userId: s.user.id, contact: s.user.email || s.user.phone } : null;
+    return sessionValue(s);
   },
   onAuth(fn) {
-    sb.auth.onAuthStateChange((_e, s) => fn(s ? { userId: s.user.id, contact: s.user.email || s.user.phone } : null));
+    const {data} = sb.auth.onAuthStateChange((_e, s) => {
+      // Supabase auth callbacks must finish before making another auth request.
+      setTimeout(()=>fn(sessionValue(s)),0);
+    });
+    return () => data.subscription.unsubscribe();
   },
   async signInWithOtp(contact) {
-    const isEmail = contact.includes("@");
-    const opts = isEmail ? { email: contact.trim() } : { phone: contact.replace(/\s/g, ""), options: { channel: "whatsapp" } };
-    ok(await sb.auth.signInWithOtp(opts));
+    ok(await sb.auth.signInWithOtp({email:emailAddress(contact),options:{emailRedirectTo:location.origin}}));
     return { sent: true };
   },
   async verifyOtp(contact, code) {
-    const isEmail = contact.includes("@");
-    const opts = isEmail ? { email: contact.trim(), token: code.trim(), type: "email" }
-      : { phone: contact.replace(/\s/g, ""), token: code.trim(), type: "sms" };
-    ok(await sb.auth.verifyOtp(opts));
+    ok(await sb.auth.verifyOtp({email:emailAddress(contact),token:code.trim(),type:'email'}));
     return this.getSession();
   },
-  async signOut() { await sb.auth.signOut(); },
+  async signOut() { await leavePresence(); ok(await sb.auth.signOut()); },
+  async health() { return ok(await sb.rpc('game_health')); },
   async accessToken() { return (await sb.auth.getSession()).data.session?.access_token || null; },
 
   async getMyProfile() {
@@ -70,6 +97,7 @@ export const supabase = {
     return p;
   },
   async listMembers() {
+    if (!(await me())) return [];
     return (ok(await sb.from("public_profiles").select("*").neq("name", "")) || []).map(toApp);
   },
   async recordView(id) { const m = await me(); if (m && m !== id) await sb.from("profile_views").insert({ who: id }); },
@@ -78,32 +106,48 @@ export const supabase = {
     return rows.map(toApp);
   },
 
-  // Presence: one realtime channel for the whole city.
-  joinPresence(state) {
-    channel = sb.channel("city", { config: { presence: { key: state.key } } });
-    channel.on("presence", { event: "sync" }, () => {
-      const list = Object.values(channel.presenceState()).map((arr) => arr[0]);
-      for (const fn of presenceFns) fn(list);
+  // Authenticated database rows, not client-supplied identity in a public room.
+  async joinPresence(next) {
+    const request=++joinRevision;
+    await leavePresence();
+    const session=await this.getSession();
+    if(request!==joinRevision||!next.userId || session?.userId!==next.userId) return;
+    state={...next}; const epoch=generation;
+    channel=sb.channel(`city-${next.userId}-${epoch}`);
+    channel.on('postgres_changes',{event:'*',schema:'public',table:'player_presence'},()=>{
+      clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refreshOnline(epoch),80);
     });
-    channel.on("broadcast", { event: "wave" }, ({ payload }) => this._onWave?.(payload));
-    channel.subscribe((status) => { if (status === "SUBSCRIBED") channel.track(state); });
-    this._state = state;
+    channel.on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},({new:m})=>messageFns.forEach(fn=>fn({id:m.id,thread:m.thread,from:m.sender,text:m.body,at:+new Date(m.created_at)})));
+    channel.on('postgres_changes',{event:'INSERT',schema:'public',table:'world_messages'},({new:m})=>worldFns.forEach(fn=>fn({id:m.id,from:m.sender,name:'',text:m.body,at:+new Date(m.created_at)})));
+    channel.on('postgres_changes',{event:'INSERT',schema:'public',table:'waves',filter:`target=eq.${next.userId}`},({new:w})=>waveFns.forEach(fn=>fn({from:w.sender,to:w.target})));
+    channel.on('postgres_changes',{event:'*',schema:'public',table:'plans'},()=>planFns.forEach(fn=>fn({})));
+    channel.on('postgres_changes',{event:'*',schema:'public',table:'voice_calls'},({new:c})=>callFns.forEach(fn=>fn(c)));
+    channel.on('postgres_changes',{event:'INSERT',schema:'public',table:'voice_signals'},({new:s})=>signalFns.forEach(fn=>fn(s)));
+    channel.subscribe(status=>{if(status==='SUBSCRIBED'&&epoch===generation){dirty=true;sendPosition();refreshOnline(epoch);}});
+    heartbeat=setInterval(()=>{dirty=true;sendPosition();refreshOnline(epoch);},10000);
+    dirty=true; await sendPosition(); await refreshOnline(epoch);
   },
   updatePresence(patch) {
-    if (!channel) return;
-    Object.assign(this._state, patch);
-    clearTimeout(this._t);
-    this._t = setTimeout(() => channel.track(this._state), 400); // throttle position updates
+    if (!state) {if(patch.userId)this.joinPresence(patch);return;}
+    if(patch.userId === undefined && 'key' in patch) {leavePresence();return;}
+    Object.assign(state,patch);dirty=true;sendPosition();
   },
   onPresence(fn) { presenceFns.push(fn); },
-  presenceList() { return channel ? Object.values(channel.presenceState()).map((a) => a[0]) : []; },
+  presenceList() { return online; },
+  async listSeats(){return ok(await sb.from('city_seats').select('*'))||[];},
+  async tableAction(id,action,pose={}){return ok(await sb.rpc('table_action',{sid:id,action,px:pose.x??null,pz:pose.z??null,ph:pose.yaw??null}));},
+  onCall(fn){callFns.push(fn);},onVoiceSignal(fn){signalFns.push(fn);},
+  async startCall(target){return ok(await sb.rpc('start_voice_call',{target}));},
+  async setCall(id,status){return ok(await sb.rpc('set_voice_call',{cid:id,next_status:status}));},
+  async getCall(id){return ok(await sb.from('voice_calls').select('*').eq('id',id).maybeSingle());},
+  async sendVoiceSignal(id,payload){ok(await sb.rpc('send_voice_signal',{cid:id,signal:payload}));},
+  async voiceSignals(id){return ok(await sb.from('voice_signals').select('*').eq('call_id',id).order('id'))||[];},
 
   async wave(toId) {
     const w = ok(await sb.rpc("send_wave", { target: toId }));
-    channel?.send({ type: "broadcast", event: "wave", payload: { from: await me(), to: toId } });
     return w;
   },
-  onWave(fn) { this._onWave = fn; },
+  onWave(fn) { waveFns.push(fn); },
 
   async sendRequest(toId, text) {
     clean(text);
@@ -138,8 +182,7 @@ export const supabase = {
     return t ? this.getMessages(t.id) : [];
   },
   onMessage(fn) {
-    sb.channel("my-messages").on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" },
-      (p) => fn({ id: p.new.id, thread: p.new.thread, from: p.new.sender, text: p.new.body, at: +new Date(p.new.created_at) })).subscribe();
+    messageFns.push(fn);
   },
 
   async postWorld(text) {
@@ -147,12 +190,12 @@ export const supabase = {
     return ok(await sb.from("world_messages").insert({ body: text.slice(0, 280) }).select().single());
   },
   async listWorld() {
+    if (!(await me())) return [];
     const rows = ok(await sb.from("world_messages").select("*, profiles(name)").order("created_at", { ascending: false }).limit(100)) || [];
     return rows.reverse().map((m) => ({ id: m.id, from: m.sender, name: m.profiles?.name || "Someone", text: m.body, at: +new Date(m.created_at) }));
   },
   onWorld(fn) {
-    sb.channel("world").on("postgres_changes", { event: "INSERT", schema: "public", table: "world_messages" },
-      (p) => fn({ id: p.new.id, from: p.new.sender, name: "", text: p.new.body, at: +new Date(p.new.created_at) })).subscribe();
+    worldFns.push(fn);
   },
 
   async listPlans() {
@@ -173,7 +216,7 @@ export const supabase = {
     else await sb.from("plan_members").delete().eq("plan", id).eq("user_id", await me());
   },
   onPlans(fn) {
-    sb.channel("plans").on("postgres_changes", { event: "*", schema: "public", table: "plans" }, () => fn({})).subscribe();
+    planFns.push(fn);
   },
   async markInterested(eventId, on = true) {
     if (on) await sb.from("event_interests").upsert({ event_id: eventId });

@@ -20,6 +20,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
   const withinArea=(x,z)=>!areaLocked||playArea(x,z);
   function removeVehicle(){if(vehicleRoot){scene.remove(vehicleRoot);vehicleRoot.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});}vehicleRoot=null;vehicleModel=null;driveSpeed=0;}
   function setVehicle(type){
+    if(crashed)return{error:'Accident ke baad pehle safe jagah recover karo.'};
     if(!(type in VEHICLES))return{error:'Unknown vehicle'};
     if(sitting||carrying)return{error:'Pehle table se utho ya table rakh do.'};
     if(type===vehicle)return{ok:true};
@@ -40,7 +41,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
     }
     vehicle=type;cycling=type==='cycle';avatar.root.visible=true;avatar.setCycling(cycling);speedNow=0;return{ok:true};
   }
-  let frozen = false;
+  let frozen = false,crashed=false;
   let speedNow = 0;
   let actualSpeed = 0;
   let distanceCycled = 0;
@@ -119,9 +120,9 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
 
   function update(dt) {
     actualSpeed = 0;
-    if(navigation&&!sitting&&!vehicleRoot){const h=navigation.surface(pos.x,pos.z,pos.y,cycling?0.52:0.38);if(h!==undefined)pos.y=h;}
+    if(navigation&&!sitting&&!vehicleRoot){const h=navigation.surface(pos.x,pos.z,pos.y,cycling?0.52:0.38);if(h!==undefined)pos.y=h;else{const p=navigation.safePoint(pos.x,pos.z,pos.y,cycling?0.52:0.38,.65);if(withinArea(p.x,p.z))pos.set(p.x,p.y,p.z);}}
     let ix = 0, iz = 0;
-    if (!frozen) {
+    if (!frozen && !crashed) {
       if (keys.has("KeyW") || keys.has("ArrowUp")) iz -= 1;
       if (keys.has("KeyS") || keys.has("ArrowDown")) iz += 1;
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
@@ -138,7 +139,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
 
     if(vehicleRoot){
       const oldX=pos.x,oldZ=pos.z;
-      driveSpeed=drivingSpeed(driveSpeed,frozen?0:-iz,dt,vehicle);
+      driveSpeed=crashed?0:drivingSpeed(driveSpeed,frozen?0:-iz,dt,vehicle);
       const turn=ix*dt*0.95*Math.min(1,driveSpeed/3)/(1+driveSpeed*.045),steps=Math.max(1,Math.ceil(driveSpeed*dt/.15));
       for(let i=0;i<steps;i++){
         const angle=heading+turn/steps,x=pos.x+Math.sin(angle)*driveSpeed*dt/steps,z=pos.z+Math.cos(angle)*driveSpeed*dt/steps;
@@ -205,10 +206,14 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
   }
 
   return {
+    get crashed(){return crashed;},
+    stopAt(p){pos.set(p.x,p.y||0,p.z);heading=p.yaw??heading;speedNow=actualSpeed=driveSpeed=0;avatar.root.position.copy(pos);if(vehicleRoot){vehicleRoot.position.copy(pos);vehicleRoot.rotation.y=heading;}},
+    hit(){crashed=true;speedNow=actualSpeed=driveSpeed=0;keys.clear();avatar.hit();if(vehicleRoot){vehicleRoot.rotation.z=.025;for(const part of vehicleModel.parts)if(part.paint){part.material.color.multiplyScalar(.65);part.material.roughness=.85;}}},
     get position() { return pos; },
     get heading() { return heading; },
     get cycling() { return cycling; },
     get vehicle(){return vehicle;},get speedKmh(){return actualSpeed*3.6;},get areaLocked(){return areaLocked;},setVehicle,
+    get soleHeight(){return avatar.soleHeight;},
     setNight(on){vehicleModel?.setNight(on);},
     get cameraMode(){return viewMode;},get cameraFov(){return camera.fov;},setCameraMode,
     setCameraFov(value){camera.fov=THREE.MathUtils.clamp(value,45,90);camera.updateProjectionMatrix();},
@@ -233,7 +238,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
     // faceYaw 0 = camera south of the player looking north, toward the landmark.
     teleport(x, z, faceYaw = 0, height = 0) {
       if(sitting||carrying)return false;
-      removeVehicle();vehicle='walk';cycling=false;avatar.setCycling(false);avatar.root.visible=true;areaLocked=!!playArea?.(x,z);
+      crashed=false;removeVehicle();vehicle='walk';cycling=false;avatar.setCycling(false);avatar.root.visible=true;areaLocked=!!playArea?.(x,z);
       const safe = navigation ? navigation.safePoint(x, z, height) : { x, y: 0, z };
       pos.set(safe.x, safe.y, safe.z);
       speedNow = actualSpeed = 0;

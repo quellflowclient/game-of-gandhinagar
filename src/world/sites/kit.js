@@ -232,7 +232,7 @@ export function tree(g, x, z, k = 1, { color, dry = false } = {}) {
     const a=new THREE.Vector3(x,2.7*k,z),b=new THREE.Vector3(x+dx*k,dy*k,z+dz*k),delta=b.clone().sub(a);
     const branch=new THREE.Mesh(new THREE.CylinderGeometry(0.06*k,0.11*k,delta.length(),7),mat(0x665442));branch.position.copy(a.add(b).multiplyScalar(0.5));branch.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());g.add(branch);
     for(let i=0;i<5;i++) {
-      const leaf=put(g,new THREE.PlaneGeometry(r*2*k,r*1.65*k),mat(T.foliage(),{color:c,alphaTest:0.42,side:THREE.DoubleSide,roughness:1}),x+dx*k,dy*k,z+dz*k,i*Math.PI/5);
+      const leaf=put(g,new THREE.PlaneGeometry(r*2*k,r*1.65*k),mat(T.foliage(),{color:new THREE.Color(c).lerp(new THREE.Color(0xffffff),.62),alphaTest:0.42,side:THREE.DoubleSide,roughness:1}),x+dx*k,dy*k,z+dz*k,i*Math.PI/5);
       leaf.rotation.z=Math.sin(i+x)*0.18;
     }
   }

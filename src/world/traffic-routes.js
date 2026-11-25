@@ -71,6 +71,7 @@ export function createTrafficSimulation(map,zones=[],{count=40,random=Math.rando
       nearby=routes.filter(r=>r.maxX>center.x-650&&r.minX<center.x+650&&r.maxZ>center.z-650&&r.minZ<center.z+650);lastCenter={...center};
     }
     for(const v of vehicles) {
+      if(v.crashTime>0){v.crashTime-=dt;v.speed=0;if(v.crashTime<=0)spawn(v,center);continue;}
       if(!v.route){spawn(v,center);continue;}
       let speed=v.cruise;
       for(const other of vehicles)if(other!==v&&other.route===v.route&&other.direction===v.direction&&other.pose) {

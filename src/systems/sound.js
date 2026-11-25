@@ -124,6 +124,12 @@ export function createSound() {
     start,
     update,
     say,
+    impact(){
+      if(!ctx||!st.on)return;
+      const src=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain(),t=ctx.currentTime;
+      src.buffer=noise;filter.type='lowpass';filter.frequency.value=420;gain.gain.setValueAtTime(.9,t);gain.gain.exponentialRampToValueAtTime(.001,t+.32);
+      src.connect(filter);filter.connect(gain);gain.connect(cityGain);src.start(t);src.stop(t+.35);
+    },
     setMood(kind) { mood = MOODS[kind] || MOODS.default; },
     set(k, v) { st[k] = v; apply(); persist(); },
     forceMusic() { st.musicForced = true; apply(); },

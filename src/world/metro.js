@@ -2,7 +2,7 @@ import * as THREE from "three";
 import * as BGU from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { canvasTex,mergeStatic } from "./sites/kit.js";
 import {metroCenterlines,singleRowPiers} from './metro-layout.js';
-import {roadClearance} from './metro-road-clearance.js';
+import {roadClearance,medianCenter} from './metro-road-clearance.js';
 
 // Ahmedabad–Gandhinagar metro (OSM railway=subway): elevated viaduct on hammerhead piers
 // ~12 m up, running along the real alignment, plus an elevated station at every mapped
@@ -73,8 +73,8 @@ export function buildMetro(scene, map, { lowEnd = false } = {}) {
     }
   }
   // Span across junction asphalt. Supports stand in the median, never in lanes.
-  const offRoad=roadClearance(map);
-  const centralSpots=singleRowPiers(spots).filter(([x,z])=>offRoad(x,z));
+  const offRoad=roadClearance(map),median=medianCenter(map);
+  const centralSpots=singleRowPiers(spots).map(p=>{const m=median(p[0],p[1]);return m&&Math.hypot(m.x-p[0],m.z-p[1])<1.3?[m.x,m.z,p[2]]:p;}).filter(([x,z])=>offRoad(x,z));
   const piers = new THREE.InstancedMesh(pierGeometry(), concrete, centralSpots.length);
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), one = new THREE.Vector3(1, 1, 1);
   centralSpots.forEach(([x, z, a], i) => { q.setFromAxisAngle(up, a + Math.PI / 2); piers.setMatrixAt(i, m.compose(new THREE.Vector3(x, 0, z), q, one)); });

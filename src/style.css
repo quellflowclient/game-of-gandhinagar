@@ -416,3 +416,10 @@ body.on-landing #hud, body.on-landing #labels { visibility: hidden; }
 .vehicle-speed{bottom:calc(218px + env(safe-area-inset-bottom));font-size:13px;padding:5px 10px;}
 @media(max-height:500px) and (orientation:landscape){.dock{bottom:8px;}.joystick{bottom:20px;}.hud-actions{bottom:22px;flex-direction:column;}.camera-view{bottom:80px;}.street-actions{bottom:76px;max-width:55vw;}.arrival{top:66px;}.more{bottom:66px;}}
 @media(max-width:700px) and (min-height:501px){.street-actions{left:134px;right:76px;bottom:calc(108px + env(safe-area-inset-bottom));transform:none;width:auto;max-width:none;flex-direction:column;}.street-actions button{width:100%;max-width:none;}.context{left:134px;right:76px;bottom:108px;transform:none;max-width:none;}.context .ctx{white-space:normal;}}
+/* Contextual accident recovery leaves the normal mobile controls uncluttered. */
+.accident-recover{position:fixed;z-index:32;left:50%;bottom:calc(146px + env(safe-area-inset-bottom));transform:translateX(-50%);max-width:65vw;padding:12px 18px;border:1px solid #e3c4b1;border-radius:22px;background:#fff6ee;color:#693a27;font:600 13px system-ui;box-shadow:0 4px 22px #37251c33}
+.accident-recover[hidden]{display:none}
+.impact-flash::after{content:'';pointer-events:none;position:fixed;inset:0;z-index:40;animation:impact-edge .7s ease-out forwards;box-shadow:inset 0 0 65px #a94332}
+@keyframes impact-edge{from{opacity:.65}to{opacity:0}}
+.voice-call{position:fixed;z-index:48;top:calc(90px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;background:#fffef7;color:#233d34;border:1px solid #cad8cc;padding:9px 12px;border-radius:18px;box-shadow:0 5px 25px #14392722;max-width:92vw;font:600 13px system-ui}
+.voice-call[hidden]{display:none}.voice-call button{border:0;border-radius:12px;padding:10px 12px;background:#e0ecdf;white-space:nowrap;color:#244235}.voice-call button:last-child{background:#f3e0d6;color:#763e29}

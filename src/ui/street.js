@@ -1,8 +1,19 @@
 import {h,toast,openPanel,closePanel} from './dom.js';
-import {createSeatState,createStreetService} from '../systems/street-service.js';
+import {createSeatState,createStreetService,atStallCounter} from '../systems/street-service.js';
 
 export function createStreetLife(app,market) {
-  const player=app.player,me=`guest-${crypto.randomUUID()}`,seats=createSeatState(market.seats);
+  const player=app.player,guestId=`guest-${crypto.randomUUID()}`,seats=createSeatState(market.seats);
+  let me=guestId,remoteBusy=false,seatPending=false,remoteLast=0;
+  const onlineMode=()=>!!(app.session&&app.backend.tableAction);
+  async function syncRemote(){
+    if(!onlineMode()||remoteBusy)return;remoteBusy=true;const user=app.session.userId;
+    try{const rows=await app.backend.listSeats();if(app.session?.userId!==user)return;
+      for(const r of rows){const s=seats.get(r.id);if(!s)continue;const active=r.owner&&Date.parse(r.expires)>Date.now();Object.assign(s,{x:r.x,z:r.z,yaw:r.yaw,group:r.group_name,permission:r.permission,occupant:active&&r.mode==='sit'?r.owner:r.native_occupant,carriedBy:active&&r.mode==='carry'?r.owner:null});}
+      if(player.sitting&&seats.get(player.sitting)?.occupant!==me)player.stand();
+      if(carried&&seats.get(carried)?.carriedBy!==me){carried=null;player.setCarrying(false);}
+      market.furnitureChanged();
+    }catch(e){console.warn('Shared tables:',e.message);}finally{remoteBusy=false;}
+  }
   const strip=h('div',{class:'street-actions',hidden:true,'aria-label':'Nearby street actions'});document.body.append(strip);
   let elapsed=0,closest=null,carried=null,lastKey='',lastHeartbeat=0,lastRunKey='';
   const storageKey='kh5-sitting-tables-v4';
@@ -15,7 +26,16 @@ export function createStreetLife(app,market) {
     }
     if(player.sitting&&seats.get(player.sitting)?.occupant!==me){player.stand();toast('Yeh table ab occupied hai. Doosri khaali table choose karo.');}
   }
-  async function changeSeat(id,action) {
+  async function changeSeat(id,action,verb) {
+    const current=seats.get(id);
+    if(['sit','carry'].includes(verb)&&Math.hypot(player.position.x-current.x,player.position.z-current.z)>2.5)return toast('Table ke paas aao.');
+    if(onlineMode()){
+      if(seatPending)return{error:'Table update ho rahi hai.'};seatPending=true;
+      const s=seats.get(id),before={...s},result=action();
+      try{if(result?.error){toast(result.error);return result;}
+        await app.backend.tableAction(id,verb,{x:s.x,z:s.z,yaw:s.yaw});market.furnitureChanged();return result;
+      }catch(e){Object.assign(s,before);toast(e.message);return{error:e.message};}finally{seatPending=false;syncRemote();}
+    }
     const run=()=>{
       const shared=readShared();syncShared(shared);
       const result=action();if(result?.error){toast(result.error,'info');return result;}
@@ -25,7 +45,7 @@ export function createStreetLife(app,market) {
     };
     return navigator.locks?navigator.locks.request('kh5-furniture',run):run();
   }
-  window.addEventListener('storage',e=>{if(e.key===storageKey)syncShared();});
+  window.addEventListener('storage',e=>{if(e.key===storageKey&&!onlineMode())syncShared();});
   window.addEventListener('pagehide',()=>{const shared=readShared();for(const v of Object.values(shared))if(v.owner===me){v.occupant=null;v.carriedBy=null;v.owner=null;}try{localStorage.setItem(storageKey,JSON.stringify(shared));}catch{}});
   const service=createStreetService({now:()=>elapsed,position:()=>player.position,spend:n=>app.progress.spend(n),onEat:item=>player.eat(item),onChange:meal=>{
     if(!meal)return;
@@ -37,6 +57,7 @@ export function createStreetLife(app,market) {
   market.bind(service,seats);
   function openMenu(shop) {
     if(['car','auto'].includes(player.vehicle))return toast('Pehle gaadi se utro, phir order do.');
+    if((!service.meal||service.meal.phase==='paid')&&!atStallCounter(shop,player.position))return toast('Order ke liye stall ke counter ke paas aao.');
     const meal=service.meal;
     const content=h('div',{class:'street-menu'},h('p',{class:'muted small'},`${shop.staff}. Game characters and sample prices. Wallet ₹${app.progress.state.coins} play money; pay after eating.`));
     if(!meal||meal.phase==='paid') {
@@ -56,34 +77,41 @@ export function createStreetLife(app,market) {
     if(['car','auto'].includes(player.vehicle))return toast('Pehle gaadi se utro.');
     const body=h('div',{},h('p',{},seat.occupant?'Is chhoti table par koi baitha hai.':seat.group?'Yeh table paas wale group ke saath hai. Le jaane se pehle poochna.':'Khaali chhoti table. Ek person baith sakta hai.'));
     if(!seat.occupant&&!seat.carriedBy) {
-      if(!seat.group||seat.permission===me)body.append(h('button',{class:'btn primary',onclick:async()=>{const p=player.position,d=Math.hypot(p.x-seat.x,p.z-seat.z);if(d>0.85){const target={x:seat.x+(p.x-seat.x)/d*0.85,y:p.y,z:seat.z+(p.z-seat.z)/d*0.85};if(!app.world.navigation.canTravel(p,target))return toast('Table ke paas khule raste se aao.');}const r=await changeSeat(seat.id,()=>seats.sit(seat.id,me));if(r?.ok){player.sit(r.seat);closePanel();}}},'Baitho'));
-      if(seat.group&&seat.permission!==me)body.append(h('button',{class:'btn',onclick:()=>{const answer=seats.ask(seat.id,me);market.react(seat.shopId,!!answer.ok);toast(`Tum: Khaali hai? Table le jaun?  Group: ${answer.answer||answer.error}`,'info',6000);if(answer.ok)seatMenu(seat);}},'Group se poochho: Table khaali hai?'));
-      else body.append(h('button',{class:'btn',onclick:async()=>{const r=await changeSeat(seat.id,()=>seats.carry(seat.id,me));if(r?.ok){carried=seat.id;player.setCarrying(true);closePanel();}}},'Table uthao'));
+      if(!seat.group||seat.permission===me)body.append(h('button',{class:'btn primary',onclick:async()=>{const p=player.position,d=Math.hypot(p.x-seat.x,p.z-seat.z);if(d>0.85){const target={x:seat.x+(p.x-seat.x)/d*0.85,y:p.y,z:seat.z+(p.z-seat.z)/d*0.85};if(!app.world.navigation.canTravel(p,target))return toast('Table ke paas khule raste se aao.');}const r=await changeSeat(seat.id,()=>seats.sit(seat.id,me),'sit');if(r?.ok){player.sit(r.seat);closePanel();}}},'Baitho'));
+      if(seat.group&&seat.permission!==me)body.append(h('button',{class:'btn',onclick:async()=>{try{if(onlineMode())await app.backend.tableAction(seat.id,'ask');const answer=seats.ask(seat.id,me);market.react(seat.shopId,!!answer.ok);toast(`Tum: Khaali hai? Table le jaun?  Group: ${answer.answer||answer.error}`,'info',6000);if(answer.ok)seatMenu(seat);}catch(e){toast(e.message);}}},'Group se poochho: Table khaali hai?'));
+      else body.append(h('button',{class:'btn',onclick:async()=>{const r=await changeSeat(seat.id,()=>seats.carry(seat.id,me),'carry');if(r?.ok){carried=seat.id;player.setCarrying(true);closePanel();}}},'Table uthao'));
     }
     openPanel('Chhoti table',body);
   }
   function drop() {
     const x=player.position.x+Math.sin(player.heading)*1.2,z=player.position.z+Math.cos(player.heading)*1.2;
-    if(!market.canDrop(x,z))return toast('Path, road, doorway ya doosri table ke upar nahi. Baithne ki jagah par rakho.');
-    changeSeat(carried,()=>seats.drop(carried,me,x,z,player.heading)).then(r=>{if(r?.ok){player.setCarrying(false);carried=null;}});
+    if(!market.canDrop(x,z)||seats.all().some(s=>s.id!==carried&&!s.carriedBy&&Math.hypot(s.x-x,s.z-z)<.9))return toast('Path, road, doorway ya doosri table ke upar nahi. Baithne ki jagah par rakho.');
+    changeSeat(carried,()=>seats.drop(carried,me,x,z,player.heading),'drop').then(r=>{if(r?.ok){player.setCarrying(false);carried=null;}});
   }
-  function stand(){const id=player.sitting;if(!id)return;changeSeat(id,()=>({ok:seats.stand(id,me)})).then(r=>{if(r?.ok)player.stand();});}
+  function stand(){const id=player.sitting;if(!id)return;changeSeat(id,()=>({ok:seats.stand(id,me)}),'stand').then(r=>{if(r?.ok)player.stand();});}
+  async function releaseCarried(){if(!carried)return true;const id=carried,r=await changeSeat(id,()=>{const s=seats.get(id);s.carriedBy=null;return{ok:true};},'release');if(r?.ok){carried=null;player.setCarrying(false);return true;}return false;}
   function update(dt) {
     elapsed+=dt;service.tick(market.staffDistance());
-    if(elapsed-lastHeartbeat>4){lastHeartbeat=elapsed;const shared=readShared();for(const v of Object.values(shared))if(v.owner===me){v.expires=Date.now()+30000;}try{localStorage.setItem(storageKey,JSON.stringify(shared));}catch{}syncShared(shared);}
-    market.renderSeats(seats,player,me);
+    const identity=onlineMode()?app.session.userId:guestId;
+    if(identity!==me){player.stand();player.setCarrying(false);carried=null;me=identity;for(const original of market.seats)Object.assign(seats.get(original.id),original,{permission:null,carriedBy:null});lastKey='';}
+    if(onlineMode()){
+      if(elapsed-remoteLast>1.5&&!seatPending){remoteLast=elapsed;syncRemote();}
+      if(elapsed-lastHeartbeat>4){lastHeartbeat=elapsed;const id=player.sitting||carried;if(id)app.backend.tableAction(id,'renew').catch(e=>console.warn(e.message));}
+    }else if(elapsed-lastHeartbeat>4){lastHeartbeat=elapsed;const shared=readShared();for(const v of Object.values(shared))if(v.owner===me){v.expires=Date.now()+30000;}try{localStorage.setItem(storageKey,JSON.stringify(shared));}catch{}syncShared(shared);}
+    market.renderSeats(seats,player,me,app.backend.presenceList());
     const p=player.position;closest=market.shops.map(s=>({s,d:Math.hypot(s.x-p.x,s.z-p.z)})).sort((a,b)=>a.d-b.d)[0];
     const seat=seats.all().filter(s=>!s.carriedBy&&Math.hypot(s.x-p.x,s.z-p.z)<1.9).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];
-    const nearby=closest?.d<14?closest.s:null,meal=service.meal;
+    const meal=service.meal,active=meal&&meal.phase!=='paid'&&Math.hypot(meal.shop.x-p.x,meal.shop.z-p.z)<15;
+    const nearby=['car','auto'].includes(player.vehicle)?null:active?meal.shop:closest&&atStallCounter(closest.s,p)?closest.s:null;
     const key=[nearby?.id,seat?.id,seat?.occupant,seat?.permission,carried,player.sitting,meal?.phase].join('|');
     strip.hidden=!nearby&&!seat&&!player.sitting&&!carried;
     if(key!==lastKey){lastKey=key;strip.replaceChildren();const btn=(text,fn)=>strip.append(h('button',{type:'button',onclick:fn},text));
       if(player.sitting)btn('Utho',stand);
       else if(carried)btn('Table yahan rakho',drop);
       else if(seat)btn(seat.occupant?'Table occupied':'Baitho / Table lo',()=>seatMenu(seat));
-      if(nearby)btn(meal?.shop.id===nearby.id&&meal.phase==='bill-due'?`Bill ₹${meal.price} do`:`${nearby.caller} ko bulao / Order`,()=>openMenu(nearby));
+      if(nearby)btn(active?meal.phase==='bill-due'?`Bill ₹${meal.price} do`:'Apna order dekho':`${nearby.caller} ko bulao / Order`,()=>openMenu(nearby));
     }
     document.querySelector('canvas[data-human-assets]')?.setAttribute('data-street-state',JSON.stringify({nearShop:nearby?.id,seated:player.sitting,carrying:carried,meal:meal?{phase:meal.phase,item:meal.item,price:meal.price}:null,occupied:seats.all().filter(s=>s.occupant).length}));
   }
-  return {update,openShop:openMenu,seats,service,stand,drop};
+  return {update,openShop:openMenu,seats,service,stand,drop,releaseCarried};
 }

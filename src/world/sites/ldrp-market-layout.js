@@ -8,7 +8,8 @@ export const MARKET_GROUND=0.33;
 export const LDRP_PLAY_AREA={minU:-375,maxU:212,minV:-295,maxV:65};
 export function inLdrpArea(origin,x,z,margin=0){const p=toMarket(origin,x,z),b=LDRP_PLAY_AREA;return p.u>=b.minU+margin&&p.u<=b.maxU-margin&&p.v>=b.minV+margin&&p.v<=b.maxV-margin;}
 export const ROAD5_WAYS=[326054220,386749311,386751118,903991653];
-export function applyRoad5Profile(map){for(const road of map.roads)if(ROAD5_WAYS.includes(road.id)){road.width=6.2;road.sidewalkSides=[-1];}}
+export const CARRIAGEWAY_WIDTH=4.8;
+export function applyRoad5Profile(map){for(const road of map.roads)if(ROAD5_WAYS.includes(road.id)){road.width=CARRIAGEWAY_WIDTH;road.sidewalkSides=[-1];}}
 export const MARKET_SHOPS = [
   {id:'babu',name:'Babu na Chhole Kulche',gu:'બાબુના છોલે કુલચે',u:-155,v:15.5,kind:'food',color:0x87342c,emoji:'🍲',items:[['Chhole kulche',60],['Extra kulcha',15]],staff:'Saras cooks · Masi takes payment · Babu serves'},
   {id:'chintu',name:'Chintu ki Pav-Bhaji',gu:'ચિન્ટુની પાવભાજી',u:-116,v:15.5,kind:'food',color:0x30756b,emoji:'🍛',items:[['Pav-bhaji',70],['Extra butter pav',20]],staff:'Chintu & Kaka · Hot bhaji, toasted pav'},

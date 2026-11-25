@@ -26,13 +26,15 @@
 <li>Nothing about you is written to our database.</li>
 <li>Your passport (stamps, streak, missions), play money and sound settings are saved in your own browser only. Clearing your browser data removes them.</li></ul>
 <h2>If you sign in and become visible</h2>
-<p>Signing in uses a one-time code sent to your email address or WhatsApp number. Data is kept with a hosted database and sign-in service (Supabase).</p>
+<p>Signing in uses a one-time email code or sign-in link. Data is kept with a hosted database and sign-in service (Supabase).</p>
 <div class="wrap"><table>
 <tr><th>What</th><th>Why</th><th>Who can see it</th></tr>
-<tr><td>Your email or phone number</td><td>To sign you in</td><td>Only you and the owner. Never shown in the city.</td></tr>
-<tr><td>Your profile: name, what you do, one-liner, open to, interests, reasons, home district, usual hours, character, and optional company, building, website, skills</td><td>So people can find you</td><td>Anyone who opens the app, while "Show me to other people" is on</td></tr>
+<tr><td>Your email address</td><td>To sign you in</td><td>Only you and the owner. Never shown in the city.</td></tr>
+<tr><td>Your profile: name, what you do, one-liner, open to, interests, reasons, home district, usual hours, character, and optional company, building, website, skills</td><td>So people can find you</td><td>Signed-in players, while "Show me to other people" is on</td></tr>
 <tr><td>LinkedIn and Instagram links</td><td>So people can reach you outside the app</td><td>Signed-in people who open your profile. Never people you block.</td></tr>
-<tr><td>Online status and your spot in the game city</td><td>To show "here now" and place your character</td><td>Anyone in the app while you are visible. It is a spot in the game, never your real location.</td></tr>
+<tr><td>Online status and your spot in the game city</td><td>To show "here now" and place your character</td><td>Signed-in players while you are visible. It is a spot in the game, never your real location. Disconnected presence expires after 45 seconds.</td></tr>
+<tr><td>Small-table position and occupancy</td><td>To prevent two players using the same seat</td><td>Signed-in players. Occupancy leases expire after a disconnect.</td></tr>
+<tr><td>Optional voice calls</td><td>Live conversation after the other player accepts</td><td>Audio is sent through WebRTC to the other participant and is not recorded by this app. Microphone access starts only when you start or accept a call and ends on hangup. Connection signals and call status are stored in Supabase and restricted to participants; network providers may process connection addresses.</td></tr>
 <tr><td>Waves and connect requests</td><td>To tell the other person, and limit them to one a day</td><td>You and the other person</td></tr>
 <tr><td>First messages (up to 3 before they reply) and chats</td><td>To deliver the conversation</td><td>The two of you. Unanswered requests expire after 7 days.</td></tr>
 <tr><td>World chat messages</td><td>Public city chat</td><td>Everyone in the app</td></tr>

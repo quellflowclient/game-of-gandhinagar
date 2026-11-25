@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {metroCenterlines,singleRowPiers} from '../src/world/metro-layout.js';
 import {pierGeometry} from '../src/world/metro.js';
-import {applyRoad5Profile,ROAD5_WAYS,MARKET_SHOPS,MARKET_GROUND,marketPoint} from '../src/world/sites/ldrp-market-layout.js';
+import {applyRoad5Profile,ROAD5_WAYS,CARRIAGEWAY_WIDTH,MARKET_SHOPS,MARKET_GROUND,marketPoint} from '../src/world/sites/ldrp-market-layout.js';
+import {alignMetroRoads} from '../src/world/metro-road-clearance.js';
 import {placePos,placeById} from '../src/data/places.js';
 import {createNavigation} from '../src/world/navigation.js';
 import {CAMERA_MODES} from '../src/world/camera-modes.js';
 const map=JSON.parse(fs.readFileSync(new URL('../public/data/gandhinagar-map.json',import.meta.url)));
-applyRoad5Profile(map);for(const id of ROAD5_WAYS){const r=map.roads.find(r=>r.id===id);assert.equal(r.width,6.2);assert.deepEqual(r.sidewalkSides,[-1]);}
+const roadPoints=JSON.stringify(map.roads.map(r=>r.pts));alignMetroRoads(map);assert.equal(JSON.stringify(map.roads.map(r=>r.pts)),roadPoints,'Do not bend straight roads to fit metro supports');
+applyRoad5Profile(map);for(const id of ROAD5_WAYS){const r=map.roads.find(r=>r.id===id);assert.equal(r.width,CARRIAGEWAY_WIDTH);assert.deepEqual(r.sidewalkSides,[-1]);}
 const ring=map.roads.find(r=>r.id===386749312),centre=marketPoint(placePos(placeById('ldrp')),0,0);for(const [k,key] of [[0,'x'],[1,'z']])assert.ok(Math.abs(centre[key]-(Math.min(...ring.pts.map(p=>p[k]))+Math.max(...ring.pts.map(p=>p[k])))/2)<.05,'Authored circle must be centred on the actual OSM ring');
 for(const shop of MARKET_SHOPS)assert.ok(Math.abs(shop.v)<17,'Shops meet the outer footpath, not a lawn strip');
 assert.ok(MARKET_GROUND>0.3);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {createStreetService,createSeatState} from '../src/systems/street-service.js';
+import {createStreetService,createSeatState,atStallCounter} from '../src/systems/street-service.js';
 import {MARKET_SHOPS,marketPoint,toMarket} from '../src/world/sites/ldrp-market-layout.js';
 import {createNavigation} from '../src/world/navigation.js';
 import {ldrpCyclePaths} from '../src/world/sites/ldrp-paths.js';
@@ -17,6 +17,7 @@ let t=0,coins=100,charges=0,eaten=0,pos={x:0,z:0};
 const shop={...MARKET_SHOPS[0],x:0,z:0};
 const service=createStreetService({now:()=>t,position:()=>pos,spend:n=>{if(coins<n)return false;coins-=n;charges++;return true;},onEat:()=>eaten++});
 assert.ok(service.order('Chhole kulche',100).error);
+for(const p of [{x:3,z:0},{x:0,z:10},{x:12,z:0},{x:0,z:0,y:3}]){pos=p;assert.equal(atStallCounter(shop,p),false);assert.ok(service.call(shop).error,'Cannot call from median, road or far from counter');}
 pos={x:50,z:0};assert.ok(service.call(shop).error);pos={x:0,z:0};assert.ok(service.call(shop).ok);
 t=4;service.tick(5);assert.equal(service.meal.phase,'approaching');
 service.tick(1);assert.equal(service.meal.phase,'taking-order');

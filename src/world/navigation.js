@@ -1,9 +1,12 @@
 // Pedestrian capsule movement, shared by the player, NPCs and presence avatars.
 // Swept substeps prevent running/cycling through thin walls and water edges.
+import {createSidewalks,HAS_SIDEWALK} from './sidewalks.js';
 export function createNavigation(zones = [],{roads,parks=[]}={}) {
   const obstacleGrid=new Map();
   const obstacleAt=(x,z,r=0.38)=>(obstacleGrid.get(`${Math.floor(x/20)},${Math.floor(z/20)}`)||[]).some(p=>Math.abs(x-p.x)<p.r+r&&Math.abs(z-p.z)<p.r+r&&Math.hypot(x-p.x,z-p.z)<p.r+r);
   const grid=new Map(),cell=50,widths={motorway:26,trunk:22,primary:18,secondary:13,tertiary:10,residential:7,unclassified:7,living_street:6,service:5,pedestrian:6,footway:2.5,path:2,cycleway:3};
+  const walkGrid=new Map();
+  if(roads){const sidewalk=createSidewalks(roads,widths);for(const road of roads)if(HAS_SIDEWALK.has(road.kind))for(const side of road.sidewalkSides||[-1,1])for(const path of sidewalk.sections(road,road.pts,side))for(let i=1;i<path.length;i++){const a=path[i-1],b=path[i],segment={a,b,height:.3+(road.width||widths[road.kind])*.004};for(let x=Math.floor((Math.min(a[0],b[0])-1.4)/cell);x<=Math.floor((Math.max(a[0],b[0])+1.4)/cell);x++)for(let z=Math.floor((Math.min(a[1],b[1])-1.4)/cell);z<=Math.floor((Math.max(a[1],b[1])+1.4)/cell);z++){const key=`${x},${z}`;if(!walkGrid.has(key))walkGrid.set(key,[]);walkGrid.get(key).push(segment);}}}
   const parkSurfaces=parks.map(p=>({pts:p.pts,minX:Math.min(...p.pts.map(q=>q[0])),maxX:Math.max(...p.pts.map(q=>q[0])),minZ:Math.min(...p.pts.map(q=>q[1])),maxZ:Math.max(...p.pts.map(q=>q[1]))}));
   if(roads)for(const road of roads)for(let i=1;i<road.pts.length;i++) {
     const a=road.pts[i-1],b=road.pts[i],width=road.width||widths[road.kind];if(!width)continue;
@@ -21,7 +24,8 @@ export function createNavigation(zones = [],{roads,parks=[]}={}) {
     // Same elevations as city.js road ribbons and raised public footpaths.
     let top=-0.05;
     for(const park of parkSurfaces){if(x<park.minX||x>park.maxX||z<park.minZ||z>park.maxZ)continue;let inside=false;const p=park.pts;for(let i=0,j=p.length-1;i<p.length;j=i++)if((p[i][1]>z)!==(p[j][1]>z)&&x<(p[j][0]-p[i][0])*(z-p[i][1])/(p[j][1]-p[i][1])+p[i][0])inside=!inside;if(inside)top=Math.max(top,0.06);}
-    for(const {a,b,width,sidewalk,sides} of grid.get(`${Math.floor(x/cell)},${Math.floor(z/cell)}`)||[]){const dx=b[0]-a[0],dz=b[1]-a[1],l=dx*dx+dz*dz,t=l?Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/l)):0,d=Math.hypot(x-a[0]-t*dx,z-a[1]-t*dz),side=Math.sign((x-a[0])*(-dz)+(z-a[1])*dx);if(d<=width/2)top=Math.max(top,0.2+width*0.004);else if(sidewalk&&sides.includes(side)&&d<=width/2+2.6)top=Math.max(top,0.3+width*0.004);}
+    for(const {a,b,width} of grid.get(`${Math.floor(x/cell)},${Math.floor(z/cell)}`)||[]){const dx=b[0]-a[0],dz=b[1]-a[1],l=dx*dx+dz*dz,t=l?Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/l)):0,d=Math.hypot(x-a[0]-t*dx,z-a[1]-t*dz);if(d<=width/2)top=Math.max(top,0.2+width*0.004);}
+    for(const {a,b,height} of walkGrid.get(`${Math.floor(x/cell)},${Math.floor(z/cell)}`)||[]){const dx=b[0]-a[0],dz=b[1]-a[1],l=dx*dx+dz*dz,t=l?Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/l)):0;if(Math.hypot(x-a[0]-t*dx,z-a[1]-t*dz)<=1.3)top=Math.max(top,height);}
     return[top+0.008];
   }
   function surface(x, z, y, radius = 0.38, step = 0.65) {

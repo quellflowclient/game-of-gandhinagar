@@ -32,6 +32,9 @@ import {openVehicles} from './ui/vehicles.js';
 import {buildMetroGarden} from './world/metro-garden.js';
 import {createLiveMap} from './world/live-map.js';
 import {alignMetroRoads,roadClearance,roadMedian} from './world/metro-road-clearance.js';
+import {createCollisionSystem} from './world/collision.js';
+import {createImpactEffects} from './world/impact-effects.js';
+import {createVoice} from './systems/voice.js';
 
 const loading = document.getElementById("loading");
 const tourMode = new URLSearchParams(location.search).has('tour');
@@ -109,10 +112,11 @@ const app = {
     app.session = await backend.getSession();
     await app.refreshMe();
     backend.joinPresence(presenceState());
-    toast("Welcome! You are now visible in the city.", "good");
-    if (!app.me?.name) prof.openProfile(app);
+    toast(app.me?.name?"Welcome! You are now visible in the city.":"Email verified. Choose your name and character.", "good");
+    if (!app.me?.name) prof.openQuickJoin(app);
   },
   onSignedOut() {
+    app.voice?.end();
     app.session = null; app.me = null;
     backend.joinPresence(presenceState());
     toast("Signed out. You can keep walking as a visitor.");
@@ -122,7 +126,7 @@ const app = {
   visitorCount: () => backend.presenceList().filter((p) => !p.userId).length,
   countsByPlace() {
     const out = {};
-    for (const p of hubs()) out[p.id] = 9;
+    for (const p of hubs()) out[p.id] = 0;
     for (const m of backend.presenceList()) if (m.place) out[m.place] = (out[m.place] || 0) + 1;
     return out;
   },
@@ -150,7 +154,8 @@ const areaContains=(x,z)=>inLdrpArea(ldrpOrigin,x,z,1.5);
 const player = createPlayer({ scene, camera, dom: renderer.domElement, joystickEl: hud.joystick, bounds, navigation: world.navigation, cameraObstacles: world.cameraObstacles,playArea:areaContains,driving:createDrivingSurface(mapData.roads,world.navigation.zones,(x,z)=>!player.areaLocked||areaContains(x,z)) });
 app.player = player;
 app.street=world.markets?.[0]?createStreetLife(app,world.markets[0]):null;
-const people = createPeople({ scene, camera, labelsEl, spawns: world.spawns, navigation: world.navigation,lowEnd, onTap: (p) => social.openCard(app, p) });
+const people = createPeople({ scene, camera, labelsEl, spawns: world.spawns, navigation: world.navigation,lowEnd,furniture:()=>app.street?.seats.all()||[], onTap: (p) => social.openCard(app, p) });
+app.voice=createVoice(app);
 app.people = people;
 
 // Start at Infocity's welcome sign.
@@ -281,7 +286,7 @@ function presenceState() {
   const me = app.me;
   return app.session && me?.name && me.visible !== false
     ? { key: app.session.userId, userId: app.session.userId, name: me.name, role: me.role, openTo: me.openTo, oneLiner: me.oneLiner,
-        look: me.look, skin: me.skin, x: Math.round(p.x*10)/10, y: p.y, z: Math.round(p.z*10)/10, place: app.currentPlace?.id, placeName: app.currentPlace?.name }
+        look: me.look, skin: me.skin, x: Math.round(p.x*10)/10, y: p.y, z: Math.round(p.z*10)/10, heading:player.heading, vehicle:player.vehicle, place: app.currentPlace?.id, placeName: app.currentPlace?.name }
     : { key: visitorKey, x: null, z: null, place: app.currentPlace?.id };
 }
 backend.onPresence((list) => {
@@ -316,7 +321,13 @@ backend.onWave?.((w) => {
     p ? { label: "View", fn: () => social.openCard(app, p) } : undefined));
 });
 backend.onPlans?.(() => {});
-backend.onAuth?.(() => {});
+backend.onAuth?.(async session => {
+  if(session?.userId === app.session?.userId) return;
+  if(!session)app.voice?.end();
+  app.session=session;
+  try {await app.refreshMe();await backend.joinPresence(presenceState());}
+  catch(e){toast(e.message,'bad');}
+});
 
 progress.subscribe((e) => { if (e.toast) toast(e.toast, e.kind); refreshMissionLine(); });
 function refreshMissionLine() {
@@ -441,12 +452,32 @@ async function enter() {
   if (app.session) await app.refreshMe();
   backend.joinPresence(presenceState());
   if (!app.session) toast("You are walking as a visitor. Sign in to wave, chat and be seen.", "info", 6000, { label: "Sign in", fn: () => prof.openSignIn(app) });
-  else if (!app.me?.name) prof.openProfile(app);
+  else if (!app.me?.name) prof.openQuickJoin(app);
   if (!location.search.includes("tour")) setTimeout(() => { if (!panelOpen() && progress.current()?.index === 0) game.openMissionBrief(app); }, 2500);
 }
 
 // ---------- loop ----------
 const clockT = new THREE.Clock();
+const impactEffects=createImpactEffects(scene,camera);
+const recoverButton=h('button',{class:'accident-recover',hidden:true,onclick:async()=>{
+  if(player.carrying&&!(await app.street?.releaseCarried()))return;
+  player.stand();
+  const spawn=world.spawns[app.currentPlace?.id||'ldrp'];
+  if(spawn){player.teleport(spawn.x,spawn.z,0,spawn.y||0);recoverButton.hidden=true;}
+}},'Accident · Safe jagah wapas jao');
+document.body.append(recoverButton);
+const collisions=createCollisionSystem(hit=>{impactEffects.burst(hit);if(hit.player){sound.impact();recoverButton.hidden=false;}});
+function collisionEntities(){
+  const entities=traffic.vehicles.filter(v=>v.pose).map(v=>({id:`traffic-${v.id}`,...v.pose,width:v.width,length:v.length,motor:true,
+    stop:p=>traffic.stop(v.id,p)}));
+  if(entered){const p=player.position,motor=['car','auto'].includes(player.vehicle);entities.push({id:'player',x:p.x,y:p.y,z:p.z,yaw:player.heading,
+    width:motor?(player.vehicle==='car'?1.84:1.45):.55,length:motor?(player.vehicle==='car'?4.5:2.7):player.cycling?1.8:.55,
+    motor,player:true,stop:p=>player.stopAt(p),hit:()=>player.hit()});
+    for(const p of people.all())if(p.data.ai&&Math.hypot(p.x-player.position.x,p.z-player.position.z)<90)entities.push({id:`ai-${p.id}`,x:p.x,y:p.y,z:p.z,width:.5,length:.5,
+      stop:q=>{p.x=q.x;p.z=q.z;p.tx=q.x;p.tz=q.z;p.wait=5;p.avatar.root.position.set(p.x,p.y,p.z);},hit:()=>p.avatar.hit()});
+  }
+  return entities;
+}
 let t = 0;
 function frame() {
   const dt = Math.min(clockT.getDelta(), 0.05);
@@ -461,6 +492,8 @@ function frame() {
   cityObj.update(t);
   world.update(t,player.position);
   traffic.update(dt, entered ? player.position : showcase, t);
+  if(entered){collisions.update(dt,collisionEntities());traffic.render();}
+  if(!player.crashed)recoverButton.hidden=true;
   updateGig(dt);
   if (!entered) {
     // Landing: slow cinematic orbit around Akshardham.
@@ -478,7 +511,7 @@ function frame() {
   if (t - lastPlaceCheck > 0.5) { lastPlaceCheck = t; checkPlace(); proximity(); }
   if (t - lastMini > 0.2) {
     lastMini = t;
-    updateParkedVehicles(scene,player.position);
+    updateParkedVehicles(scene,player.position,{lowEnd});
     hud.setVehicle(player.vehicle);hud.setDrive(player.vehicle,player.speedKmh,player.areaLocked);
     const dots = people.all().map((p) => ({ x: p.x, z: p.z, real: !p.data.ai }));
     minimap.draw(player.position, player.heading, dots);
@@ -487,7 +520,9 @@ function frame() {
       renderer.domElement.dataset.trafficSummary=JSON.stringify(traffic.stats);
       renderer.domElement.dataset.trafficPositions=JSON.stringify(traffic.vehicles.filter(v=>v.pose).map(v=>({id:v.id,type:v.type,...v.pose})));
       renderer.domElement.dataset.humanAssets='male,female';
+      renderer.domElement.dataset.soleHeight=String(player.soleHeight);
       renderer.domElement.dataset.driving=JSON.stringify({vehicle:player.vehicle,kmh:player.speedKmh,areaLocked:player.areaLocked});
+      renderer.domElement.dataset.accidents=JSON.stringify({count:collisions.impacts,player:player.crashed});
       renderer.domElement.dataset.renderStats=JSON.stringify({calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,pixelRatio:renderer.getPixelRatio(),width:renderer.domElement.width,height:renderer.domElement.height});
     }
   }
@@ -504,11 +539,12 @@ function frame() {
     hud.setTime(`${fmtHour(hr)} ${clock.mode==='live'?'IST':'PREVIEW'}`, night, w.loaded ? `${w.temp}°C${w.stale?' (last update)':''}` : 'Weather unavailable');
     progress.track("hour", { hour: hr });
   }
-  if (t - lastPresence > 1.2 && app.session && app.me?.name) {
+  if (t - lastPresence > 0.25 && app.session && app.me?.name) {
     lastPresence = t;
-    backend.updatePresence({ x: Math.round(player.position.x*10)/10, y: player.position.y, z: Math.round(player.position.z*10)/10 });
+    backend.updatePresence(presenceState());
   }
   sound.update({ near: { road: true, water: app.currentPlace?.kind === "park" || app.currentPlace?.id === "lakegarden" }, speed: player.speed });
+  impactEffects.update(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }

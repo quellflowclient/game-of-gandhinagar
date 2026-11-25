@@ -78,7 +78,7 @@ Multi-step form, each step has Back, Save and Next. Save is per-step, and Save i
 - [T] Fields: "What I do, and what I am working on", "What I am looking for", "Ask me about", "Best way to work with me", "One fun Amdavad thing about me"
 - [T] Save and "Try my twin" (test chat)
 - [T] "Clear everything my twin knows"
-- [T] Rules shown to the user: answer only from what the member wrote and their public profile; say it is an AI; say "I'll tell dharmik" when it does not know; never share contact details; never agree to meetings, prices or promises; never say anything about other people
+- [T] Rules shown to the user: answer only from what the member wrote and their public profile; say it is an AI; say "I'll tell quellflowclient" when it does not know; never share contact details; never agree to meetings, prices or promises; never say anything about other people
 - [T] Chats are visible to the owner in the Chats tab, kept 14 days
 - [P] Replies processed by an AI provider (Groq); replies with phone numbers, emails, links, claims about others, or anything sexual are not saved
 - [P] Twin rules and moderation: the team may switch off or remove a twin

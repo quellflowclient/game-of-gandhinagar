@@ -4,7 +4,7 @@ Updated 24 November 2026. Three.js local implementation; no deployment performed
 
 ## References and placement
 
-The user's `C:/Users/dharmik/Downloads/ldrp.pdf` is a one-page schematic. Its
+The user's `ldrp.pdf` is a one-page schematic. Its
 shop order and road sides are preserved in a local frame anchored to the mapped
 KH-5 roundabout. Distances within the schematic are estimates, not surveyed pins.
 `example images/` supplies 31 street/campus photographs: the named Babu, Chintu,

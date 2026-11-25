@@ -18,9 +18,7 @@ export function ldrpCyclePaths(layout,map,f) {
     for(const p of paths)if(K.segDist(u,v,p.points[0],p.points[1])<=p.width/2)y=Math.max(y,p.height);
     return y+0.008;
   },allowed(u,v,r) {
-    if(r<0.5||!K.pointInPolygon(u,v,layout.area))return true;
-    const ringDistance=Math.hypot(u-layout.gardenCentre[0],v-layout.gardenCentre[1]);
-    if(Math.abs(ringDistance-47)<3-r||Math.hypot(u-layout.hub[0],v-layout.hub[1])<7-r)return true;
-    return paths.some(p=>K.segDist(u,v,p.points[0],p.points[1])<=p.width/2-r);
+    // Cycles may use all open campus ground; solid buildings/walls/trees still block them.
+    return true;
   }};
 }

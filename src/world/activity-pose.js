@@ -35,6 +35,8 @@ export function createActivityPose(root,model,bones) {
     if(kind==='smoke'){right=(t%9)<3?head.clone().add(new THREE.Vector3(-0.07,-0.13,0.14)):new THREE.Vector3(-0.23,0.99,0.15);left.set(0.16,0.98,0.12);}
     if(kind==='rub'){const phase=t%14;if(phase<9){left.set(0.025,1.03,0.29);right.set(-0.025,1.06,0.29+Math.sin(t*12)*0.035);}else if(phase<11){left.set(0.1,1.04,0.3);right.set(-0.1,1.05,0.32);}else{right=head.clone().add(new THREE.Vector3(-0.05,-0.12,0.14));left.set(0.16,1.04,0.3);}}
     if(kind==='stern'){left.set(-0.08,1.16,0.17);right.set(0.08,1.12,0.19);}
+    if(kind==='argue'){left.set(.25,1.12,.3);right.set(-.22,1.28+Math.sin(t*4)*.08,.48);}
+    if(kind==='calm'){left.set(.47,1.12,.28);right.set(-.47,1.12,.28);}
     arm('Left',left);arm('Right',right);root.updateWorldMatrix(true,true);
   }};
 }

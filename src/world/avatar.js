@@ -93,6 +93,8 @@ export function createAvatar(lookId,skin=0xa86b47) {
   let activity=null,activityBlend=1,exitActivity=null,exitBlend=0;
   const boneList=Object.values(bones),seated=k=>['sit','eat','cash','sell'].includes(k);
   let bike=null,cycling=false,waveT=0,time=Math.random()*4,shadow=true,cyclePhase=0,gestureT=0,gestureKind='yes',hitT=0;
+  let fallen=null;
+  const floorBones=['Hips','Spine','Spine2','Head','LeftHand','RightHand','LeftFoot','RightFoot','LeftLeg','RightLeg'].map(n=>bones[`mixamorig${n}`]).filter(Boolean),floorPoint=new THREE.Vector3();
   function play(name){if(name===current)return;actions[current]?.fadeOut(0.22);actions[name].reset().fadeIn(0.22).play();current=name;}
   return {root,look,gender,get soleHeight(){return sole.minimum();},
     setActivity(kind){if(kind===activity)return;if(!kind&&activity){exitActivity=activity;exitBlend=1;}if(kind&&!(seated(kind)&&seated(activity)))activityBlend=0;activity=kind;},
@@ -104,6 +106,8 @@ export function createAvatar(lookId,skin=0xa86b47) {
     setCycling(on){cycling=on;if(on&&!bike){bike=bicycle();root.add(bike);}if(bike)bike.visible=on;},
     wave(){waveT=actions.Wave.getClip().duration;play('Wave');},
     hit(){hitT=2.4;waveT=0;},
+    setFall(tilt=null,height=0){fallen=tilt===null?null:{tilt,height};if(fallen){hitT=0;waveT=0;}},
+    cloneCycle(){if(!bike)return null;const copy=bike.clone(true);copy.visible=true;return copy;},
     gesture(kind){gestureKind=kind;gestureT=2.2;},
     update(dt,speed){
       time+=dt;waveT=Math.max(0,waveT-dt);
@@ -133,7 +137,13 @@ export function createAvatar(lookId,skin=0xa86b47) {
         if(base){for(let i=0;i<boneList.length;i++)boneList[i].quaternion.copy(base[i].slerp(boneList[i].quaternion,weight));model.position.lerp(basePosition,1-weight);model.rotation.x*=weight;root.updateWorldMatrix(true,true);}
       }
       if(hitT>0){hitT=Math.max(0,hitT-dt);const f=Math.min(1,hitT/1.2);model.rotation.x=.32*f;model.rotation.z=Math.sin((2.4-hitT)*8)*.12*f;}
-      if(!cycling&&!seated(activity)&&!(exitBlend>0&&seated(exitActivity))) {
+      if(fallen){
+        model.rotation.x=-fallen.tilt;model.rotation.z=Math.sin(fallen.tilt)*.1;
+        root.updateWorldMatrix(true,true);let low=Infinity;
+        for(const bone of floorBones){bone.getWorldPosition(floorPoint);root.worldToLocal(floorPoint);low=Math.min(low,floorPoint.y-(bone.name.includes('Head')?.14:.085));}
+        if(Number.isFinite(low))model.position.y+=Math.max(0,.025-low)+fallen.height;
+      }
+      if(!fallen&&!cycling&&!seated(activity)&&!(exitBlend>0&&seated(exitActivity))) {
         // Captured clips have vertical root motion. Keep the lowest planted
         // foot at the rendered surface instead of letting both soles sink.
         sole.plant();

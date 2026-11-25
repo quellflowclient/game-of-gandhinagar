@@ -35,6 +35,7 @@ import {alignMetroRoads,roadClearance,roadMedian} from './world/metro-road-clear
 import {createCollisionSystem} from './world/collision.js';
 import {createImpactEffects} from './world/impact-effects.js';
 import {createVoice} from './systems/voice.js';
+import {createCrashScene} from './world/crash-scene.js';
 
 const loading = document.getElementById("loading");
 const tourMode = new URLSearchParams(location.search).has('tour');
@@ -459,28 +460,29 @@ async function enter() {
 // ---------- loop ----------
 const clockT = new THREE.Clock();
 const impactEffects=createImpactEffects(scene,camera);
+const crashScene=createCrashScene({scene,camera,traffic,player,navigation:world.navigation,look:()=>app.me||{},say:text=>sound.say(text,'hi-IN')});
 const recoverButton=h('button',{class:'accident-recover',hidden:true,onclick:async()=>{
-  if(player.carrying&&!(await app.street?.releaseCarried()))return;
-  player.stand();
-  const spawn=world.spawns[app.currentPlace?.id||'ldrp'];
-  if(spawn){player.teleport(spawn.x,spawn.z,0,spawn.y||0);recoverButton.hidden=true;}
-}},'Accident · Safe jagah wapas jao');
+  player.getUp();
+}},'Khade ho · Get up');
 document.body.append(recoverButton);
-const collisions=createCollisionSystem(hit=>{impactEffects.burst(hit);if(hit.player){sound.impact();recoverButton.hidden=false;}});
+const collisions=createCollisionSystem(hit=>{impactEffects.burst(hit);if(!hit.a.passive&&!hit.b.passive){endTourView();crashScene.start(hit);}if(hit.player)sound.impact();});
 function collisionEntities(){
-  const entities=traffic.vehicles.filter(v=>v.pose).map(v=>({id:`traffic-${v.id}`,...v.pose,width:v.width,length:v.length,motor:true,
+  const entities=traffic.vehicles.filter(v=>v.pose).map(v=>({id:`traffic-${v.id}`,trafficId:v.id,...v.pose,width:v.width,length:v.length,motor:true,
     stop:p=>traffic.stop(v.id,p)}));
-  if(entered){const p=player.position,motor=['car','auto'].includes(player.vehicle);entities.push({id:'player',x:p.x,y:p.y,z:p.z,yaw:player.heading,
+  if(entered){const p=player.position,motor=['car','auto'].includes(player.vehicle);if(!player.crashed)entities.push({id:'player',x:p.x,y:p.y,z:p.z,yaw:player.heading,
     width:motor?(player.vehicle==='car'?1.84:1.45):.55,length:motor?(player.vehicle==='car'?4.5:2.7):player.cycling?1.8:.55,
-    motor,player:true,stop:p=>player.stopAt(p),hit:()=>player.hit()});
+    motor,player:true,stop:p=>player.stopAt(p),hit:info=>{if(player.carrying)app.street?.releaseCarried();player.hit(info);}});
+    if(player.crashed&&motor)entities.push({id:'stopped-player-car',x:p.x,y:p.y,z:p.z,yaw:player.heading,width:player.vehicle==='car'?1.84:1.45,length:player.vehicle==='car'?4.5:2.7,motor:true,passive:true,stop:()=>{}});
+    if(player.fallen)entities.push({id:'fallen-player',x:p.x+Math.sin(player.heading)*.65,y:p.y,z:p.z+Math.cos(player.heading)*.65,yaw:player.heading,width:.65,length:1.7,passive:true,stop:()=>{}});
+    const wreck=player.wreck;if(wreck)entities.push({id:'player-wreck',...wreck,width:wreck.type==='car'?1.84:1.45,length:wreck.type==='car'?4.5:2.7,motor:true,passive:true,stop:()=>{}});
     for(const p of people.all())if(p.data.ai&&Math.hypot(p.x-player.position.x,p.z-player.position.z)<90)entities.push({id:`ai-${p.id}`,x:p.x,y:p.y,z:p.z,width:.5,length:.5,
-      stop:q=>{p.x=q.x;p.z=q.z;p.tx=q.x;p.tz=q.z;p.wait=5;p.avatar.root.position.set(p.x,p.y,p.z);},hit:()=>p.avatar.hit()});
+      stop:q=>{p.x=q.x;p.z=q.z;p.tx=q.x;p.tz=q.z;p.wait=5;p.avatar.root.position.set(p.x,p.y,p.z);},hit:info=>{if(!p.fall){p.fall={t:0,dx:info.direction.x*Math.min(3,info.speed*.2),dz:info.direction.z*Math.min(3,info.speed*.2)};p.avatar.root.rotation.y=Math.atan2(info.direction.x,info.direction.z);}}});
   }
   return entities;
 }
 let t = 0;
 function frame() {
-  const dt = Math.min(clockT.getDelta(), 0.05);
+  const realDt=Math.min(clockT.getDelta(),.05),dt=realDt*crashScene.timeScale;
   t += dt;
   player.update(dt);
   app.street?.update(dt);
@@ -493,7 +495,8 @@ function frame() {
   world.update(t,player.position);
   traffic.update(dt, entered ? player.position : showcase, t);
   if(entered){collisions.update(dt,collisionEntities());traffic.render();}
-  if(!player.crashed)recoverButton.hidden=true;
+  crashScene.update(realDt);
+  recoverButton.hidden=!player.canGetUp;
   updateGig(dt);
   if (!entered) {
     // Landing: slow cinematic orbit around Akshardham.
@@ -545,6 +548,7 @@ function frame() {
   }
   sound.update({ near: { road: true, water: app.currentPlace?.kind === "park" || app.currentPlace?.id === "lakegarden" }, speed: player.speed });
   impactEffects.update(dt);
+  crashScene.camera();
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }

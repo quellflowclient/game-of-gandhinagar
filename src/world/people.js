@@ -113,6 +113,13 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
   function update(dt, playerPos) {
     const tables=furniture();
     for (const p of active.values()) {
+      if(p.fall){const f=p.fall;f.t+=dt;const rise=Math.max(0,Math.min(1,(f.t-3.2)/1.1));
+        if(f.t<.9&&navigation)navigation.move(p,f.dx*dt*(1-f.t/.9),f.dz*dt*(1-f.t/.9),.38);
+        p.avatar.setFall(Math.min(1,f.t/.65)*(1-rise)*Math.PI/2,Math.max(0,Math.sin(Math.min(1,f.t/.9)*Math.PI))*.8);
+        p.avatar.root.position.set(p.x,p.y||0,p.z);p.avatar.update(dt,0);
+        if(rise>=1){p.fall=null;p.avatar.setFall();p.tx=p.x;p.tz=p.z;p.wait=2;}
+        continue;
+      }
       if (p.data.ai && p.home) {
         // Wander: pick a point near home, walk there, wait a bit.
         if (p.wait > 0) p.wait -= dt;

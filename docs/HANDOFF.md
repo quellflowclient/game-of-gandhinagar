@@ -2,6 +2,15 @@
 
 ## Latest release work — read before historical notes
 
+Follow-up: procedural airborne fall/grounded pose and user-triggered Get up
+replace automatic respawn. Nearby motor/motor incidents use a brief slow-motion
+camera, deformed standalone damage meshes, two drivers exiting/arguing, a
+mediator, driver return and staggered departure. Fallen cycles remain beside the
+rider. LDRP now has a 1.85 m wall, detailed open gate and one 25 m garden flag;
+roof/hub flags removed, textured campus roads and open-ground cycling allowed.
+The user explicitly requested no agents and no tests for this follow-up.
+Only the production build was run; new animations are not visually verified.
+
 Only LDRP / KH-5 and Mahatma Mandir are exposed. Full other-location source is
 retained. Supabase project `wcnbaqxqmtbnmbmjyzfx` is installed and connected;
 browser-safe publishable configuration is in `src/backend/project.js` with

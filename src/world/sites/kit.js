@@ -284,11 +284,11 @@ export function streetLight(g, x, z, yaw = 0, { double = false, h = 9 } = {}) {
   }
   return l;
 }
-export function flagPole(g, x, z, colors = ["#ff9933", "#ffffff", "#138808"]) {
-  cyl(g, 0.05, 0.07, 9, 0xdddddd, x, 0, z, 8);
+export function flagPole(g, x, z, colors = ["#ff9933", "#ffffff", "#138808"], {height=9,width=1.8}={}) {
+  cyl(g, height>12?.10:.05, height>12?.16:.07, height, 0xdddddd, x, 0, z, 12);
   const tex = canvasTex(96, 64, (c, w, h) => { colors.forEach((col, i) => { c.fillStyle = col; c.fillRect(0, (i * h) / 3, w, h / 3); }); if (colors.length === 3) { c.strokeStyle = "#000080"; c.lineWidth = 2; c.beginPath(); c.arc(w / 2, h / 2, 8, 0, 7); c.stroke(); } });
-  const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.2, 8, 1), new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide }));
-  flag.position.set(x + 0.95, 8.3, z); flag.userData.flag = true;
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(width, width*2/3, 14, 3), new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide }));
+  flag.position.set(x + width/2+.05, height-width/3-.15, z); flag.userData.flag = true;
   g.add(flag);
   return flag;
 }

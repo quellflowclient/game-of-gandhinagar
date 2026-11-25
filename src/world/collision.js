@@ -36,11 +36,13 @@ export function createCollisionSystem(onImpact) {
         const a0=previous.get(a.id),b0=previous.get(b.id);if(!a0||!b0)continue;
         const hit=sweptContact(a0,a,b0,b);if(!hit)continue;
         // Stop contact at any speed. Only energetic impacts need an accident effect.
-        const speed=Math.hypot((a.x-a0.x-b.x+b0.x)/Math.max(dt,.001),(a.z-a0.z-b.z+b0.z)/Math.max(dt,.001));
+        const vx=(a.x-a0.x-b.x+b0.x)/Math.max(dt,.001),vz=(a.z-a0.z-b.z+b0.z)/Math.max(dt,.001),speed=Math.hypot(vx,vz),direction={x:vx/(speed||1),z:vz/(speed||1)};
         a.stop?.(hit.a);b.stop?.(hit.b);
         Object.assign(a,hit.a);Object.assign(b,hit.b);
         now.set(a.id,{...a,...hit.a});now.set(b.id,{...b,...hit.b});
-        if(speed>1.2&&(cooldown.get(key)||0)<time){cooldown.set(key,time+4);impacts++;a.hit?.();b.hit?.();onImpact?.({x:(hit.a.x+hit.b.x)/2,y:Math.max(hit.a.y||0,hit.b.y||0)+.5,z:(hit.a.z+hit.b.z)/2,speed,player:a.player||b.player});}
+        if(speed>1.2&&(cooldown.get(key)||0)<time){cooldown.set(key,time+4);impacts++;
+          a.hit?.({speed,direction:{x:-direction.x,z:-direction.z}});b.hit?.({speed,direction});
+          onImpact?.({x:(hit.a.x+hit.b.x)/2,y:Math.max(hit.a.y||0,hit.b.y||0)+.5,z:(hit.a.z+hit.b.z)/2,speed,player:a.player||b.player,a,b});}
       }
       previous=now;
       for(const[k,t]of cooldown)if(t<time-5)cooldown.delete(k);

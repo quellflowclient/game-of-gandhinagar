@@ -423,3 +423,4 @@ body.on-landing #hud, body.on-landing #labels { visibility: hidden; }
 @keyframes impact-edge{from{opacity:.65}to{opacity:0}}
 .voice-call{position:fixed;z-index:48;top:calc(90px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;background:#fffef7;color:#233d34;border:1px solid #cad8cc;padding:9px 12px;border-radius:18px;box-shadow:0 5px 25px #14392722;max-width:92vw;font:600 13px system-ui}
 .voice-call[hidden]{display:none}.voice-call button{border:0;border-radius:12px;padding:10px 12px;background:#e0ecdf;white-space:nowrap;color:#244235}.voice-call button:last-child{background:#f3e0d6;color:#763e29}
+.accident-dialogue{position:fixed;z-index:26;pointer-events:none;transform:translate(-50%,-100%);max-width:165px;padding:7px 10px;border-radius:13px;background:#fff9edee;color:#334039;font:600 12px/1.35 system-ui;box-shadow:0 3px 12px #0002;text-align:center}.accident-dialogue[hidden]{display:none}

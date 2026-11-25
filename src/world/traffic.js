@@ -1,6 +1,8 @@
 import * as THREE from 'three';
-import { createTrafficSimulation } from './traffic-routes.js';
+import { createTrafficSimulation,roadPose } from './traffic-routes.js';
 import { createVehicleModel } from './vehicle-models.js';
+import {damageVehicle} from './vehicle-damage.js';
+import {overlaps} from './collision.js';
 
 export function createTraffic(scene,map,{count=40,zones=[]}={}) {
   const simulation=createTrafficSimulation(map,zones,{count});
@@ -26,7 +28,9 @@ export function createTraffic(scene,map,{count=40,zones=[]}={}) {
   function render() {
     for(const v of simulation.vehicles) {
       const {i,instances}=entries.get(v.id);
-      if(v.pose){position.set(v.pose.x,v.pose.y,v.pose.z);rotation.setFromAxisAngle(up,v.pose.yaw);matrix.compose(position,rotation,scale);}
+      if(v.damageRoot&&(!v.pose||(v.damageLast&&Math.hypot(v.pose.x-v.damageLast.x,v.pose.z-v.damageLast.z)>25))){scene.remove(v.damageRoot);v.damageRoot.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});v.damageRoot=null;}
+      if(v.pose&&v.damageRoot){v.damageRoot.position.set(v.pose.x,v.pose.y,v.pose.z);v.damageRoot.rotation.y=v.pose.yaw;v.damageRoot.rotation.z=v.crashTime>20?Math.sin(v.crashTime*35)*.025*Math.min(1,(v.crashTime-20)/4):0;v.damageLast={...v.pose};matrix.copy(hidden);}
+      else if(v.pose){position.set(v.pose.x,v.pose.y,v.pose.z);rotation.setFromAxisAngle(up,v.pose.yaw);matrix.compose(position,rotation,scale);}
       else matrix.copy(hidden);
       for(const mesh of instances)mesh.setMatrixAt(i,matrix);
       const damaged=(v.crashTime||0)>0;
@@ -35,6 +39,10 @@ export function createTraffic(scene,map,{count=40,zones=[]}={}) {
     for(const {instances} of entries.values())for(const mesh of instances)mesh.instanceMatrix.needsUpdate=true;
   }
   return {update,render,
+    hold(id,seconds=24){const v=simulation.vehicles.find(v=>v.id===id);if(v){v.crashTime=seconds;v.speed=0;}},
+    resume(id,delay=0){const v=simulation.vehicles.find(v=>v.id===id);if(v){v.crashTime=delay;v.resumeOnExpiry=delay>0;v.speed=0;}},
+    backAway(id,distance){const v=simulation.vehicles.find(v=>v.id===id);if(!v?.route)return;const s=v.s-v.direction*distance,p=roadPose(v.route,s,v.direction,v,zones);if(p&&!simulation.vehicles.some(o=>o!==v&&o.pose&&overlaps({...p,width:v.width,length:v.length},{...o.pose,width:o.width,length:o.length}))){v.s=s;v.pose=p;}},
+    damage(id,severity=1){const v=simulation.vehicles.find(v=>v.id===id);if(!v||v.damageRoot)return;const root=new THREE.Group(),model=createVehicleModel(v.type);for(const p of model.parts){const mesh=new THREE.Mesh(p.geometry,p.material);if(p.paint)p.material.color.setHex(v.type==='auto'?0x58714b:palette[v.id%palette.length]);mesh.castShadow=mesh.receiveShadow=true;root.add(mesh);}damageVehicle(root,severity);scene.add(root);v.damageRoot=root;v.damageLast=v.pose?{...v.pose}:null;},
     stop(id,pose){const v=simulation.vehicles.find(v=>v.id===id);if(!v)return;v.pose={...pose};v.speed=0;v.crashTime=Math.max(v.crashTime||0,6);},
     setNight(on){for(const model of models.values())model.setNight(on);},
     get stats(){return {active:simulation.vehicles.filter(v=>v.pose).length,insideCompounds:simulation.vehicles.filter(v=>v.pose&&zones.some(z=>z.forbidsVehicles?.(v.pose.x,v.pose.z))).length};},

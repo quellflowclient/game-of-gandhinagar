@@ -3,6 +3,7 @@ import * as K from "./kit.js";
 import {buildLdrpMarket} from './ldrp-market.js';
 import {ldrpCyclePaths} from './ldrp-paths.js';
 import {applyRoad5Profile} from './ldrp-market-layout.js';
+import {asphalt} from '../textures.js';
 
 // LDRP-ITR inside the Kadi Sarva Vishwavidyalaya (KSV) campus, Sector 15.
 // Sources: Google Maps satellite (Nov 2026), KSV/LDRP campus photographs, and OSM
@@ -41,10 +42,11 @@ export function buildLdrp(scene, map, origin) {
   K.slab(g, disc(LDRP.gardenRadius), 0.09, K.mat(K.lawnTex(), { roughness: 1 }), 0, 5);
   // Radial red-brick paths from the gate hub, as seen from above.
   const brick = K.mat(K.brickPaving(), { roughness: 0.95 });
+  const campusAsphalt=K.mat(asphalt(0),{color:0xadb0a8,roughness:.96});
   // Actual mapped campus drives remain outside the closed building envelopes.
   for(const path of cyclePaths.paths.filter(p=>p.kind==='drive')) {
     const [a,b]=path.points,n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/2));
-    for(let i=0;i<n;i++){const p=[a[0]+(b[0]-a[0])*i/n,a[1]+(b[1]-a[1])*i/n],q=[a[0]+(b[0]-a[0])*(i+1)/n,a[1]+(b[1]-a[1])*(i+1)/n];if(K.pointInPolygon((p[0]+q[0])/2,(p[1]+q[1])/2,LDRP.area))K.strip(g,[p,q],path.width,path.height,0x777972);}
+    for(let i=0;i<n;i++){const p=[a[0]+(b[0]-a[0])*i/n,a[1]+(b[1]-a[1])*i/n],q=[a[0]+(b[0]-a[0])*(i+1)/n,a[1]+(b[1]-a[1])*(i+1)/n];if(K.pointInPolygon((p[0]+q[0])/2,(p[1]+q[1])/2,LDRP.area)){K.strip(g,[p,q],path.width,path.height,campusAsphalt);for(const side of [-1,1])K.strip(g,[p,q],.075,path.height+.006,0xcac7b7,{offset:side*(path.width/2-.12)});}}
   }
   const [hu, hv] = LDRP.hub;
   for (let i = 0; i <= 6; i++) {
@@ -60,8 +62,6 @@ export function buildLdrp(scene, map, origin) {
   }
   // Circular hub with a flagpole and a ring of flower beds.
   K.slab(g, Array.from({ length: 25 }, (_, i) => [hu + Math.cos((i / 24) * 6.283) * 7, hv + Math.sin((i / 24) * 6.283) * 7]), 0.13, brick, 0, 2);
-  const flag = K.flagPole(g, hu, hv); animated.push(flag);
-  solids.push({ circle: [hu, hv, 0.3] });
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2, cu = hu + Math.cos(a) * 4.5, cv = hv + Math.sin(a) * 4.5;
     const ring = Array.from({ length: 9 }, (_, k) => [cu + Math.cos((k / 8) * 6.283) * 1.1, cv + Math.sin((k / 8) * 6.283) * 1.1]);
@@ -86,7 +86,6 @@ export function buildLdrp(scene, map, origin) {
   const arc = K.osmFootprint(map, 1330899548, f);
   if (arc) {
     // Flags above the main block facing the garden, the university name on its face.
-    for (const [u, v] of [[-30, -16], [-22, -16], [-38, -17]]) animated.push(K.flagPole(g, u, v));
     K.textPlane(g, ["KADI SARVA VISHWAVIDYALAYA", "કડી સર્વ વિશ્વવિદ્યાલય"], { bg: "rgba(0,0,0,0)", fg: "#1f3f78" }, 26, 4, -30, 11.6, -13.9, Math.PI);
     // Entrance portico with grey columns and canopy (KSV front photo).
     K.box(g, 16, 0.5, 6, 0xcfd3d6, -30, 8, -19);
@@ -116,16 +115,25 @@ export function buildLdrp(scene, map, origin) {
     solids.push({circle:[u,v,0.3]});
   }
   for(let tier=0;tier<3;tier++)K.cyl(g,2.2-tier*0.55,2.2-tier*0.55,0.22,0x999c91,gu,0.14+tier*0.22,gv,32);
-  K.palm(g,gu,gv,0.75);solids.push({circle:[gu,gv,2.2]});
+  animated.push(K.flagPole(g,gu,gv,undefined,{height:25,width:4.5}));solids.push({circle:[gu,gv,2.2]});
 
   // ---------- compound wall, gates, security ----------
   // Low masonry boundary: no iron fence between the college and public road.
-  const walls = K.compoundWall(g, LDRP.area, LDRP.gates, { height: 0.7,railing:false });
+  const walls = K.compoundWall(g, LDRP.area, LDRP.gates, { height: 1.85,railing:false });
   const main = LDRP.gates[0];
   const gate=new THREE.Group();gate.position.set(main.u,0,main.v);gate.rotation.y=-Math.atan2(68,117);g.add(gate);
-  for (const s of [-1, 1]) { K.box(gate, 1.6, 5.4, 1.6, 0xa5aaa6, s * 5.6, 0, 0); solids.push({ circle: [main.u + s * 4.84, main.v+s*2.81, 1] }); }
-  K.box(gate, 12.8, 0.7, 1.8, 0xa5aaa6, 0, 5.4, 0);
-  K.textPlane(gate, ["કડી સર્વ વિશ્વવિદ્યાલય", "KSV · LDRP-ITR"], { bg: "#9a9f9b", fg: "#263c4b" }, 12, 0.65, 0, 5.75, -0.92, Math.PI);
+  for (const s of [-1, 1]) {
+    K.box(gate,1.85,.3,1.9,0x777e7d,s*5.6,0,0);
+    K.box(gate,1.5,5.9,1.55,0xb0b2a9,s*5.6,.3,0);
+    K.box(gate,1.85,.23,1.9,0x929c97,s*5.6,6.2,0);
+    // Open metal leaves stay folded inside the boundary, clear of the shared entrance.
+    for(const y of [.45,1.3,2.05])K.box(gate,.065,.055,3.9,0x44534d,s*4.7,y,2.2);
+    for(let z=.3;z<4.2;z+=.2)K.box(gate,.05,1.8,.035,0x59685f,s*4.7,.35,z);
+    solids.push({circle:[main.u+s*4.84,main.v+s*2.81,1]});
+  }
+  K.box(gate,12.8,.8,1.9,0xa5aaa0,0,5.55,0);
+  K.box(gate,13.15,.18,2.05,0x7f8983,0,6.35,0);
+  K.textPlane(gate,["કડી સર્વ વિશ્વવિદ્યાલય","LDRP INSTITUTE OF TECHNOLOGY & RESEARCH"],{bg:'#a5aaa0',fg:'#243b53',h:300},11.9,.76,0,5.96,-.96,Math.PI);
   K.securityCabin(g, main.u + 8.5, main.v + 3, Math.PI); solids.push({ rect: [main.u + 8.5, main.v + 3, 2.4, 2.4] });
   const boom = K.boomBarrier(g, main.u + 4.2, main.v + 1.5, Math.PI, 4.2);
   for (const gt of LDRP.gates.slice(1)) K.securityCabin(g, gt.u + gt.width / 2 + 2, gt.v + 2.5);

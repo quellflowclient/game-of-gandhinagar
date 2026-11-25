@@ -3,6 +3,7 @@ import { createAvatar } from "./avatar.js";
 import {cameraMode as modeDefinition} from './camera-modes.js';
 import {VEHICLES,drivingSpeed} from './driving.js';
 import {createVehicleModel} from './vehicle-models.js';
+import {damageVehicle} from './vehicle-damage.js';
 
 // Player character, keyboard and touch input, and the third-person follow camera.
 // Desktop: WASD / arrows to walk, drag to look, Shift to run, C to toggle the cycle.
@@ -41,7 +42,15 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
     }
     vehicle=type;cycling=type==='cycle';avatar.root.visible=true;avatar.setCycling(cycling);speedNow=0;return{ok:true};
   }
-  let frozen = false,crashed=false;
+  let frozen = false,crashed=false,fall=null,fallenBike=null,wreck=null,wreckAge=0;
+  function clearFallenBike(){if(fallenBike)scene.remove(fallenBike);fallenBike=null;}
+  function launch(hit){
+    avatar.setFirstPerson(false);
+    if(cycling){fallenBike=avatar.cloneCycle();if(fallenBike){fallenBike.position.copy(pos);fallenBike.position.y+=.35;fallenBike.rotation.set(0,heading,1.35);scene.add(fallenBike);const box=new THREE.Box3().setFromObject(fallenBike);fallenBike.position.y+=Math.max(0,pos.y+.02-box.min.y);}cycling=false;vehicle='walk';avatar.setCycling(false);}
+    const force=hit?.direction||{x:Math.sin(heading),z:Math.cos(heading)};
+    fall={t:0,duration:.9,dx:force.x*Math.min(4,1+(hit?.speed||3)*.15),dz:force.z*Math.min(4,1+(hit?.speed||3)*.15),rise:null};
+    avatar.root.rotation.y=Math.atan2(force.x,force.z);heading=avatar.root.rotation.y;avatar.setActivity(null);
+  }
   let speedNow = 0;
   let actualSpeed = 0;
   let distanceCycled = 0;
@@ -120,6 +129,14 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
 
   function update(dt) {
     actualSpeed = 0;
+    if(wreck){wreckAge+=dt;if(wreckAge>65){scene.remove(wreck.root);wreck.root.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});wreck=null;}}
+    if(fall){
+      fall.t+=dt;
+      if(fall.t>=fall.duration&&fall.rise===null&&(keys.has('KeyW')||keys.has('Space')||Math.hypot(joy.x,joy.y)>.3))fall.rise=0;
+      if(fall.t<fall.duration){const factor=Math.max(0,1-fall.t/fall.duration);const oldX=pos.x,oldZ=pos.z;navigation?.move(pos,fall.dx*factor*dt,fall.dz*factor*dt,.38);if(!withinArea(pos.x,pos.z)){pos.x=oldX;pos.z=oldZ;}}
+      if(fall.rise!==null){fall.rise=Math.min(1,fall.rise+dt/1.15);avatar.setFall((1-fall.rise)*Math.PI/2,0);if(fall.rise>=1){fall=null;avatar.setFall();avatar.setFirstPerson(viewMode==='eyes');crashed=false;clearFallenBike();}}
+      else avatar.setFall(Math.min(1,fall.t/.65)*Math.PI/2,Math.max(0,Math.sin(Math.min(1,fall.t/fall.duration)*Math.PI))*.95);
+    }
     if(navigation&&!sitting&&!vehicleRoot){const h=navigation.surface(pos.x,pos.z,pos.y,cycling?0.52:0.38);if(h!==undefined)pos.y=h;else{const p=navigation.safePoint(pos.x,pos.z,pos.y,cycling?0.52:0.38,.65);if(withinArea(p.x,p.z))pos.set(p.x,p.y,p.z);}}
     let ix = 0, iz = 0;
     if (!frozen && !crashed) {
@@ -207,8 +224,13 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
 
   return {
     get crashed(){return crashed;},
+    get canGetUp(){return !!fall&&fall.t>fall.duration&&fall.rise===null;},
+    get fallen(){return !!fall;},get wreck(){return wreck;},
+    getUp(){if(!fall||fall.t<fall.duration)return false;fall.rise=0;return true;},
+    resumeAfterAccident(){if(fall)return;crashed=false;avatar.root.visible=true;},
+    leaveWreck(hide=false){if(!vehicleRoot)return false;const type=vehicle,root=vehicleRoot;wreck={root,x:pos.x,y:pos.y,z:pos.z,yaw:heading,type};wreckAge=0;vehicleRoot=null;vehicleModel=null;vehicle='walk';cycling=false;avatar.root.visible=!hide;const x=pos.x+Math.cos(heading)*1.8,z=pos.z-Math.sin(heading)*1.8,p=navigation?.safePoint(x,z,pos.y,.38,3)||{x,y:pos.y,z};pos.set(p.x,p.y,p.z);avatar.root.position.copy(pos);return true;},
     stopAt(p){pos.set(p.x,p.y||0,p.z);heading=p.yaw??heading;speedNow=actualSpeed=driveSpeed=0;avatar.root.position.copy(pos);if(vehicleRoot){vehicleRoot.position.copy(pos);vehicleRoot.rotation.y=heading;}},
-    hit(){crashed=true;speedNow=actualSpeed=driveSpeed=0;keys.clear();avatar.hit();if(vehicleRoot){vehicleRoot.rotation.z=.025;for(const part of vehicleModel.parts)if(part.paint){part.material.color.multiplyScalar(.65);part.material.roughness=.85;}}},
+    hit(info){if(crashed)return;crashed=true;speedNow=actualSpeed=driveSpeed=0;keys.clear();if(vehicleRoot){vehicleRoot.rotation.z=.025;damageVehicle(vehicleRoot,Math.min(1.5,(info?.speed||5)/8));}else launch(info);},
     get position() { return pos; },
     get heading() { return heading; },
     get cycling() { return cycling; },
@@ -238,7 +260,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
     // faceYaw 0 = camera south of the player looking north, toward the landmark.
     teleport(x, z, faceYaw = 0, height = 0) {
       if(sitting||carrying)return false;
-      crashed=false;removeVehicle();vehicle='walk';cycling=false;avatar.setCycling(false);avatar.root.visible=true;areaLocked=!!playArea?.(x,z);
+      crashed=false;fall=null;avatar.setFall();clearFallenBike();removeVehicle();vehicle='walk';cycling=false;avatar.setCycling(false);avatar.root.visible=true;areaLocked=!!playArea?.(x,z);
       const safe = navigation ? navigation.safePoint(x, z, height) : { x, y: 0, z };
       pos.set(safe.x, safe.y, safe.z);
       speedNow = actualSpeed = 0;

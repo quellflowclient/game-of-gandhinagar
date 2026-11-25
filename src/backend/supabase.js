@@ -145,6 +145,7 @@ export const supabase = {
     return {send:payload=>ch.send({type:'broadcast',event:'signal',payload}),leave:()=>{ch.untrack().catch(()=>{});sb.removeChannel(ch);}};
   },
   onCall(fn){callFns.push(fn);},onVoiceSignal(fn){signalFns.push(fn);},
+  async incomingCall(){const id=await me();if(!id)return null;return ok(await sb.from('voice_calls').select('*').eq('callee',id).eq('status','ringing').gte('created_at',new Date(Date.now()-45000).toISOString()).order('created_at',{ascending:false}).limit(1).maybeSingle());},
   async startCall(target){return ok(await sb.rpc('start_voice_call',{target}));},
   async setCall(id,status){return ok(await sb.rpc('set_voice_call',{cid:id,next_status:status}));},
   async getCall(id){return ok(await sb.from('voice_calls').select('*').eq('id',id).maybeSingle());},

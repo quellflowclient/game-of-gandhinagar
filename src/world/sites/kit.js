@@ -416,7 +416,14 @@ export function mergeStatic(g) {
     const merged = BGU.mergeGeometries(clean, false);
     if (!merged) continue;
     merged.applyMatrix4(inv);
-    const mesh = new THREE.Mesh(merged, m);
+    // Weld identical vertices (including normals/UVs): same surface, fewer
+    // vertex shader invocations and a smaller GPU buffer. Keep hard edges.
+    const indexed = BGU.mergeVertices(merged);
+    merged.dispose();
+    for(const geo of geos)geo.dispose();
+    indexed.computeBoundingBox();indexed.computeBoundingSphere();
+    const mesh = new THREE.Mesh(indexed, m);
+    mesh.updateMatrix();mesh.matrixAutoUpdate=false;
     mesh.castShadow = mesh.receiveShadow = true;
     mesh.userData.cameraSolid = true;
     out.add(mesh);

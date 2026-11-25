@@ -1,3 +1,4 @@
+import {stallAvailability,istWeekday} from '../data/stall-hours.js';
 import {h,toast,openPanel,closePanel} from './dom.js';
 import {createSeatState,createStreetService,atStallCounter} from '../systems/street-service.js';
 
@@ -9,7 +10,7 @@ export function createStreetLife(app,market) {
     if(!onlineMode()||remoteBusy)return;remoteBusy=true;const user=app.session.userId;
     try{const rows=await app.backend.listSeats();if(app.session?.userId!==user)return;
       for(const r of rows){const s=seats.get(r.id);if(!s)continue;const active=r.owner&&Date.parse(r.expires)>Date.now();Object.assign(s,{x:r.x,z:r.z,yaw:r.yaw,group:r.group_name,permission:r.permission,occupant:active&&r.mode==='sit'?r.owner:r.native_occupant,carriedBy:active&&r.mode==='carry'?r.owner:null});}
-      if(player.sitting&&seats.get(player.sitting)?.occupant!==me)player.stand();
+      if(player.sitting&&seats.get(player.sitting)&&seats.get(player.sitting).occupant!==me)player.stand();
       if(carried&&seats.get(carried)?.carriedBy!==me){carried=null;player.setCarrying(false);}
       market.furnitureChanged();
     }catch(e){console.warn('Shared tables:',e.message);}finally{remoteBusy=false;}
@@ -24,7 +25,7 @@ export function createStreetLife(app,market) {
       if(v.expires&&v.expires<Date.now()){v.occupant=null;v.carriedBy=null;v.owner=null;}
       Object.assign(seat,v);
     }
-    if(player.sitting&&seats.get(player.sitting)?.occupant!==me){player.stand();toast('Yeh table ab occupied hai. Doosri khaali table choose karo.');}
+    if(player.sitting&&seats.get(player.sitting)&&seats.get(player.sitting).occupant!==me){player.stand();toast('Yeh table ab occupied hai. Doosri khaali table choose karo.');}
   }
   async function changeSeat(id,action,verb) {
     const current=seats.get(id);
@@ -47,7 +48,8 @@ export function createStreetLife(app,market) {
   }
   window.addEventListener('storage',e=>{if(e.key===storageKey&&!onlineMode())syncShared();});
   window.addEventListener('pagehide',()=>{const shared=readShared();for(const v of Object.values(shared))if(v.owner===me){v.occupant=null;v.carriedBy=null;v.owner=null;}try{localStorage.setItem(storageKey,JSON.stringify(shared));}catch{}});
-  const service=createStreetService({now:()=>elapsed,position:()=>player.position,spend:n=>app.progress.spend(n),onEat:item=>player.eat(item),onChange:meal=>{
+  const business=s=>stallAvailability(s,app.clock.hour(),istWeekday());
+  const service=createStreetService({isOpen:s=>business(s).open,now:()=>elapsed,position:()=>player.position,spend:n=>app.progress.spend(n),onEat:item=>player.eat(item),onChange:meal=>{
     if(!meal)return;
     const message={approaching:`${meal.shop.caller}! Idhar aana bhai.`, 'taking-order':`${meal.shop.caller}: Haan bolo, kya khana hai?`,cooking:`${meal.shop.caller}: Abhi bana ke laata hoon.`,delivering:`${meal.shop.caller} tumhara order leke aa rahe hain.`,eating:`${meal.shop.caller}: Lo bhai, garam hai. Aaraam se khao.`, 'bill-due':`Khana ho gaya? Bill ₹${meal.price}, khaane ke baad dena.`,paid:'Paisa mil gaya. Shukriya, phir aana!'}[meal.phase];
     if(message)toast(message,'info',4500);
@@ -56,10 +58,13 @@ export function createStreetLife(app,market) {
   }});
   market.bind(service,seats);
   function openMenu(shop) {
+    const status=business(shop);
+    if(!status.open&&(!service.meal||service.meal.shop.id!==shop.id||['paid','approaching','taking-order'].includes(service.meal.phase)))return openPanel(shop.name,h('div',{},h('p',{class:'stall-closed-note'},status.text),h('p',{class:'muted small'},`Hours: ${status.hours} · IST`)));
     if(['car','auto'].includes(player.vehicle))return toast('Pehle gaadi se utro, phir order do.');
     if((!service.meal||service.meal.phase==='paid')&&!atStallCounter(shop,player.position))return toast('Order ke liye stall ke counter ke paas aao.');
     const meal=service.meal;
     const content=h('div',{class:'street-menu'},h('p',{class:'muted small'},`${shop.staff}. Game characters and sample prices. Wallet ₹${app.progress.state.coins} play money; pay after eating.`));
+    content.prepend(h("p",{class:"stall-hours"},`${status.text} · ${status.hours} · IST`));
     if(!meal||meal.phase==='paid') {
       content.append(h('p',{},'Paas baitho ya khade raho, naam se bulao. Woh aake tumhara order lenge.'),h('button',{class:'btn primary',onclick:()=>{const r=service.call(shop);if(r.error)return toast(r.error);player.wave();app.sound.say(`${shop.caller} bhai!`);closePanel();}},`${shop.caller}! Zara idhar aao`));
     } else if(meal.shop.id!==shop.id)content.append(h('p',{},`Pehle ${meal.shop.name} ka current order aur bill finish karo.`));
@@ -96,7 +101,7 @@ export function createStreetLife(app,market) {
     if(identity!==me){player.stand();player.setCarrying(false);carried=null;me=identity;for(const original of market.seats)Object.assign(seats.get(original.id),original,{permission:null,carriedBy:null});lastKey='';}
     if(onlineMode()){
       if(elapsed-remoteLast>1.5&&!seatPending){remoteLast=elapsed;syncRemote();}
-      if(elapsed-lastHeartbeat>4){lastHeartbeat=elapsed;const id=player.sitting||carried;if(id)app.backend.tableAction(id,'renew').catch(e=>console.warn(e.message));}
+      if(elapsed-lastHeartbeat>4){lastHeartbeat=elapsed;const id=player.sitting||carried;if(id&&seats.get(id))app.backend.tableAction(id,'renew').catch(e=>console.warn(e.message));}
     }else if(elapsed-lastHeartbeat>4){lastHeartbeat=elapsed;const shared=readShared();for(const v of Object.values(shared))if(v.owner===me){v.expires=Date.now()+30000;}try{localStorage.setItem(storageKey,JSON.stringify(shared));}catch{}syncShared(shared);}
     market.renderSeats(seats,player,me,app.backend.presenceList());
     const p=player.position;closest=market.shops.map(s=>({s,d:Math.hypot(s.x-p.x,s.z-p.z)})).sort((a,b)=>a.d-b.d)[0];
@@ -106,13 +111,13 @@ export function createStreetLife(app,market) {
     const streetSitting=player.sitting&&!!seats.get(player.sitting);
     const sitSeat=streetSitting?seats.get(player.sitting):null,room=app.voiceRoom?.room;
     if(room&&(!sitSeat||room!==`table-${sitSeat.circle}`))app.voiceRoom.leave();
-    const key=[nearby?.id,seat?.id,seat?.occupant,seat?.permission,carried,player.sitting,meal?.phase,app.voiceRoom?.room].join('|');
+    const key=[nearby?.id,seat?.id,seat?.occupant,seat?.permission,carried,player.sitting,meal?.phase,nearby&&business(nearby).open,app.voiceRoom?.room].join('|');
     strip.hidden=!nearby&&!seat&&!streetSitting&&!carried;
     if(key!==lastKey){lastKey=key;strip.replaceChildren();const btn=(text,fn)=>strip.append(h('button',{type:'button',onclick:fn},text));
       if(streetSitting){btn('Utho',stand);if(app.voiceRoom&&sitSeat?.circle&&!app.voiceRoom.room)btn('🎙 Table voice join karo',()=>app.voiceRoom.join(`table-${sitSeat.circle}`,`${market.shops.find(s=>s.id===sitSeat.shopId)?.name||'Tapri'} table`));}
       else if(carried)btn('Table yahan rakho',drop);
       else if(seat)btn(seat.occupant?'Table occupied':'Baitho / Table lo',()=>seatMenu(seat));
-      if(nearby)btn(active?meal.phase==='bill-due'?`Bill ₹${meal.price} do`:'Apna order dekho':`${nearby.caller} ko bulao / Order`,()=>openMenu(nearby));
+      if(nearby)btn(active?meal.phase==='bill-due'?`Bill ₹${meal.price} do`:'Apna order dekho':business(nearby).open?`${nearby.caller} ko bulao / Order`:business(nearby).text,()=>openMenu(nearby));
     }
     document.querySelector('canvas[data-human-assets]')?.setAttribute('data-street-state',JSON.stringify({nearShop:nearby?.id,seated:player.sitting,carrying:carried,meal:meal?{phase:meal.phase,item:meal.item,price:meal.price}:null,occupied:seats.all().filter(s=>s.occupant).length}));
   }

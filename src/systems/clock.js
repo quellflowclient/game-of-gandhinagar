@@ -15,6 +15,11 @@ export function istHour() {
   const utc = d.getUTCHours() + d.getUTCMinutes() / 60 + d.getUTCSeconds() / 3600;
   return (utc + 5.5) % 24;
 }
+// User-defined visual schedule in local IST. Shop hours remain independent.
+export function lightingSchedule(hour){
+ const h=((hour%24)+24)%24,night=h<6.5||h>=19,dusk=!night&&(h<7||h>=18);
+ return{night,dusk,lightsOn:h>=18||h<6.5,sunVisible:h>=7&&h<19};
+}
 export function periodOf(h) {
   return h >= 5 && h < 11 ? "Morning" : h >= 11 && h < 17 ? "Day" : h >= 17 && h < 21 ? "Evening" : "Night";
 }

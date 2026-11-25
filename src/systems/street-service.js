@@ -2,13 +2,14 @@
 // → pay afterwards. There are deliberately no tokens or advance charges.
 export const STALL_CALL_DISTANCE=2.6;
 export const atStallCounter=(shop,position)=>Math.hypot(position.x-shop.x,position.z-shop.z)<=STALL_CALL_DISTANCE&&Math.abs((position.y??.33)-(shop.y??.33))<.65;
-export function createStreetService({now,position,spend,onChange=()=>{},onEat=()=>{}}) {
+export function createStreetService({now,position,spend,onChange=()=>{},onEat=()=>{},isOpen=()=>true}) {
   let meal=null;
   const nearby=s=>Math.hypot(position().x-s.x,position().z-s.z)<15;
   const change=phase=>{meal.phase=phase;meal.since=now();onChange({...meal});};
   return {
     get meal(){return meal;},
     call(shop) {
+      if(!isOpen(shop))return {error:"Stall abhi band hai. Opening hours check karo."};
       if(!atStallCounter(shop,position()))return {error:'Stall ke counter ke paas aake naam se bulao.'};
       if(meal&&meal.phase!=='paid')return {error:'Pehle apna current order aur bill complete karo.'};
       meal={shop,phase:'approaching',since:now(),customer:{...position()},item:null,price:0};onChange({...meal});return {ok:true};
@@ -22,6 +23,7 @@ export function createStreetService({now,position,spend,onChange=()=>{},onEat=()
     },
     tick(workerDistance=0) {
       if(!meal)return;const elapsed=now()-meal.since;
+      if(["approaching","taking-order"].includes(meal.phase)&&!isOpen(meal.shop)){meal=null;onChange(null);return;}
       if(['approaching','taking-order'].includes(meal.phase)&&!nearby(meal.shop)){meal=null;onChange(null);return;}
       if(nearby(meal.shop))meal.customer={...position()};
       if(meal.phase==='approaching'&&workerDistance<1.8&&elapsed>1)change('taking-order');

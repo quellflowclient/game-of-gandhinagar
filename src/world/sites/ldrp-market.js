@@ -1,3 +1,4 @@
+import {stallAvailability} from '../../data/stall-hours.js';
 import * as THREE from 'three';
 import * as K from './kit.js';
 import {createAvatar} from '../avatar.js';
@@ -8,6 +9,7 @@ import {buildKh5Sculpture} from '../kh5-sculpture.js';
 
 const idFor=(s,n)=>`${s.id}-seat-${n}`;
 export function buildLdrpMarket(scene,origin) {
+  const phone=matchMedia("(pointer: coarse)").matches;
   const worldOrigin=marketPoint(origin,0,0),f=K.frame(worldOrigin,MARKET.yaw);
   const root=new THREE.Group();root.name='KH-5 street life';root.position.set(worldOrigin.x,0,worldOrigin.z);root.rotation.y=MARKET.yaw;scene.add(root);
   const solids=[],plots=MARKET_SHOPS.map(shopPlot),seats=[],actors=[],shops=[],smoke=[];
@@ -241,7 +243,14 @@ export function buildLdrpMarket(scene,origin) {
     if(a.role==='smoke'){a.exhale=new THREE.Sprite(new THREE.SpriteMaterial({map:mistTex,transparent:true,opacity:0.15,depthWrite:false}));a.avatar.root.add(a.exhale);}
     if(a.options.apron){const apron=K.box(a.avatar.root,0.38,0.42,0.025,0xddd5bb,0,0.7,0.14);a.apron=apron;}
   }
+  // Dynamic covers are added after static batching so each stall can close.
+  for(const s of shops){const cover=new THREE.Group();cover.position.set(s.u,MARKET_GROUND,s.v);cover.rotation.y=shopYaw(s);root.add(cover);
+    K.box(cover,s.kind==='food'?5.7:2.9,1.1,.035,K.mat(0x797d75,{roughness:1}),0,.35,.68);
+    K.textPlane(cover,['BANDH · CLOSED'],{bg:'#2d3933',fg:'#f5e7c3',w:512,h:128,font:'700 47px sans-serif'},1.7,.4,0,1.4,.72);
+    cover.visible=false;s.closedCover=cover;s.isOpen=true;
+  }
   const market={shops,seats,zone,origin:worldOrigin,frame:f,root,actors,
+    setBusinessTime(hour,weekday){for(const s of shops){const status=stallAvailability(s,hour,weekday);s.isOpen=status.open;s.businessStatus=status.text;s.hoursText=status.hours;s.closedCover.visible=!status.open;}},
     setNight(on,playerPos){for(const m of nightLamps)m.emissiveIntensity=on?3:0;poolMat.visible=on;const nearest=lightPositions.map(([u,y,v])=>({...f.toWorld(u,v),y})).sort((a,b)=>Math.hypot(a.x-playerPos.x,a.z-playerPos.z)-Math.hypot(b.x-playerPos.x,b.z-playerPos.z));nightLights.forEach((l,i)=>{const p=nearest[i];l.position.set(p.x,p.y,p.z);l.intensity=on?90:0;});},
     furnitureChanged(){for(const a of actors)a.routeKey=null;},
     canDrop(x,z){const {u,v}=f.toLocal(x,z);return plots.some(p=>K.pointInPolygon(u,v,p))&&zone.heights(x,z,0.52).length>0;},
@@ -253,7 +262,7 @@ export function buildLdrpMarket(scene,origin) {
       if(!playerPos)return;const dt=Math.min(0.05,Math.max(0,t-lastTime));lastTime=t;
       for(const a of actors) {
         const s=shops.find(s=>s.id===a.shopId),shopDistance=Math.hypot(playerPos.x-s.x,playerPos.z-s.z);
-        const active=shopDistance<(a.options.customer?32:50)&&(!a.options.occasional||Math.floor(t/55)%4===0);
+        const active=(s.isOpen||service?.meal?.shop.id===s.id&&service.meal.phase!=='paid')&&shopDistance<(a.options.customer?(phone?22:32):(phone?36:50))&&(!a.options.occasional||Math.floor(t/55)%4===0);
         if(active&&!a.avatar)instantiate(a);
         if(!a.avatar)continue;a.avatar.root.visible=active;if(!active)continue;
         a.avatar.setShadow(shopDistance<24);a.tag.visible=shopDistance<18;
@@ -298,7 +307,7 @@ export function buildLdrpMarket(scene,origin) {
         if(a.tray){a.tray.visible=(isServer&&meal.phase==='delivering')||ambientDelivery;a.tray.position.copy(a.avatar.socket('LeftHand'));if(a.tray.visible&&a.prop)a.prop.visible=false;}
         if(a.exhale){const age=(t+a.phase)%9;a.exhale.visible=age>3&&age<5;a.exhale.position.set(-0.05,1.53+(age-3)*0.18,0.2+(age-3)*0.2);a.exhale.scale.setScalar(0.18+Math.max(0,age-3)*0.14);a.exhale.material.opacity=Math.max(0,0.12-(age-3)*0.06);}
       }
-      for(const p of smoke){const shop=shops.find(s=>s.id===p.shop.id),visible=Math.hypot(playerPos.x-shop.x,playerPos.z-shop.z)<65;p.sprite.visible=visible;if(!visible)continue;const age=(t*0.3+p.seed)%1;const local=new THREE.Vector3(p.x+Math.sin(t+p.seed)*age*0.12,p.y+age*1.1,p.z);const world=p.g.localToWorld(local);root.worldToLocal(world);p.sprite.position.copy(world);p.sprite.scale.setScalar(0.12+age*0.6);p.sprite.material.opacity=(1-age)*0.18;}
+      for(const p of smoke){const shop=shops.find(s=>s.id===p.shop.id),visible=shop.isOpen&&Math.hypot(playerPos.x-shop.x,playerPos.z-shop.z)<65;p.sprite.visible=visible;if(!visible)continue;const age=(t*0.3+p.seed)%1;const local=new THREE.Vector3(p.x+Math.sin(t+p.seed)*age*0.12,p.y+age*1.1,p.z);const world=p.g.localToWorld(local);root.worldToLocal(world);p.sprite.position.copy(world);p.sprite.scale.setScalar(0.12+age*0.6);p.sprite.material.opacity=(1-age)*0.18;}
     },
   };
   return market;

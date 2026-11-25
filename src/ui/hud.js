@@ -75,6 +75,7 @@ export function createHud({ open, act }) {
           h("span", { class: "i" }, icon), h("span", { class: "l" }, label), badge);
       })))));
   function toggleMore(on = more.hidden) { more.hidden = !on; document.body.classList.toggle("game-menu-open",on);dock.lastChild.setAttribute("aria-expanded",String(on));if(on)more.querySelector("button")?.focus();else dock.lastChild.focus({preventScroll:true}); }
+  document.addEventListener("game-open-hub",()=>toggleMore(true));
   dock.lastChild.setAttribute("aria-controls","game-hub");
   dock.lastChild.setAttribute("aria-expanded","false");
   document.addEventListener("pointerdown",e=>{if(!more.hidden&&!more.contains(e.target)&&!dock.contains(e.target))toggleMore(false);});

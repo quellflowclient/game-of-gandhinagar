@@ -1,3 +1,73 @@
+## Parking / roadside footpath correction — local only
+- Parking bay placement validates the full footprint, excluding gate apron, public roadway, footpath and six-metre parking access openings.
+- Raised 18 cm roadside paver footpaths along the two outside parking lots; driveway breaks remain flush. Navigation heights and vehicle exclusion use the footpath geometry.
+- Saved personal parked vehicles revalidated against free current bays, so old apron positions cannot reappear.
+- Production build only; no browser/gameplay testing or push.
+
+## Phone load optimisation — local only
+- Preserved render resolution, textures, frame-rate targets and scene detail.
+- Menu/account overlays now suspend hidden 3D simulation; voice and presence stay serviced.
+- Stall business hours recalculated on minute/day changes; resident spawn/despawn checks twice per simulation second.
+- Static merged site geometry now indexed with UV/normal-aware vertex welding, temporary geometry buffers disposed, bounds cached, local mesh matrices frozen. City static meshes also skip local matrix recomputation.
+- Production build passed. No browser/device/thermal tests, no push. Actual heat/load improvement is unmeasured; no zero-heat guarantee.
+
+## Canteen / Mechanical separation correction · 2026-11-25 (local only)
+- User clarified the two strips are separate: black is the long narrow ground-floor canteen behind Mechanical, blue is Mechanical ground + 3 upper floors.
+- Canteen footprint [28,180,39,239], 3.4 m / 1 storey. Mechanical footprint [44,180,67,239], 13.6 m / 4 storeys. The 5-reference-pixel gap between the footprints is retained.
+- Facade floor spacing now respects explicit per-block floor counts. Both buildings have independent meshes, labels and collision footprints. Earlier replacement of Mechanical by canteen is superseded.
+- Updated 2D map: 1* = canteen, M = Mechanical. Build only; no gameplay tests or push.
+
+## Garden borders / housing labels / fixed light schedule · 2026-11-25 (local only)
+- Latest annotation overrides the prior Mechanical request at mark 1: long canteen on west edge. Hostel labels A (SE), B (SW of A), C (former engineering-east courtyard), D (right section of long south block), E (new upper east strip). The left part beside D has three small single-storey sloped-roof homes.
+- Mark 2: three-floor premium guest house directly below C, with stone/bronze/glazed facade detailing. Mark 4: separate faculty residences below E, not labelled as a hostel. East bus-depot models and scripted depot-bus trip removed to avoid overlapping these footprints; west bus park retained. Latest map used an older screenshot: earlier relocated parking/curved links retained unless explicitly superseded.
+- Narrow planted strips now have a full outer stone border, soil surface, tree row and inner hedge inside it, with closed ends. Plant beds remain off paths, buildings and paved hostel yards; front lawns remain walkable/sittable.
+- Shared lightingSchedule: lamp/headlight/floodlight ON at 18:00, OFF at 06:30 IST; visual darkness begins 19:00, sunrise transition 06:30–07:00, sun clearly visible from 07:00. Bright night visibility preserved. This user-defined visual schedule overrides weather API solar hours for rendering only.
+- Updated source-derived 2D map under output/maps. Production compilation only; no agents, gameplay tests or push.
+
+## Annotated campus corrections · 2026-11-25 (local only)
+- User's latest black 1 is Mechanical Engineering building: photo rect [39,180,67,239], west/south corner above Hostel D. Black 2 is inside two-wheeler parking: [413,128]–[487,140], directly below academic block 16.
+- Removed old canteen block (map key 10) and moved old MIPLVP-side parking (key 11); old saved inside-parking vehicles migrate to a free bay in the new lot.
+- Three curved infill buildings connect adjacent radial academic wings. Shared ACADEMIC_LINKS geometry drives meshes and collision footprints; endpoints match wing sides.
+- Campus drives use one black-marked route: straight front drive, smooth west/rear loop, academic side access and one branch between hostel blocks. Removed the duplicate west boundary loop and duplicate parallel hostel road. Removed broad west-passage slab that looked like another road. Public Road 5 carriageways unchanged.
+- Hostel precinct is paved; courtyard floors remain concrete/pavers and vegetation generators exclude HOSTEL_YARD. Front four gardens retained.
+- Updated source-derived 2D map under output/maps: M = user's Mechanical mark 1; P = user's new parking mark 2. Old 10/11 labels removed from map. Approximate reference geometry, not a survey.
+- Production compilation only; no agents, gameplay tests or push.
+
+## Voice / portrait pages / walkable gardens / phone performance · 2026-11-25 (local only)
+- Normal 1:1 calls no longer get muted by distance/presence lookup. Added incoming-call DB polling fallback, serialized signalling, connection initialization guard, streamless audio-track support, autoplay Enable-audio UI, microphone cancellation and call/room mutual exclusion. Table voice buffers early ICE and preserves it through incoming offers.
+- Shared voice-ice client defaults to /api/turn. Authenticated Vercel/dev endpoint mints Cloudflare short-lived credentials using server-only TURN_KEY_ID + TURN_KEY_API_TOKEN. These credentials were not supplied/configured, so restrictive mobile-network voice is still externally dependent. No real two-device voice check was run.
+- Landscape guard now applies only to active gameplay. Landing, admin, open Hub, panels and voice UI work in portrait; a portrait gate button opens the Hub without enabling portrait gameplay. Panel mode unlocks orientation; resuming gameplay requires landscape. Phone rendering pauses behind pages/Hub and portrait gate.
+- Four front gardens use clipped lawn edges with 3.6 m constant radial walkways and a widened gate-side opening. Removed all benches in these gardens; vegetation kept away from paths. Garden sitting uses the player's current lawn position (with collision/NPC clearance), not preassigned seats. Gate actions cannot override ground-sit/stand in lawns.
+- Phone profile: low-power WebGL preference, no MSAA or dynamic shadows/PMREM, bounded 1.2 MP buffer and max 1.25 pixel ratio, ~24 FPS gameplay / 12 FPS landing. Pages update at 5 Hz without scene rendering; hidden tabs skip simulation/render. Desktop capped at 30 FPS. Reduced traffic and nearby NPCs; backend, humans, vehicles and map downloads overlap.
+- Three.js still uses GPU; zero heating or a measured temperature improvement cannot be promised. Large model files remain, with existing model HTTP caching.
+- Build compilation only; no agents, gameplay/device tests or push. Other campus layout work intentionally left for later reference images.
+
+## Accident / landscape / hours / night visibility · 2026-11-25 (local only)
+- Collisions: pedestrian impact threshold 4.2 m/s, motor/motor 6.5 m/s; contact still stops vehicles. Moving apart from an existing overlap is allowed; stopped traffic contact no longer restarts its pause forever. Earlier traffic braking, wider lookahead and no random distracted-driver event.
+- Cinematic shortened to 4.2 s (minor) or 7 s (medical), always skippable. Serious player impacts / pedestrian or two-wheeler injuries show a 108 van and medic using nearby valid road poses where available. Traffic brakes for the response van. This is a game animation, no actual emergency call.
+- Recovery clears wreck/fallen ride state, returns to walking at a nearby road-free navigation surface if found and provides 12 s accident-effect immunity (physical contact still blocks). Incident traffic is respawned at least 65 m away. If no safe road-free point is found, navigation fallback is used.
+- Landscape welcome screen now uses header/main/footer document flow, two columns in short landscape and scrolling when needed; no absolute-centred hero overlapping header/footer.
+- Night: brighter hemisphere, moon/key, environment and ambient fill, increased exposure and lighter distant fog. Day/night still follows existing live IST + Gujarat sunrise/sunset calculation; night sky stays distinct.
+- Stall schedule is shared by world covers/staff/steam and service/order guards, based on IST weekday. Babu 8–16, Sunday closed; Anjali Pav-Bhaji 8–16 (stable internal id chintu; Chintu remains staff). Tea: Natu/Ajit 6–23, Patel 6–22, Lalbhai 6–21, Masi/Sarpanch 6–20. Paid/cooking meals can finish after closing; new calls and unordered requests close.
+- Garden-seat sync no longer stands a garden sitter up when street-table state refreshes.
+- Production build only. No agents, gameplay/device tests or push in this pass; animation/layout appearance remains unverified in browser.
+
+## Local ride-audio support · 2026-11-25 (local only)
+- Added `local-ride-audio.js`: per-ride audio-file chooser and browser IndexedDB persistence, automatic looping playback on selecting/mounting a ride, per-ride switching, stop on walking/crash, pause on tab hidden/rotation/master mute/voice calls, shared independent ride volume. A small start button appears only if autoplay is blocked.
+- Local audio takes priority over the previous visible YouTube fallback and plays without a video panel. No copyrighted recordings were ripped/downloaded. The requested commercial audio files remain missing.
+- Authorised files can be selected from Hub > Sound > Local ride songs (device only), or bundled under public/audio/rides with manifest.json entries for car/bike/auto/scooter/cycle. The manifest currently contains null values, not fake audio paths.
+- Production compilation only; no browser/audio tests or pushes.
+
+## Rickshaw song replacement · 2026-11-25 (local only)
+- User requested a funnier replacement for Hun Amdavadno Rickshawalo. Auto now streams Umesh Barot / Raghav Digital's Baby Mood Ma Nathi (official video title Baby Ne Bournvita Pivdavu): https://www.youtube.com/watch?v=wKrR-9WOxlw . Sound-page label updated. No push or tests.
+
+## Ride radio · 2026-11-25 (LOCAL ONLY — user said do not push)
+- New `src/data/ride-tracks.js` maps car, bike, auto, scooter and cycle to verified searchable official YouTube releases. No MP3s were downloaded or rehosted.
+- Car: Char Bangadi Wari Gaadi (Kathiawadi King / Red Ribbon); bike: Dhoom Machale (YRF, original is Hindi); auto: Hun Amdavadno Rickshawalo (Kishore Kumar / Universal Music); scooter: Prem Nu Activa (Vishal Hapor / Amara Muzik); cycle: Cycle Cycle Mari Sonani (Bhoomi Trivedi / Ramzat 3).
+- `src/ui/ride-radio.js`: visible 200x200 official player, lazy IFrame API, autoplay attempt with native Play fallback, manual pause preserved, loop, source link, error/retry, no retry storm. Dismount/crash stops; panels/Hub/portrait/hidden tab/voice calls pause. Background-only YouTube playback is not used.
+- Sound settings: persistent ride toggle + independent volume (default 65); master mute honoured; procedural background music ducks while the song plays. Ride streams can contain platform ads or be region/embed restricted; offline and automatic playback are not guaranteed.
+- Production build passed. No agents or gameplay/audio tests run; songs' actual embedded playback remains unverified. No commit or push for this work.
+
 ## Landscape-only / single Hub correction · 2026-11-25
 - Supersedes the earlier portrait-form exception: shared `src/ui/landscape.js` + CSS run from both game and admin HTML before their main apps. Portrait touch devices cannot use landing, login, sheets or gameplay; background is inert until landscape. Physical orientation avoids keyboard-resize false positives.
 - First landing interaction and the rotate gate button request fullscreen, then best-effort landscape lock. Browser restrictions can require manual physical rotation; no fake CSS rotation or bypass is provided.

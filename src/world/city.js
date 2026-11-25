@@ -394,6 +394,7 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
     if (!geo) return;
     const m = new THREE.Mesh(geo, mat);
     m.castShadow = cast; m.receiveShadow = receive;
+    m.updateMatrix();m.matrixAutoUpdate=false;
     group.add(m);
   };
   let treeCount = 0;

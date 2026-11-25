@@ -17,6 +17,11 @@ export function createCampusLife(app,campus,{scene,renderer,lowEnd=false}){
  function say(text){toast(`Security: ${text}`);app.sound.say(text,'gu-IN');if(guard){guard.avatar.setActivity('check-id');guardBubble.textContent=text;guardBubble.hidden=false;bubbleTime=t+3;}}
  function removeModel(){if(!model)return;scene.remove(model);model.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});model=null;}
  function showParked(){removeModel();if(!parked)return;
+  // Revalidate saved vehicles against the current bays after parking edits.
+  // Old positions on the apron/driveway must not reappear after a reload.
+  const lot=campus.parking.find(l=>l.id===parked.lot);
+  const valid=lot?.slots.find(s=>!s.occupied&&Math.hypot(s.x-parked.x,s.z-parked.z)<.2);
+  if(!valid){const slot=lot?.slots.find(s=>!s.occupied);if(slot){Object.assign(parked,{x:slot.x,y:slot.y,z:slot.z,yaw:slot.yaw,slot:slot.id});persist();}else{parked=null;persist();return;}}
   if(['bike','scooter'].includes(parked.type))model=createRideTwoWheeler(parked.type);
   else if(parked.type==='cycle')model=bicycle();
   else{model=new THREE.Group();const m=createVehicleModel(parked.type==='auto'?'auto':'sedan');for(const p of m.parts){const mesh=new THREE.Mesh(p.geometry,p.material);if(p.paint)p.material.color.setHex(0x718884);mesh.castShadow=mesh.receiveShadow=true;model.add(mesh);}}
@@ -98,16 +103,21 @@ export function createCampusLife(app,campus,{scene,renderer,lowEnd=false}){
  function updateActors(dt){const p=player.position,d=Math.hypot(p.x-campus.gateOrigin.x,p.z-campus.gateOrigin.z),h=app.clock.hour(),busy=(h>=7&&h<10)||(h>=12&&h<14)||(h>=16&&h<19),night=h>=22||h<7;
   const near=d<190||campus.zone.contains(p.x,p.z);if(!near){for(const a of actors)a.avatar.root.visible=false;return;}
   if(!guard){guard=makeActor('worker',campus.guard.x,campus.guard.z,'guard',0);guard.avatar.setClothes(0x536c82,0x35414c);guardBubble=hNode();}
-  const limit=lowEnd?(night?2:busy?7:5):(night?4:busy?13:9);
+  const limit=lowEnd?(night?2:busy?4:3):(night?4:busy?13:9);
   while(actors.length<limit){const i=actors.length,seat=campus.gardenSeats[(i-1)%campus.gardenSeats.length];makeActor(i%3===0?'fcasual':'casual',seat.x,seat.z,i%4===0?'walk':i%3===0?'selfie':'garden',i);}
   for(const a of actors){a.avatar.root.visible=a.index<limit&&Math.hypot(a.avatar.root.position.x-p.x,a.avatar.root.position.z-p.z)<70;if(!a.avatar.root.visible)continue;a.avatar.setShadow(Math.hypot(a.avatar.root.position.x-p.x,a.avatar.root.position.z-p.z)<22);
    if(a.fall){a.fall.t+=dt;const rise=Math.max(0,Math.min(1,(a.fall.t-2.8)/1.1));a.avatar.setFall(Math.min(1,a.fall.t/.6)*(1-rise)*Math.PI/2,Math.max(0,Math.sin(Math.min(1,a.fall.t/.85)*Math.PI))*.55);a.avatar.update(dt,0);if(rise>=1){a.fall=null;a.avatar.setFall();}continue;}
    if(a===guard){const checking=campus.entry.checking,dg=Math.hypot(p.x-campus.guard.x,p.z-campus.guard.z);a.avatar.root.position.set(campus.guard.x,(campus.groundY??0)+.008,campus.guard.z);a.avatar.setActivity(checking?'check-id':'sit');a.avatar.root.rotation.y=dg<9?Math.atan2(p.x-campus.guard.x,p.z-campus.guard.z):(campus.guardYaw??0);a.avatar.update(dt,0);continue;}
-   const occupied=player.sitting===campus.gardenSeats[(a.index-1)%campus.gardenSeats.length]?.id;
+   const occupied=player.sitting?.startsWith("ldrp-garden")&&Math.hypot(player.position.x-a.home.x,player.position.z-a.home.z)<1.5;
    if(a.role==='walk'||occupied){const local=campus.frame.toLocal(a.home.x,a.home.z),r=2.2,angle=t*.14+a.index;const w=campus.frame.toWorld(local.u+Math.cos(angle)*r,local.v+Math.sin(angle)*r);a.avatar.root.position.set(w.x,referenceHeightWorld(w.x,w.z),w.z);a.avatar.root.rotation.y=-angle;a.avatar.setActivity(null);a.avatar.update(dt,.8);}
    else{a.avatar.setActivity(a.role==='selfie'?(Math.floor(t/8)%2?'phone':'selfie'):'ground-sit');a.avatar.update(dt,0);if(a.role==='selfie'){if(!a.phone){a.phone=new THREE.Mesh(new THREE.BoxGeometry(.07,.135,.008),new THREE.MeshStandardMaterial({color:0x273139,roughness:.3}));a.avatar.root.add(a.phone);}a.phone.position.copy(a.avatar.socket('RightHand'));}}
   }
   if(guardBubble){guardBubble.hidden=t>bubbleTime;const v=new THREE.Vector3(campus.guard.x,2.2,campus.guard.z).project(app.camera);guardBubble.style.left=`${(v.x*.5+.5)*innerWidth}px`;guardBubble.style.top=`${(-v.y*.5+.5)*innerHeight}px`;}
+ }
+ function groundSeat(){const p=player.position,index=campus.gardenAt(p.x,p.z);if(index<0||!campus.entry.allowed)return null;
+  if(app.world.navigation.surface(p.x,p.z,p.y,.45,.25)===undefined)return null;
+  if(actors.some(a=>a.avatar.root.visible&&Math.hypot(a.avatar.root.position.x-p.x,a.avatar.root.position.z-p.z)<.9))return null;
+  return{id:`ldrp-garden-${index}-ground`,x:p.x,y:campus.groundHeight(p.x,p.z),z:p.z,yaw:player.heading,kind:'ground',garden:index};
  }
  function hNode(){const el=h('div',{class:'accident-dialogue',hidden:true});document.body.append(el);return el;}
  return{inventory,park,retrieve,gateMenu,get actors(){return actors;},get parked(){return parked;},update(dt){t+=dt;const key=userKey();if(key!==identity){identity=key;parked=saved[key]?.vehicle||null;campus.entry.allowed=false;if(!saved[key])persist();showParked();lastKey='';}
@@ -116,15 +126,15 @@ export function createCampusLife(app,campus,{scene,renderer,lowEnd=false}){
    campus.entry.openTarget=campus.entry.allowed&&gateDistance<17;
    updateActors(dt);const pajiDistance=campus.paji?updatePaji(dt,p):Infinity;
    const ownNear=parked&&Math.hypot(p.x-parked.x,p.z-parked.z)<3;
-   const garden=campus.gardenSeats.find(s=>Math.hypot(s.x-p.x,s.z-p.z)<1.8&&!actors.some(a=>a.avatar.root.visible&&Math.hypot(a.avatar.root.position.x-s.x,a.avatar.root.position.z-s.z)<.6));
-   const driving=player.vehicle!=='walk',mode=pajiDistance<3.2&&!driving?'paji':gateDistance<15?'gate':ownNear?'owned':near?.d<10&&driving?'park':player.sitting?.startsWith('ldrp-garden')?'stand':garden&&!driving?'garden':null;
+   const garden=groundSeat();
+   const driving=player.vehicle!=='walk',mode=player.sitting?.startsWith('ldrp-garden')?'stand':garden&&!driving?'garden':pajiDistance<3.2&&!driving?'paji':gateDistance<15?'gate':ownNear?'owned':near?.d<10&&driving?'park':null;
    const uiKey=[mode,parked?.locked,parked?.type,campus.entry.allowed,campus.entry.checking,garden?.id].join('|');strip.hidden=!mode;
    if(uiKey!==lastKey){lastKey=uiKey;strip.replaceChildren();const btn=(text,fn)=>strip.append(h('button',{onclick:fn,type:'button'},text));
     if(mode==='gate')btn(['car','auto'].includes(player.vehicle)?'Guard · Outside parking only':campus.entry.allowed?'My campus ID':campus.entry.checking?'ID checking…':'Guard · Show ID / Visitor pass',campus.entry.allowed?inventory:gateMenu);
     if(mode==='paji')btn('Paaji · Register / Pass',pajiMenu);
     if(mode==='park')btn(`Park · ${near.lot.inside?'Inside':'Outside'}`,park);
     if(mode==='owned'){btn(parked.locked?'Unlock my vehicle':'Lock my vehicle',()=>{parked.locked=!parked.locked;persist();app.sound.chirp?.();lastKey='';});if(!parked.locked)btn('Ride / Retrieve',retrieve);}
-    if(mode==='garden')btn('Garden mein baitho',()=>{if(garden&&player.vehicle==='walk')player.sit(garden);lastKey='';});
+    if(mode==='garden')btn('Garden mein baitho',()=>{const seat=groundSeat();if(seat&&player.vehicle==='walk')player.sit(seat);lastKey='';});
     if(mode==='stand')btn('Garden se utho',()=>{player.stand();lastKey='';});
    }
   }};

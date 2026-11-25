@@ -34,13 +34,17 @@ export function createCollisionSystem(onImpact) {
         const a=group[i],b=group[j],key=[a.id,b.id].sort().join('|');
         if(pairs.has(key)||(!a.motor&&!b.motor))continue;pairs.add(key);
         const a0=previous.get(a.id),b0=previous.get(b.id);if(!a0||!b0)continue;
+        // Existing contact must allow reversing/walking away instead of trapping
+        // both objects forever at t=0 of every sweep.
+        if(overlaps(a0,b0)&&Math.hypot(a.x-b.x,a.z-b.z)>Math.hypot(a0.x-b0.x,a0.z-b0.z)+.001)continue;
         const hit=sweptContact(a0,a,b0,b);if(!hit)continue;
         // Stop contact at any speed. Only energetic impacts need an accident effect.
         const vx=(a.x-a0.x-b.x+b0.x)/Math.max(dt,.001),vz=(a.z-a0.z-b.z+b0.z)/Math.max(dt,.001),speed=Math.hypot(vx,vz),direction={x:vx/(speed||1),z:vz/(speed||1)};
         a.stop?.(hit.a);b.stop?.(hit.b);
         Object.assign(a,hit.a);Object.assign(b,hit.b);
         now.set(a.id,{...a,...hit.a});now.set(b.id,{...b,...hit.b});
-        if(speed>2.8&&(cooldown.get(key)||0)<time){cooldown.set(key,time+4);impacts++;
+        const threshold=a.motor&&b.motor?6.5:4.2;
+        if(speed>threshold&&!a.recovering&&!b.recovering&&(cooldown.get(key)||0)<time){cooldown.set(key,time+12);impacts++;
           a.hit?.({speed,direction:{x:-direction.x,z:-direction.z}});b.hit?.({speed,direction});
           onImpact?.({x:(hit.a.x+hit.b.x)/2,y:Math.max(hit.a.y||0,hit.b.y||0)+.5,z:(hit.a.z+hit.b.z)/2,speed,player:a.player||b.player,a,b});}
       }

@@ -67,12 +67,12 @@ export function createTrafficSimulation(map,zones=[],{count=40,random=Math.rando
     for(let attempt=0;attempt<48&&nearby.length;attempt++) {
       const route=nearby[Math.floor(random()*nearby.length)],direction=route.directions[Math.floor(random()*route.directions.length)];
       const s=random()*route.length,pose=roadPose(route,s,direction,v,zones);if(!pose)continue;
-      const d=Math.hypot(pose.x-center.x,pose.z-center.z);if(d>650||d<18)continue;
+      const d=Math.hypot(pose.x-center.x,pose.z-center.z);if(d>650||d<(v.recoverySpawn?65:25))continue;
       if(vehicles.some(other=>other!==v&&other.pose&&Math.hypot(other.pose.x-pose.x,other.pose.z-pose.z)<(other.length+v.length)/2+5))continue;
       if(d<bd){bd=d;best={route,s,direction,pose};}
     }
     v.pose=null;v.route=null;
-    if(best){Object.assign(v,best);v.speed=v.cruise*0.8;v.waiting=0;v.distracted=0;}
+    if(best){Object.assign(v,best);v.speed=v.cruise*0.8;v.waiting=0;v.distracted=0;v.recoverySpawn=false;}
   }
   // Drivers brake for anything in their lane corridor: people crossing,
   // cyclists, the player and other vehicles (including at junctions).
@@ -82,8 +82,8 @@ export function createTrafficSimulation(map,zones=[],{count=40,random=Math.rando
   let distractTimer=(25+random()*20)*60;
   function corridorGap(v,x,z,r) {
     const fx=Math.sin(v.pose.yaw),fz=Math.cos(v.pose.yaw),dx=x-v.pose.x,dz=z-v.pose.z;
-    const along=dx*fx+dz*fz,lateral=Math.abs(dx*fz-dz*fx),look=7+v.speed*1.8+v.length/2;
-    if(along<=0||along>look||lateral>v.width/2+r+0.55)return Infinity;
+    const along=dx*fx+dz*fz,lateral=Math.abs(dx*fz-dz*fx),look=12+v.speed*2.5+v.speed*v.speed/20+v.length/2;
+    if(along<=0||along>look||lateral>v.width/2+r+0.85)return Infinity;
     return along-v.length/2-r;
   }
   function update(dt,center,{obstacles=[],density=1}={}) {
@@ -91,12 +91,7 @@ export function createTrafficSimulation(map,zones=[],{count=40,random=Math.rando
       nearby=routes.filter(r=>r.maxX>center.x-650&&r.minX<center.x+650&&r.maxZ>center.z-650&&r.minZ<center.z+650);lastCenter={...center};
     }
     const active=Math.max(2,Math.round(vehicles.length*Math.max(0,Math.min(1,density))));
-    distractTimer-=dt;
-    if(distractTimer<=0){
-      distractTimer=(25+random()*20)*60;
-      const pick=vehicles.find(v=>v.pose&&!v.crashTime&&Math.hypot(v.pose.x-center.x,v.pose.z-center.z)<120&&v.speed>6);
-      if(pick)pick.distracted=5;
-    }
+    // Ambient drivers remain attentive; accidents are caused by actual contact.
     const sees=new Map();
     for(const v of vehicles){if(!v.pose||v.crashTime>0)continue;const list=[];for(const o of vehicles)if(o!==v&&o.pose){const g=corridorGap(v,o.pose.x,o.pose.z,o.width/2);if(g<Infinity)list.push([o,g]);}sees.set(v,list);}
     for(const v of vehicles) {
@@ -112,9 +107,9 @@ export function createTrafficSimulation(map,zones=[],{count=40,random=Math.rando
         gap=Math.min(gap,g);
       }
       for(const p of obstacles)gap=Math.min(gap,corridorGap(v,p.x,p.z,p.r||0.4));
-      if(gap<Infinity)target=Math.min(target,Math.max(0,(gap-2.2)*0.9));
+      if(gap<Infinity)target=Math.min(target,Math.max(0,(gap-3.8)*0.7));
       v.waiting=target<0.3?(v.waiting||0)+dt:0;
-      const accel=target>v.speed?2.6:7.5;
+      const accel=target>v.speed?2.1:10;
       v.speed=v.speed+Math.max(-accel*dt,Math.min(accel*dt,target-v.speed));
       if(v.speed<0.02&&target===0)v.speed=0;
       v.s+=v.speed*dt*v.direction;

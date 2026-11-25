@@ -1,3 +1,4 @@
+import {localSongControls} from './local-ride-audio.js';
 import { h, openPanel, toast, chips, closePanel, ago } from "./dom.js";
 import { PLAN_CATEGORIES, SAMPLE_EVENTS, FESTIVALS, STALLS } from "../data/live-content.js";
 import { hubs, placedPlaces, placePos, HOME_DISTRICTS } from "../data/places.js";
@@ -240,7 +241,11 @@ export function openSound(app) {
     h("input", { type: "range", min: 0, max: 100, value: s.state[k], oninput: (e) => s.set(k, +e.target.value) }));
   openPanel("🔊 SOUND · AVAAJ", h("div", {},
     h("label", { class: "check" }, h("input", { type: "checkbox", checked: s.state.on, onchange: (e) => { s.start(); s.set("on", e.target.checked); } }), " Sound: everything on or off"),
-    slider("music", "🎵 Music", "A tune for each part of the city"),
+    h("label", {class:"check"},h("input",{type:"checkbox",checked:s.state.rideOn,onchange:e=>{s.start();s.set("rideOn",e.target.checked);}}),"Ride radio · vehicle ke saath gaana badle"),
+    slider("rideVolume","Ride radio volume","Local song pehle bajega. Local file na ho to online player. Browser pehli baar audio ke liye ek tap maang sakta hai."),
+    h("p",{class:"muted small"},"Car: Char Bangadi Wari Gaadi · Bike: Dhoom Machale (Hindi original) · Auto: Baby Mood Ma Nathi · Activa: Prem Nu Activa · Cycle: Cycle Cycle Mari Sonani."),
+    localSongControls(),
+    slider("music", "🎵 Music", "City background tune · ride song playing ho to ye chup rahegi"),
     s.isPhone ? h("p", { class: "muted small" }, "Music is off on this phone to save data and battery. ",
       h("button", { type: "button", class: "link", onclick: () => { s.start(); s.forceMusic(); toast("Music on"); } }, "PLAY IT ANYWAY")) : null,
     slider("city", "🏙️ City", "Traffic, water, footsteps, horns"),

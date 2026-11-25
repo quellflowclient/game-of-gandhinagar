@@ -144,7 +144,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
       fall.t+=dt;
       if(fall.t>=fall.duration&&fall.rise===null&&(keys.has('KeyW')||keys.has('Space')||Math.hypot(joy.x,joy.y)>.3))fall.rise=0;
       if(fall.t<fall.duration){const factor=Math.max(0,1-fall.t/fall.duration);const oldX=pos.x,oldZ=pos.z;navigation?.move(pos,fall.dx*factor*dt,fall.dz*factor*dt,.38);if(!withinArea(pos.x,pos.z)){pos.x=oldX;pos.z=oldZ;}}
-      if(fall.rise!==null){fall.rise=Math.min(1,fall.rise+dt/1.15);avatar.setFall((1-fall.rise)*Math.PI/2,0);if(fall.rise>=1){fall=null;avatar.setFall();avatar.setFirstPerson(viewMode==='eyes');crashed=false;clearFallenBike();}}
+      if(fall.rise!==null){fall.rise=Math.min(1,fall.rise+dt/.65);avatar.setFall((1-fall.rise)*Math.PI/2,0);if(fall.rise>=1){fall=null;avatar.setFall();avatar.setFirstPerson(viewMode==='eyes');crashed=false;clearFallenBike();}}
       else avatar.setFall(Math.min(1,fall.t/.65)*Math.PI/2,Math.max(0,Math.sin(Math.min(1,fall.t/fall.duration)*Math.PI))*.95);
     }
     if(navigation&&!sitting&&!vehicleRoot){const h=navigation.surface(pos.x,pos.z,pos.y,cycling?0.52:0.38);if(h!==undefined)pos.y=h;else{const p=navigation.safePoint(pos.x,pos.z,pos.y,cycling?0.52:0.38,.65);if(withinArea(p.x,p.z))pos.set(p.x,p.y,p.z);}}
@@ -258,6 +258,13 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
     get canGetUp(){return !!fall&&fall.t>fall.duration&&fall.rise===null;},
     get fallen(){return !!fall;},get wreck(){return wreck;},
     getUp(){if(!fall||fall.t<fall.duration)return false;fall.rise=0;return true;},
+    recoverAt(point){
+      removeVehicle();clearFallenBike();if(wreck){scene.remove(wreck.root);wreck.root.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});wreck=null;}
+      crashed=false;fall=null;vehicle='walk';cycling=false;speedNow=actualSpeed=driveSpeed=0;mountT=2;mountFrom=null;
+      keys.clear();joy.x=joy.y=0;joy.id=null;driveInput.steer=driveInput.throttle=driveInput.brake=0;
+      avatar.setFall();avatar.setMotorcycle(false);avatar.setCycling(false);avatar.setActivity(null);avatar.setFirstPerson(viewMode==='eyes');avatar.root.visible=true;if(helmetMesh)helmetMesh.visible=false;
+      if(point)pos.set(point.x,point.y,point.z);avatar.root.position.copy(pos);
+    },
     resumeAfterAccident(){if(fall)return;crashed=false;avatar.root.visible=true;},
     leaveWreck(hide=false){if(!vehicleRoot)return false;const type=vehicle,root=vehicleRoot;wreck={root,x:pos.x,y:pos.y,z:pos.z,yaw:heading,type};wreckAge=0;vehicleRoot=null;vehicleModel=null;vehicle='walk';cycling=false;avatar.root.visible=!hide;const x=pos.x+Math.cos(heading)*1.8,z=pos.z-Math.sin(heading)*1.8,p=navigation?.safePoint(x,z,pos.y,.38,3)||{x,y:pos.y,z};pos.set(p.x,p.y,p.z);avatar.root.position.copy(pos);return true;},
     stopAt(p){pos.set(p.x,p.y||0,p.z);heading=p.yaw??heading;speedNow=actualSpeed=driveSpeed=0;avatar.root.position.copy(pos);if(vehicleRoot){vehicleRoot.position.copy(pos);vehicleRoot.rotation.y=heading;}},

@@ -12,7 +12,7 @@ export const CARRIAGEWAY_WIDTH=4.8;
 export function applyRoad5Profile(map){for(const road of map.roads)if(ROAD5_WAYS.includes(road.id)){road.width=CARRIAGEWAY_WIDTH;road.sidewalkSides=[-1];}}
 export const MARKET_SHOPS = [
   {id:'babu',name:'Babu na Chhole Kulche',gu:'બાબુના છોલે કુલચે',u:-155,v:15.5,kind:'food',color:0x87342c,emoji:'🍲',items:[['Chhole kulche',60],['Extra kulcha',15]],staff:'Saras cooks · Masi takes payment · Babu serves'},
-  {id:'chintu',name:'Chintu ki Pav-Bhaji',gu:'ચિન્ટુની પાવભાજી',u:-116,v:15.5,kind:'food',color:0x30756b,emoji:'🍛',items:[['Pav-bhaji',70],['Extra butter pav',20]],staff:'Chintu & Kaka · Hot bhaji, toasted pav'},
+  {id:'chintu',name:'Anjali Pav-Bhaji',gu:'અંજલિ પાવભાજી',u:-116,v:15.5,kind:'food',color:0x30756b,emoji:'🍛',items:[['Pav-bhaji',70],['Extra butter pav',20]],staff:'Chintu & Kaka · Hot bhaji, toasted pav'},
   {id:'lalbhai',name:'Lalbhai ni Bethak',gu:'લાલભાઈની બેઠક',u:-77,v:15.5,kind:'lari',color:0x476c3a,emoji:'☕',items:[['Chai',10],['Balaji wafers',10],['Gopal snacks',10]],staff:'Lalbhai · Chai and packet snacks'},
   {id:'natu',name:'Natu Desi Adda',gu:'નટુ દેશી અડ્ડા',u:-38,v:15.5,kind:'lari',color:0x855f3c,emoji:'🥤',items:[['Chai',10],['Soda bottle',20]],staff:'Natu · Ask quietly for a chilled soda',whisper:true},
   {id:'masi',name:'Masi ni Cha',gu:'માસીની ચા',u:30,v:15.5,kind:'tea',color:0xa37234,emoji:'☕',items:[['Masala chai',10],['Ginger chai',15],['Biscuit packet',10]],staff:'Masi & Kaka · Fresh chai, seats behind the lari'},

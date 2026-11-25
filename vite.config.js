@@ -6,6 +6,11 @@ function devApi(env) {
   return {
     name: "dev-api",
     configureServer(server) {
+      server.middlewares.use("/api/turn",async(req,res)=>{
+        const {createTurnHandler}=await server.ssrLoadModule("/api/turn.js");
+        const shim={setHeader:(...a)=>res.setHeader(...a),status(code){res.statusCode=code;return shim;},json(data){res.setHeader("Content-Type","application/json");res.end(JSON.stringify(data));}};
+        await createTurnHandler(env)(req,shim);
+      });
       server.middlewares.use("/api/ai", async (req, res) => {
         if (!env.ANTHROPIC_API_KEY) {
           res.statusCode = 503;

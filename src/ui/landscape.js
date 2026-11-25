@@ -4,12 +4,12 @@ import './landscape.css';
 // Physical screen orientation is used so a landscape software keyboard cannot
 // accidentally trigger the portrait gate. Shared by the game and /admin.
 function installLandscape(){
-  let required=false,attempted=false,busy=false,restoreFocus=null;
+  let required=false,attempted=false,busy=false,restoreFocus=null,wasPageMode=false;
   const inertBefore=new Map();
   const status=h('p',{class:'landscape-status',role:'status','aria-live':'polite'},'Auto-rotate on rakho, phir phone sideways ghumao.');
   const enable=h('button',{type:'button',class:'landscape-enable',onclick:()=>requestLandscape(true)},'Start in landscape →');
   const gate=h('section',{id:'landscape-gate',class:'landscape-gate',hidden:true,role:'dialog','aria-modal':'true','aria-labelledby':'landscape-title'},
-    h('div',{class:'landscape-card'},h('div',{class:'landscape-phone','aria-hidden':'true'},h('span',{},'↻')),h('span',{class:'landscape-eyebrow'},'GOG / LANDSCAPE EXPERIENCE'),h('h1',{id:'landscape-title'},'Rotate. Play. Explore.'),h('p',{},'Game, login aur saare pages landscape mein hi chalenge. Phone ko sideways rakho to continue.'),enable,status));
+    h('div',{class:'landscape-card'},h('div',{class:'landscape-phone','aria-hidden':'true'},h('span',{},'↻')),h('span',{class:'landscape-eyebrow'},'GOG / LANDSCAPE EXPERIENCE'),h('h1',{id:'landscape-title'},'Rotate. Play. Explore.'),h('p',{},'Game khelne ke liye phone sideways rakho. Login, profile aur menu portrait mein bhi use kar sakte ho.'),enable,h('button',{type:'button',class:'landscape-menu',onclick:()=>{document.body.classList.add('game-menu-open');refresh();document.dispatchEvent(new Event('game-open-hub'));}},'Open menu / account'),status));
   document.body.append(gate);
   function isPortrait(){
     const touch=matchMedia('(any-pointer: coarse)').matches||navigator.maxTouchPoints>0;
@@ -23,7 +23,11 @@ function installLandscape(){
     for(const node of document.body.children){if(node===gate||!(node instanceof HTMLElement))continue;if(!inertBefore.has(node))inertBefore.set(node,node.inert);node.inert=true;}
   }
   function refresh(){
-    const next=isPortrait();
+    const pageMode=location.pathname.startsWith('/admin')||!document.body.classList.contains('game-started')||['game-panel-open','game-menu-open','voice-ui-open'].some(c=>document.body.classList.contains(c));
+    const portraitPages=isPortrait()&&pageMode;if(document.body.classList.contains('portrait-page-mode')!==portraitPages)document.body.classList.toggle('portrait-page-mode',portraitPages);
+    if(pageMode&&!wasPageMode)try{screen.orientation?.unlock?.();}catch{}
+    wasPageMode=pageMode;
+    const next=isPortrait()&&!pageMode;
     gate.hidden=!next;
     if(next!==required){
       required=next;document.body.classList.toggle('landscape-required',required);
@@ -46,10 +50,10 @@ function installLandscape(){
   }
   for(const name of ['resize','orientationchange','pageshow','fullscreenchange'])window.addEventListener(name,refresh);
   screen.orientation?.addEventListener?.('change',refresh);
-  new MutationObserver(()=>{if(required)blockBackground();}).observe(document.body,{childList:true});
+  new MutationObserver(refresh).observe(document.body,{childList:true,attributes:true,attributeFilter:['class']});
   document.addEventListener('keydown',e=>{if(!required)return;if(e.key==='Tab'){e.preventDefault();enable.focus();}} ,true);
   document.addEventListener('click',e=>{
-    if(attempted||required||!e.target.closest?.('.cta,.cta-ghost,.land-signin,.dest-card'))return;
+    if(attempted||required||!e.target.closest?.('.cta,.dest-card'))return;
     attempted=true;void requestLandscape(false);
   },true);
   refresh();

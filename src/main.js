@@ -1,3 +1,4 @@
+import {istWeekday} from './data/stall-hours.js';
 import * as THREE from "three";
 import { CITY } from "./config.js";
 import { loadBackend } from "./backend/index.js";
@@ -14,9 +15,10 @@ import { MAHATMA, siteToWorld, bridgeHeight } from "./world/mahatma-layout.js";
 import { placedPlaces, placePos, placeById, hubs,isLivePlace } from "./data/places.js";
 import { createProgress } from "./systems/progress.js";
 import { createSound } from "./systems/sound.js";
-import { createClock, fmtHour } from "./systems/clock.js";
+import { createClock, fmtHour, lightingSchedule } from "./systems/clock.js";
 import { createFestival } from "./systems/festival.js";
 import { createHud } from "./ui/hud.js";
+import {createRideRadio} from "./ui/ride-radio.js";
 import {landscape} from "./ui/landscape.js";
 import { createGameControls, openControlGuide } from "./ui/game-controls.js";
 import { createMinimap } from "./ui/minimap.js";
@@ -51,14 +53,15 @@ const setLoading = (t,pct) => { if (!loading) return; if(t)loading.querySelector
 setLoading("Connecting…",3);
 
 // ---------- core ----------
-const backend = await loadBackend();
+const backendReady = loadBackend();
 const { renderer, scene, camera, setHour, follow, lowEnd } = createScene(document.getElementById("app"));
 let humanProgress=0,waitingHumans=false;
 const humanAssets=preloadAvatarAssets(f=>{humanProgress=f;setLoading(waitingHumans?'Bringing people to the streets…':null,waitingHumans?70+f*28:null);});
+const parkedAssets=preloadParkedModels(renderer);
 setLoading("Loading the map of Gandhinagar…",10);
 const mapData = alignMetroRoads(createLiveMap(await loadMap()));
 setLoading("Building LDRP campus and Mahatma Mandir…",22);
-await preloadParkedModels(renderer);
+await parkedAssets;
 const world = buildLandmarks(scene, mapData);
 const metro = buildMetro(scene, mapData, { lowEnd });
 const metroOffRoad=roadClearance(mapData),inRoadMedian=roadMedian(mapData);
@@ -69,13 +72,13 @@ setLoading("Laying roads and planting trees…",45);
 const cityObj = await buildCity(scene, world.clearings, mapData, { lowEnd });
 setLoading("Lighting the city…",66);
 world.map = cityObj.map;
-const traffic = createTraffic(scene, mapData, { count: lowEnd ? 22 : 45, zones:world.navigation.zones });
+const traffic = createTraffic(scene, mapData, { count: lowEnd ? 12 : 30, zones:world.navigation.zones });
 world.navigation.addObstacles(metro.obstacles);
 world.navigation.zones.push({id:'metro-supports',contains:()=>false,heights:()=>[],forbidsVehicles:(x,z,margin=0)=>world.navigation.obstacleAt(x,z,margin)});
 world.cameraObstacles.push(...metro.cameraObstacles);
 waitingHumans=true;setLoading('Bringing people to the streets…',70+humanProgress*28);
 await humanAssets;
-const anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+const anisotropy=Math.min(lowEnd?2:4,renderer.capabilities.getMaxAnisotropy());
 scene.traverse(o=>{for(const m of [].concat(o.material||[]))for(const key of ['map','normalMap','roughnessMap'])if(m[key]?.isTexture){m[key].anisotropy=anisotropy;m[key].needsUpdate=true;}});
 
 const PAD = 300;
@@ -96,6 +99,7 @@ clock.loadWeather().then(updateTicker);
 setInterval(() => clock.loadWeather().then(updateTicker), 15 * 60 * 1000);
 
 // ---------- app context shared with panels ----------
+const backend=await backendReady;
 const visitorKey = "v-" + Math.random().toString(36).slice(2, 9);
 const app = {
   backend, world, progress, sound, clock,camera,
@@ -105,7 +109,7 @@ const app = {
   festival: null,
   open: (name) => openNamed(name),
   setCamera(mode){endTourView();player.setCameraMode(mode);},
-  setVehicle(type){const result=player.setVehicle(type);if(!result.error)endTourView();return result;},
+  setVehicle(type){const result=player.setVehicle(type);if(!result.error){endTourView();sound.start();app.radio?.select(type);}return result;},
   requireSignIn(reason) {
     if (app.session) return true;
     prof.openSignIn(app, reason);
@@ -368,7 +372,8 @@ window.addEventListener("keydown", (e) => {
 });
 // Freeze walking while a panel is open so typing does not move you.
 const controls=createGameControls({player,hud});
-const syncInputLock=()=>player.freeze(panelOpen()||hud.menuOpen||controls.rotationRequired||document.body.classList.contains("on-landing"));
+app.radio=createRideRadio(app,{hud});
+const syncInputLock=()=>player.freeze(panelOpen()||hud.menuOpen||controls.rotationRequired||document.body.classList.contains("portrait-page-mode")||document.body.classList.contains("accident-active")||document.body.classList.contains("on-landing"));
 const panelObserver = new MutationObserver(syncInputLock);
 panelObserver.observe(document.body, { childList: true,attributes:true,attributeFilter:["class"] });
 syncInputLock();
@@ -466,6 +471,7 @@ async function enter() {
   if (entered) return;
   entered = true;
   document.body.classList.remove("on-landing");
+  document.body.classList.add("game-started");
   landing.classList.add("gone");
   setTimeout(() => landing.remove(), 600);
   sound.start();
@@ -480,18 +486,33 @@ async function enter() {
 // ---------- loop ----------
 const clockT = new THREE.Clock();
 const impactEffects=createImpactEffects(scene,camera);
-const crashScene=createCrashScene({scene,camera,traffic,player,navigation:world.navigation,look:()=>app.me||{},say:text=>sound.say(text,'hi-IN')});
+let recoveryUntil=0;
+const recoveryRoad=createDrivingSurface(mapData.roads.filter(r=>!r.campus),[]);
+function recoverPlayer(){
+ const p=player.position;let safe=null,best=Infinity;
+ for(let r=3;r<=25;r+=2)for(let i=0;i<24;i++){
+  const a=i*Math.PI/12,x=p.x+Math.cos(a)*r,z=p.z+Math.sin(a)*r;
+  if(player.areaLocked&&!areaContains(x,z))continue;
+  const y=world.navigation.surface(x,z,p.y,.38,.65);if(y===undefined)continue;
+  if([[0,0],[.8,0],[-.8,0],[0,.8],[0,-.8]].some(([dx,dz])=>recoveryRoad.roadHeight(x+dx,z+dz)!==null))continue;
+  if(traffic.vehicles.some(v=>v.pose&&Math.hypot(v.pose.x-x,v.pose.z-z)<v.length/2+3))continue;
+  const score=r+(y<.25?6:0);if(score<best){safe={x,y,z};best=score;}
+ }
+ if(!safe){try{safe=world.navigation.safePoint(p.x,p.z,p.y,.38,8);}catch{safe={x:p.x,y:p.y,z:p.z};}}
+ player.recoverAt(safe);recoveryUntil=performance.now()+12000;toast('Sab theek hai. Safe jagah se aaraam se continue karo.','good');
+}
+const crashScene=createCrashScene({scene,camera,traffic,player,navigation:world.navigation,roads:mapData.roads,look:()=>app.me||{},say:text=>sound.say(text,'hi-IN'),onRecover:recoverPlayer});
 const recoverButton=h('button',{class:'accident-recover',hidden:true,onclick:async()=>{
-  player.getUp();
+  if(crashScene.active)crashScene.finish();else{player.getUp();recoveryUntil=performance.now()+12000;}
 }},'Khade ho · Get up');
 document.body.append(recoverButton);
-const collisions=createCollisionSystem(hit=>{impactEffects.burst(hit);if(!hit.a.passive&&!hit.b.passive&&hit.speed>4){endTourView();crashScene.start(hit);}if(hit.player)sound.impact();});
+const collisions=createCollisionSystem(hit=>{impactEffects.burst(hit);if(hit.player||!hit.a.passive&&!hit.b.passive){endTourView();crashScene.start(hit);}if(hit.player)sound.impact();});
 function collisionEntities(){
   const entities=traffic.vehicles.filter(v=>v.pose).map(v=>({id:`traffic-${v.id}`,trafficId:v.id,...v.pose,width:v.width,length:v.length,motor:true,twoWheeler:['bike','scooter'].includes(v.type),
     stop:p=>traffic.stop(v.id,p)}));
   if(entered){const p=player.position,spec=VEHICLES[player.vehicle],motor=!!spec.width;if(!player.crashed)entities.push({id:'player',x:p.x,y:p.y,z:p.z,yaw:player.heading,
     width:spec.width||.55,length:spec.length||(player.cycling?1.8:.55),twoWheeler:['bike','scooter'].includes(player.vehicle),
-    motor,player:true,stop:p=>player.stopAt(p),hit:info=>{if(player.carrying)app.street?.releaseCarried();player.hit(info);}});
+    motor,player:true,recovering:performance.now()<recoveryUntil,stop:p=>player.stopAt(p),hit:info=>{if(player.carrying)app.street?.releaseCarried();player.hit(info);}});
     if(player.crashed&&motor)entities.push({id:'stopped-player-car',x:p.x,y:p.y,z:p.z,yaw:player.heading,width:player.vehicle==='car'?1.84:1.45,length:player.vehicle==='car'?4.5:2.7,motor:true,passive:true,stop:()=>{}});
     if(player.fallen)entities.push({id:'fallen-player',x:p.x+Math.sin(player.heading)*.65,y:p.y,z:p.z+Math.cos(player.heading)*.65,yaw:player.heading,width:.65,length:1.7,passive:true,stop:()=>{}});
     const wreck=player.wreck;if(wreck)entities.push({id:'player-wreck',...wreck,width:wreck.type==='car'?1.84:1.45,length:wreck.type==='car'?4.5:2.7,motor:true,passive:true,stop:()=>{}});
@@ -507,6 +528,7 @@ function trafficObstacles(){
   if(entered){const p=player.position,spec=VEHICLES[player.vehicle];list.push({x:p.x,z:p.z,r:spec.length?spec.length/2:player.cycling?.9:.45});if(player.wreck)list.push({x:player.wreck.x,z:player.wreck.z,r:2.3});}
   for(const p of people.all())if(Math.abs(p.x-c.x)<220&&Math.abs(p.z-c.z)<220)list.push({x:p.x,z:p.z,r:.45});
   for(const a of app.campus?.actors||[])if(a.avatar.root.visible){const q=a.avatar.root.position;list.push({x:q.x,z:q.z,r:.45});}
+  if(crashScene.obstacle)list.push(crashScene.obstacle);
   return list;
 }
 // Standing next to another real player: one tap to call or chat them directly.
@@ -520,16 +542,32 @@ function nearPlayerChip(){
   if(other){const target={...other,id:other.userId};nearChip.replaceChildren(h('span',{},`${other.name.split(' ')[0]} paas mein hai`),
     h('button',{type:'button',onclick:()=>app.voice?.start(target)},'🎙 Call'),h('button',{type:'button',onclick:()=>social.openCard(app,target)},'💬 Chat'));}
 }
-let t = 0,honkAt=0;
-function frame() {
+let t = 0,honkAt=0,lastFrameAt=0,lastPeopleManage=-1,lastBusinessMinute=-1;
+function frame(stamp=performance.now()) {
+  requestAnimationFrame(frame);
+  if(document.hidden){clockT.getDelta();return;}
+  const pagePaused=panelOpen()||hud.menuOpen||landscape.required||document.body.classList.contains('portrait-page-mode');
+  const fps=pagePaused?5:!entered?12:lowEnd?24:30,interval=1000/fps;
+  if(stamp-lastFrameAt<interval)return;
+  lastFrameAt=stamp-(stamp-lastFrameAt)%interval;
   const realDt=Math.min(clockT.getDelta(),.05),dt=realDt*crashScene.timeScale;
   t += dt;
   controls.update();
+  app.radio.update(entered&&!player.crashed?player.vehicle:"walk");
+  // Account/menu pages do not need a running 3D simulation. Keep calls and
+  // presence alive, without animating hidden crowds, traffic or campus effects.
+  if(pagePaused){
+    app.voice?.updateDistance?.();
+    if(t-lastPresence>1&&app.session&&app.me?.name){lastPresence=t;backend.updatePresence(presenceState());}
+    return;
+  }
   player.update(dt);
+  const businessMinute=istWeekday()*1440+Math.floor(clock.hour()*60);
+  if(businessMinute!==lastBusinessMinute){lastBusinessMinute=businessMinute;for(const market of world.markets)market.setBusinessTime?.(clock.hour(),istWeekday());}
   app.street?.update(dt);
   app.campus?.update(dt);
   if (player.cycling) { cycAcc += player.speed * dt; if (cycAcc >= 25) { progress.track("cycle_m", { m: cycAcc }); cycAcc = 0; } }
-  people.manage(player.position);
+  if(t-lastPeopleManage>=.5){lastPeopleManage=t;people.manage(player.position);}
   people.update(dt, player.position);
   for(const subject of tourSubjects)subject.update(dt,0);
   festival.update(dt, t);
@@ -540,7 +578,7 @@ function frame() {
   if(entered&&t>honkAt){const p=player.position;if(traffic.vehicles.some(v=>v.pose&&v.waiting>3&&Math.hypot(v.pose.x-p.x,v.pose.z-p.z)<12)){sound.honk?.();honkAt=t+9;}}
   if(entered){collisions.update(dt,collisionEntities());traffic.render();}
   crashScene.update(realDt);
-  recoverButton.hidden=!player.canGetUp;
+  recoverButton.hidden=crashScene.active||!player.canGetUp;
   updateGig(dt);
   if (!entered) {
     // Landing: slow cinematic orbit around Akshardham.
@@ -576,13 +614,13 @@ function frame() {
   if (t - lastHourTick > 1) {
     lastHourTick = t;
     const hr = clock.hour();
-    const { night, dusk } = setHour(hr,clock.solar);
-    cityObj.setNight(night, dusk);
-    traffic.setNight(night || dusk);
-    metro.trains?.setNight(night || dusk);
-    player.setNight(night||dusk);
-    for(const market of world.markets)market.setNight(night||dusk,player.position);
-    if (night !== wasNight) { wasNight = night; setLandmarksNight(night); }
+    const { night, dusk,lightsOn } = setHour(hr,clock.solar);
+    cityObj.setNight(lightsOn, false);
+    traffic.setNight(lightsOn);
+    metro.trains?.setNight(lightsOn);
+    player.setNight(lightsOn);
+    for(const market of world.markets)market.setNight(lightsOn,player.position);
+    if (lightsOn !== wasNight) { wasNight = lightsOn; setLandmarksNight(lightsOn); }
     const w = clock.weather;
     hud.setTime(`${fmtHour(hr)} ${clock.mode==='live'?'IST':'PREVIEW'}`, night, w.loaded ? `${w.temp}°C${w.stale?' (last update)':''}` : 'Weather unavailable');
     progress.track("hour", { hour: hr });
@@ -594,12 +632,11 @@ function frame() {
   sound.update({ near: { road: true, water: app.currentPlace?.kind === "park" || app.currentPlace?.id === "lakegarden" }, speed: player.speed });
   impactEffects.update(dt);
   const weatherState=campusWeather?.update(dt,player.position,clock.weather);
-  sound.setCampus?.({near:app.currentPlace?.id==='ldrp',night:clock.hour()>=20||clock.hour()<6,rain:weatherState?.rain});
+  sound.setCampus?.({near:app.currentPlace?.id==='ldrp',night:lightingSchedule(clock.hour()).night,rain:weatherState?.rain});
   app.voice?.updateDistance?.();
   nearPlayerChip();
   crashScene.camera();
-  renderer.render(scene, camera);
-  requestAnimationFrame(frame);
+  if(!pagePaused)renderer.render(scene, camera);
 }
 let cycAcc = 0;
 let lastMini = 0;

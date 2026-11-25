@@ -16,12 +16,12 @@ const MOODS = {
 export function createSound() {
   const saved = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } })();
   const st = { on: saved.on ?? true, music: saved.music ?? 80, city: saved.city ?? 80, voice: saved.voice ?? 80,
-    musicForced: false };
+    rideOn: saved.rideOn ?? true, rideVolume: saved.rideVolume ?? 65, musicForced: false };
   let ctx = null, master, musicGain, cityGain, noise, waterGain, trafficGain;
-  let mood = MOODS.default, nextNote = 0, step = 0;
+  let mood = MOODS.default, nextNote = 0, step = 0, ridePlaying=false;
 
   function persist() {
-    try { localStorage.setItem(KEY, JSON.stringify({ on: st.on, music: st.music, city: st.city, voice: st.voice })); } catch { /* ignore */ }
+    try { localStorage.setItem(KEY, JSON.stringify({ on: st.on, music: st.music, city: st.city, voice: st.voice, rideOn:st.rideOn, rideVolume:st.rideVolume })); } catch { /* ignore */ }
   }
 
   function start() {
@@ -55,7 +55,7 @@ export function createSound() {
     if (!ctx) return;
     master.gain.value = st.on ? 1 : 0;
     const musicOn = !isPhone || st.musicForced;
-    musicGain.gain.value = musicOn ? (st.music / 100) * 0.18 : 0;
+    musicGain.gain.value = musicOn && !ridePlaying ? (st.music / 100) * 0.18 : 0;
     cityGain.gain.value = (st.city / 100) * 0.5;
   }
 
@@ -131,6 +131,7 @@ export function createSound() {
       src.buffer=noise;filter.type='lowpass';filter.frequency.value=420;gain.gain.setValueAtTime(.9,t);gain.gain.exponentialRampToValueAtTime(.001,t+.32);
       src.connect(filter);filter.connect(gain);gain.connect(cityGain);src.start(t);src.stop(t+.35);
     },
+    setRidePlaying(on){if(ridePlaying===on)return;ridePlaying=on;apply();},
     setMood(kind) { mood = MOODS[kind] || MOODS.default; },
     set(k, v) { st[k] = v; apply(); persist(); },
     forceMusic() { st.musicForced = true; apply(); },

@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { ENV } from "../config.js";
 import { h } from "../ui/dom.js";
+import {createContentEditor} from './content-editor.js';
 
 // People of Gandhinagar · admin console.
 // Read-only views over admin_* RPCs (supabase/admin.sql). Only accounts listed in
@@ -82,10 +83,12 @@ function notAdmin(email, why) {
 // ---------------- console ----------------
 function app(email) {
   // Clean URLs: /admin, /admin/live, /admin/users, /admin/connections
-  const ROUTES = { overview: "/admin", live: "/admin/live", users: "/admin/users", connections: "/admin/connections", settings:"/admin/settings" };
+  const ROUTES = { overview: "/admin", live: "/admin/live", users: "/admin/users", connections: "/admin/connections", content:'/admin/content', settings:"/admin/settings" };
   const viewFromPath = () => { const seg = location.pathname.replace(/\/+$/, "").split("/")[2] || "overview"; return ROUTES[seg] ? seg : "overview"; };
   const state = { view: viewFromPath(), overview: null, users: [], connections: [], live: [], updated: 0, error: "", map: null, area: 0, query: "" };
-  const views = [["overview", "📊", "Overview"], ["live", "🛰", "Live map"], ["users", "👤", "Users"], ["connections", "🔗", "Connections"], ["settings", "⚙", "Settings"]];
+  const views = [["overview", "📊", "Overview"], ["live", "🛰", "Live map"], ["users", "👤", "Users"], ["connections", "🔗", "Connections"], ['content','✏️','Game content'], ["settings", "⚙", "Settings"]];
+  let contentEditor=null;
+  const editContent=()=>[contentEditor||(contentEditor=createContentEditor(sb,{mock:MOCK}))];
   const navs = {};
   const content = h("div", { class: "main" });
   const liveChip = h("span", { class: "live" }, h("i", { class: "dot" }), h("span", {}, "Connecting…"));
@@ -116,7 +119,7 @@ function app(email) {
   function render() {
     for (const [id, el] of Object.entries(navs)) el.classList.toggle("on", id === state.view);
     stamp();
-    const v = { overview, live, users, connections, settings }[state.view];
+    const v = { overview, live, users, connections, content:editContent, settings }[state.view];
     document.title=`${state.view[0].toUpperCase()+state.view.slice(1)} · GOG Admin`;
     for(const [id,el] of Object.entries(navs))el.setAttribute("aria-current",id===state.view?"page":"false");
     content.replaceChildren(...v());
@@ -124,7 +127,7 @@ function app(email) {
 
   function settings(){return [header("Console settings"),h("div",{class:"grid2"},
     h("section",{class:"box"},h("h3",{},"Access & security"),h("div",{class:"settings-body"},h("p",{},"Email-only sign-in. Admin privileges are verified by server-side permissions."),h("p",{class:"muted"},email),h("a",{class:"btn",href:"/",target:"_blank",rel:"noopener"},"Open game ↗"))),
-    h("section",{class:"box"},h("h3",{},"Live data"),h("div",{class:"settings-body"},h("p",{},"Live positions refresh every 3 seconds. Player and connection summaries refresh every 15 seconds."),h("button",{class:"btn primary",onclick:()=>refresh(true)},"Refresh console"),h("p",{class:"muted"},"This console is read-only. Account roles and email delivery are managed in Supabase."))))];}
+    h("section",{class:"box"},h("h3",{},"Live data"),h("div",{class:"settings-body"},h("p",{},"Live positions refresh every 3 seconds. Player and connection summaries refresh every 15 seconds."),h("button",{class:"btn primary",onclick:()=>refresh(true)},"Refresh console"),h("p",{class:"muted"},"Player records are read-only. Open Game content to edit the game. Account roles and email delivery are managed in Supabase."))))];}
 
   function overview() {
     const o = state.overview || {};

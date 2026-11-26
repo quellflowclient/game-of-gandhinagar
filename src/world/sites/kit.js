@@ -1,3 +1,4 @@
+import {textLabel} from '../../systems/game-content.js';
 import * as THREE from "three";
 import {parkedTwoWheeler} from '../parked-models.js';
 import * as BGU from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -347,6 +348,7 @@ export function parkedCar(g, x, z, yaw, color) {
 }
 // Text sign (Gujarati + English welcome arches, shop fascias).
 export function textPlane(g, lines, { bg = "#1d4e89", fg = "#ffffff", w = 1024, h = 256, font = "800 92px 'Baloo Bhai 2', Inter, sans-serif" }, pw, ph, x, y, z, ry = 0) {
+  lines=lines.map(textLabel);
   const tex = canvasTex(w, h, (c) => {
     c.fillStyle = bg; c.fillRect(0, 0, w, h);
     c.fillStyle = fg; c.textAlign = "center"; c.textBaseline = "middle";

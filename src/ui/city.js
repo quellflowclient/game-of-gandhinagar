@@ -1,3 +1,4 @@
+import {CONTENT} from '../systems/game-content.js';
 import { h, openPanel, toast, chips, closePanel, ago } from "./dom.js";
 import { PLAN_CATEGORIES, SAMPLE_EVENTS, FESTIVALS, STALLS } from "../data/live-content.js";
 import { hubs, placedPlaces, placePos, HOME_DISTRICTS } from "../data/places.js";
@@ -240,11 +241,14 @@ export function openSound(app) {
     h("input", { type: "range", min: 0, max: 100, value: s.state[k], oninput: (e) => s.set(k, +e.target.value) }));
   openPanel("🔊 SOUND · AVAAJ", h("div", {},
     h("label", { class: "check" }, h("input", { type: "checkbox", checked: s.state.on, onchange: (e) => { s.start(); s.set("on", e.target.checked); } }), " Sound: everything on or off"),
-    h("label", {class:"check"},h("input",{type:"checkbox",checked:s.state.rideOn,onchange:e=>{s.start();s.set("rideOn",e.target.checked);}}),"Game music · welcome, walking and all rides"),
-    slider("rideVolume","Music volume","Welcome/loading and rides: full selected volume. LDRP campus: its own song on every ride and on foot. Outside walking: 18%. Voice calls: quieter."),
     slider("city", "🏙️ City", "Footsteps, horns and collision effects · continuous wind noise removed"),
     slider("voice", "🗣️ Voice guide", "A Gujarati hello and the place names"),
-    h("button", { type: "button", class: "btn", onclick: () => { s.start(); s.say("કેમ છો! ગાંધીનગરમાં તમારું સ્વાગત છે."); } }, "▶ Test the voice guide")));
+    h('p',{class:'muted small'},'Voice previews use recorded dialogue where available. Enable Sound and raise Voice guide volume to listen.'),
+    h('div',{class:'row'},
+      h('button',{type:'button',class:'btn',onclick:()=>s.say(CONTENT.dialogues.guard.idWhere,'hi-IN',{...CONTENT.voices.guard,profile:'guard'})},'▶ Security guard'),
+      h('button',{type:'button',class:'btn',onclick:()=>s.say(CONTENT.stalls[0].callText,'hi-IN',CONTENT.voices.male)},'▶ Male player'),
+      h('button',{type:'button',class:'btn',onclick:()=>s.say(CONTENT.stalls[0].callText,'hi-IN',CONTENT.voices.female)},'▶ Female player')),
+    h("button", { type: "button", class: "btn", onclick: () => { s.start(); s.say(CONTENT.dialogues.guide.welcome); } }, "▶ Test the voice guide")));
 }
 
 // ---------- Suggest ----------

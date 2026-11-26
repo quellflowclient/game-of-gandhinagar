@@ -55,6 +55,7 @@ async function leavePresence() {
 }
 
 export const supabase = {
+  async getGameContent(){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),3500);try{const {data,error}=await sb.from('game_content').select('config,revision').eq('id','published').maybeSingle().abortSignal(controller.signal);if(error)throw error;return data;}finally{clearTimeout(timer);}},
   mode: "live",
 
   async getSession() {

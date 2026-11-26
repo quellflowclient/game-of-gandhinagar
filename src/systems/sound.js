@@ -1,27 +1,19 @@
-// Sound: procedural music (a different scale and tempo per part of the city), city
-// ambience (traffic hum, water, distant horns), footsteps, and a voice guide that says a
-// Gujarati hello and place names with the browser's speech engine. Nothing is downloaded.
+// City effects and browser speech: footsteps, horns, impacts and dialogue.
+import {CONTENT} from './game-content.js';
+import recordings from '../data/dialogue-recordings.json';
+import {createDialogueAudio} from './dialogue-audio.js';
 const KEY = "gnr-sound-v1";
 const isPhone = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
 
-const MOODS = {
-  default: { root: 220, scale: [0, 2, 4, 7, 9], tempo: 0.55 },
-  temple: { root: 196, scale: [0, 1, 4, 5, 7, 8, 11], tempo: 0.8 },   // bhairav-like
-  park: { root: 262, scale: [0, 2, 4, 7, 9], tempo: 0.7 },
-  business: { root: 247, scale: [0, 3, 5, 7, 10], tempo: 0.42 },
-  college: { root: 233, scale: [0, 2, 5, 7, 9], tempo: 0.45 },
-  mall: { root: 277, scale: [0, 2, 4, 5, 7, 9, 11], tempo: 0.4 },
-};
-
 export function createSound() {
   const saved = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } })();
-  const st = { on: saved.on ?? true, music: saved.music ?? 80, city: saved.city ?? 80, voice: saved.voice ?? 80,
-    rideOn: saved.rideOn ?? true, rideVolume: saved.musicVersion===2?(saved.rideVolume??100):100, musicForced: false };
-  let ctx = null, master, musicGain, cityGain, noise, waterGain, trafficGain;
-  let mood = MOODS.default, nextNote = 0, step = 0, ridePlaying=false;
-
+  const st = { on: saved.on ?? true, city: saved.city ?? 80, voice: saved.voice ?? 80 };
+  let ctx = null, master, cityGain, noise;
+  let speechTicket=0;
+  const duck=on=>window.gogMusic?.duck(on);
+  const dialogue=createDialogueAudio({context:()=>({ctx,output:master}),enabled:()=>st.on&&st.voice>0,volume:()=>st.voice/100,duck});
   function persist() {
-    try { localStorage.setItem(KEY, JSON.stringify({ on: st.on, music: st.music, city: st.city, voice: st.voice, rideOn:st.rideOn, rideVolume:st.rideVolume,musicVersion:2 })); } catch { /* ignore */ }
+    try { localStorage.setItem(KEY, JSON.stringify(st)); } catch { /* ignore */ }
   }
 
   function start() {
@@ -30,7 +22,6 @@ export function createSound() {
     if (!AC) return;
     ctx = new AC();
     master = ctx.createGain(); master.connect(ctx.destination);
-    musicGain = ctx.createGain(); musicGain.connect(master);
     cityGain = ctx.createGain(); cityGain.connect(master);
 
     // Pink-ish noise buffer shared by traffic, water and footsteps.
@@ -40,29 +31,18 @@ export function createSound() {
     for (let i = 0; i < d.length; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.5; }
     noise = buf;
     // Continuous noise loops sounded like wind. Keep only discrete footsteps,
-    // horns and collision effects; music is supplied by the MP3 player.
+    // horns and collision effects.
     apply();
   }
 
   function apply() {
+    if(!st.on||!st.voice){speechTicket++;dialogue.stop();window.speechSynthesis?.cancel();duck(false);}else dialogue.setVolume();
     if (!ctx) return;
     master.gain.value = st.on ? 1 : 0;
-    const musicOn = !isPhone || st.musicForced;
-    musicGain.gain.value = 0; // The bundled MP3 is the only background music.
     cityGain.gain.value = (st.city / 100) * 0.5;
   }
 
-  function note(freq, when, dur, vol = 0.5) {
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = "triangle"; o.frequency.value = freq;
-    g.gain.setValueAtTime(0, when);
-    g.gain.linearRampToValueAtTime(vol, when + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.001, when + dur);
-    o.connect(g); g.connect(musicGain);
-    o.start(when); o.stop(when + dur + 0.05);
-  }
-
-  // Called every frame: schedules music notes and sets ambience levels.
+  // Update discrete city sound effects.
   function update({ near = {}, speed = 0 } = {}) {
     if (!ctx || !st.on) return;
     const t = ctx.currentTime;
@@ -90,21 +70,36 @@ export function createSound() {
     src.connect(f); f.connect(g); g.connect(cityGain); src.start(t, Math.random()); src.stop(t + 0.1);
   }
 
-  function say(text, lang = "gu-IN") {
-    if (!st.on || !st.voice || !("speechSynthesis" in window)) return;
-    const u = new SpeechSynthesisUtterance(text);
+  function say(text, lang = "gu-IN", options = {}) {
+    if (!st.on || !st.voice || !text) return;
+    if(options.interrupt===false&&(dialogue.speaking||window.speechSynthesis?.speaking||window.speechSynthesis?.pending))return;
+    const ticket=++speechTicket;dialogue.stop();window.speechSynthesis?.cancel();duck(false);
+    const profile=options.profile||(options.gender==='female'?'female':'male');
+    const key=String(text).trim(),custom=CONTENT.voices[profile]?.recordings;
+    const clip=custom&&Object.hasOwn(custom,key)?custom[key]:recordings[profile]?.[key]?.url;
+    const fallback=()=>browserSay(key,lang,options,ticket,recordings[profile]?.[key]?.spoken);
+    if(clip){if(!ctx)start();if(dialogue.play(clip,fallback))return;}
+    fallback();
+  }
+
+  function browserSay(text,lang,options,ticket,pronunciation){
+    if(ticket!==speechTicket||!st.on||!st.voice||!('speechSynthesis' in window))return;
+    const u = new SpeechSynthesisUtterance(pronunciation||text);
     const voices = speechSynthesis.getVoices();
-    u.voice = voices.find((v) => v.lang === lang) || voices.find((v) => v.lang === "hi-IN") || voices.find((v) => v.lang.startsWith("en-IN")) || null;
+    const female=/female|swara|kalpana|heera|swati|neerja|aditi|dhwani|lekha|sangeeta/i,male=/\bmale\b|hemant|ravi|prabhat|madhur|rishi|kumar/i;
+    const score=v=>{const name=v.name+' '+v.voiceURI,gender=female.test(name)?'female':male.test(name)?'male':null;return(v.lang===lang?60:v.lang.startsWith(lang.slice(0,2))?55:v.lang==='hi-IN'?45:v.lang==='en-IN'?20:0)+(options.gender?(gender===options.gender?100:gender?-1000:0):0);};
+    u.voice = voices.filter(v=>v.lang===lang||/^(gu|hi|en)[-_]/i.test(v.lang)).sort((a,b)=>score(b)-score(a))[0]||null;
     u.lang = u.voice?.lang || lang;
     u.volume = st.voice / 100;
-    u.rate = 0.95;
-    speechSynthesis.cancel();
+    u.rate = options.rate??0.95;u.pitch=options.pitch??(options.gender==='female'?1.12:options.gender==='male'?.92:1);
+    u.onstart=()=>{if(ticket===speechTicket)duck(true);};u.onend=u.onerror=()=>{if(ticket===speechTicket)duck(false);};
     speechSynthesis.speak(u);
   }
 
   return {
     honk() { if (ctx && cityGain) { horn(ctx.currentTime); horn(ctx.currentTime + 0.45); } },
     state: st,
+    get speaking(){return dialogue.speaking||('speechSynthesis' in window&&(speechSynthesis.speaking||speechSynthesis.pending));},
     isPhone,
     start,
     update,
@@ -115,9 +110,6 @@ export function createSound() {
       src.buffer=noise;filter.type='lowpass';filter.frequency.value=420;gain.gain.setValueAtTime(.9,t);gain.gain.exponentialRampToValueAtTime(.001,t+.32);
       src.connect(filter);filter.connect(gain);gain.connect(cityGain);src.start(t);src.stop(t+.35);
     },
-    setRidePlaying(on){if(ridePlaying===on)return;ridePlaying=on;apply();},
-    setMood(kind) { mood = MOODS[kind] || MOODS.default; },
-    set(k, v) { st[k] = v; apply(); persist(); document.dispatchEvent(new CustomEvent('gog-sound-settings',{detail:st})); },
-    forceMusic() { st.musicForced = true; apply(); },
+    set(k, v) { st[k] = v; apply(); persist();if(k==='on')window.gogMusic?.setMaster(v); },
   };
 }

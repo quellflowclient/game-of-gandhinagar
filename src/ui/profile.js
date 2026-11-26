@@ -1,3 +1,4 @@
+import {CONTENT} from '../systems/game-content.js';
 import { h, openPanel, setPanelBody, toast, chips, closePanel } from "./dom.js";
 import { OPEN_TO, INTERESTS, REASONS, TIMES, CHARACTERS, SKIN_TONES } from "../data/content.js";
 import { HOME_DISTRICTS } from "../data/places.js";
@@ -101,7 +102,8 @@ const TWIN_QS = [
 async function interview(app, lang, status) {
   if (!SR) { status.textContent = "Voice is not supported in this browser, so type your answers instead."; return openTwin(app); }
   const answers = { ...((await app.backend.getTwin())?.answers || {}) };
-  for (const [key, q] of TWIN_QS) {
+  for (const [index, [key]] of TWIN_QS.entries()) {
+    const q=CONTENT.dialogues.interview[index];
     status.textContent = `🎙 ${q}`;
     app.sound.say(q, lang);
     await new Promise((r) => setTimeout(r, 2200));

@@ -1,3 +1,42 @@
+## Neural recorded dialogue pack — local only
+- Generated 33 real MP3 clips using edge-tts / Microsoft neural speech: Hindi Madhur (guard/male), Hindi Swara (female), Gujarati Niranjan (guide), English Prabhat (interview). Hindi Roman dialogue was explicitly written in Devanagari for synthesis; Gujarati retains native script. Synthetic voices, not human actor recordings.
+- 33 files in public/audio/dialogues total 594,300 bytes after FFmpeg normalization to -16 LUFS / -1.5 dBTP target, 24 kHz mono, 48 kbps. src/data/dialogue-recordings.json maps exact dialogue + role to clip and pronunciation. scripts/generate-dialogue-audio.py regenerates assets (edge-tts in temporary Python target folder; no runtime neural service/key dependency).
+- One Web Audio speech player, only loads clips when needed, 8 decoded clips maximum, one active utterance, bounded 2 MB / 45 s assets, fetch cancellation and brief failed-URL cooldown. Master/voice volume applies. Browser speech remains fallback for new/failed clips, with known native-script pronunciation and gentler fallback pitch.
+- Background soundtrack ducks to 20% of its current context volume while speech is playing, then restores. Guard and selected male/female players use their distinct recorded clips. Preview buttons play real clip lines; output/dialogues/voice-preview.html now uses three actual MP3 sample players.
+- Admin Voices supports per-role recording URL mappings and add/replace by exact dialogue text; validation accepts local audio paths / HTTPS media with CORS. Renamed dialogue needs its own matching clip. Voice pitch/rate settings affect fallback only, not recorded audio.
+- Production build passed, static default content validation passed. No gameplay/browser/device tests or push. Prior production content SQL still NOT executed: automatic-review approval from previous turn remains pending; do not bypass.
+
+## Admin game-content editor — local only / database action blocked
+- Added /admin/content with nine sections: names/signs, eight stable stalls (names/call text/staff/menu/prices/hours/enable/coordinates), character dialogue templates, voice settings, ID course/branch and validation settings/staff names, gameplay/roads/limits/day-night, music URLs/volumes/popup, advanced authored geometry, and exact UI/3D-sign text overrides. Full JSON import/export, per-section reset, unsaved-change notice, save draft/publish, revision restore, optimistic revision conflicts.
+- Central defaults in src/data/game-defaults.json; public game reads only published settings once at initialization, validates and applies before world construction. Missing/invalid/unavailable data retains defaults; no per-frame network fetch. Some handcrafted props, new model assets, animation code and backend/security configuration remain code/service-managed, not a full visual model editor. Changes apply next game reload.
+- Wired live content into guard/Paaji/stall/order/table/crash/interview dialogue, names/sign textures, stall operation/menu, enrollment validation, motor/cycle limits, road width/area, light schedule, soundtrack and geometry collision shapes. General DOM overrides avoid form inputs and use plain text.
+- supabase/game-content.sql creates published/draft and append-only history tables; public can read published content, writes only through existing-admin checked RPCs; no browser secret/service-role keys. /admin/content remains export/edit-only with clear setup message until migration is applied.
+- Owner Supabase SQL tab 3 (project wcnbaqxqmtbnmbmjyzfx) was available. Exact migration pasted into query 258d8f47-98b5-42b8-b2aa-35271c9f9f8e. Automatic approval review rejected clicking Run because production schema/RLS/grant/security-definer changes require specific user approval. SQL NOT executed. Do not bypass via CLI/another API. Tab marked handoff. Ask user approval after presenting reviewable work.
+- Production build passed and central default configuration static validation returned no errors. No gameplay/browser/device tests or push. Earlier local music/pass changes remain unpushed.
+
+## Validated campus forms / guard and player voices — local only
+- Replaced generated default SIM IDs with college-member / outside-visitor forms in English. College: full name, enrollment, address, degree, branch, admission/graduation years, semester. Enrollment is two year digits + supported course + branch + exactly five digits; all parsed fields must match the form, course duration and semester range checked. Alumni accepted with completed graduation year.
+- Visitor: name, exactly 10 digits mobile, purpose, meeting person/department, origin. Saved per browser/account; repeated visits reuse completed pass. Login remains email only. This checks input format, not an official college roster.
+- Gate completion revalidates passes; legacy auto IDs fail validation. Paaji visitor/home-pass shortcuts also require the appropriate completed form. Pending check resets on identity switch. Preserved saved parking and pass metadata. Cached validation avoids per-frame regex work for saved records.
+- Guard proximity lines every ~18 s without interrupting existing speech; gate-dwell warning, requested male voice with deep pitch / slower pace. Player stall calls use exact supplied names and character gender. Browser voices vary and offer no guaranteed natural or gender-labelled voice.
+- Updated JSON dialogue catalogue. Production build passed; no gameplay/browser/device tests or push.
+
+## Consented welcome / vehicle / campus soundtrack restored — local only
+- Restored the two original MP3 assets from HEAD. English Yes/No music dialog appears before game initialization; main awaits either choice. Yes starts audio directly in the trusted button gesture; No starts game loading without music. Each page visit asks again.
+- Single audio element / optional Web Audio gain: loading and welcome 100%, outside walking 18%, every vehicle 100%. Inside the exact LDRP campus polygon, LDRP track always overrides the general track at 100%, including on foot and all rides. Leaving switches back. Volume changes and track handoffs fade; track position retained during switches.
+- On/off music button, explicit playback retry, hidden-page pause, and master Sound toggle integration. No music download before consent. No extra player iframe or per-vehicle track. Original ambient effects and dialogues remain.
+- Production build passed; no browser/gameplay/device tests or push. Supersedes prior song-removal note below.
+
+## Songs removed / dialogue inventory — local only
+- Removed both deployed MP3s (~5.8 MB), standalone theme player, music consent/mute/retry UI, ride-radio integration, music settings and unused procedural music code. City effects, browser TTS dialogue and multiplayer voice remain. Original converted output/audio files untouched.
+- Added output/dialogues/dialogue-catalog.json: 24 audible fixed lines (including dynamic caller/place expansions), plus text-only Paaji, stall, seating, bargaining and accident captions. AI chat replies have no fixed exhaustive list.
+- Production build passed; no gameplay/browser/device tests or push.
+
+## Explicit startup music choice — local only
+- Each page load opens a native accessible Music chalana hai? dialog with Yes / No. No automatic playback or audio preload before consent; loading can continue behind the dialog.
+- Yes starts/resumes music in the button gesture, preserving welcome/campus/ride volume routing. No or Escape keeps music off; persistent mute button can enable it later. Master mute/zero volume are corrected on explicit enable.
+- Autoplay attribute removed. A tap-to-resume action is available if browser playback still rejects. Production build passed; no gameplay/browser/device tests or push.
+
 ## Music unlock / garden fronts / outside footpaths — local only
 - Web Audio creation now requires actual browser user activation; programmatic ride selection retains native playback. Pointer-up, touch-end and click retry playback/resume. Music toggle reflects master mute and explicitly re-enables sound when requested. Audible autoplay still depends on browser permission/gesture.
 - Front garden tree strips now have outer stone borders with rounded gate-side tips, enclosed planting and no duplicate inner lawn curb beside those beds.

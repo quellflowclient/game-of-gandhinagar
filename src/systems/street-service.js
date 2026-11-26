@@ -1,7 +1,8 @@
+import {CONTENT} from './game-content.js';
 // Name-call → staff approaches → verbal order → preparation → delivery → eat
 // → pay afterwards. There are deliberately no tokens or advance charges.
 export const STALL_CALL_DISTANCE=2.6;
-export const atStallCounter=(shop,position)=>Math.hypot(position.x-shop.x,position.z-shop.z)<=STALL_CALL_DISTANCE&&Math.abs((position.y??.33)-(shop.y??.33))<.65;
+export const atStallCounter=(shop,position)=>Math.hypot(position.x-shop.x,position.z-shop.z)<=CONTENT.gameplay.stallCallDistance&&Math.abs((position.y??.33)-(shop.y??.33))<.65;
 export function createStreetService({now,position,spend,onChange=()=>{},onEat=()=>{},isOpen=()=>true}) {
   let meal=null;
   const nearby=s=>Math.hypot(position().x-s.x,position().z-s.z)<15;
@@ -9,7 +10,7 @@ export function createStreetService({now,position,spend,onChange=()=>{},onEat=()
   return {
     get meal(){return meal;},
     call(shop) {
-      if(!isOpen(shop))return {error:"Stall abhi band hai. Opening hours check karo."};
+      if(shop.enabled===false||!isOpen(shop))return {error:"Stall abhi band hai. Opening hours check karo."};
       if(!atStallCounter(shop,position()))return {error:'Stall ke counter ke paas aake naam se bulao.'};
       if(meal&&meal.phase!=='paid')return {error:'Pehle apna current order aur bill complete karo.'};
       meal={shop,phase:'approaching',since:now(),customer:{...position()},item:null,price:0};onChange({...meal});return {ok:true};
@@ -50,9 +51,9 @@ export function createSeatState(definitions) {
     all:()=>[...seats.values()],get,
     ask(id,person) {
       const s=get(id);if(!s||s.occupant||s.carriedBy)return {error:'Yeh table khaali nahi hai.'};
-      if(!s.group){s.permission=person;return {ok:true,answer:'Haan, le jao.'};}
-      if(!s.allowBorrow)return {error:'Nahi bhai, hamara dost aa raha hai.',denied:true};
-      s.permission=person;return {ok:true,answer:'Haan bhai, khaali hai. Le jao.'};
+      if(!s.group){s.permission=person;return {ok:true,answer:CONTENT.dialogues.seating.yesFree};}
+      if(!s.allowBorrow)return {error:CONTENT.dialogues.seating.noGroup,denied:true};
+      s.permission=person;return {ok:true,answer:CONTENT.dialogues.seating.yesGroup};
     },
     sit(id,person) {
       const s=get(id);if(!s||s.occupant||s.carriedBy)return {error:'Is table par koi baitha hai.'};

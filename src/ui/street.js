@@ -1,6 +1,8 @@
+import {CONTENT,message} from '../systems/game-content.js';
 import {stallAvailability,istWeekday} from '../data/stall-hours.js';
 import {h,toast,openPanel,closePanel} from './dom.js';
 import {createSeatState,createStreetService,atStallCounter} from '../systems/street-service.js';
+import {CHARACTERS} from '../data/content.js';
 
 export function createStreetLife(app,market) {
   const player=app.player,guestId=`guest-${crypto.randomUUID()}`,seats=createSeatState(market.seats);
@@ -51,8 +53,9 @@ export function createStreetLife(app,market) {
   const business=s=>stallAvailability(s,app.clock.hour(),istWeekday());
   const service=createStreetService({isOpen:s=>business(s).open,now:()=>elapsed,position:()=>player.position,spend:n=>app.progress.spend(n),onEat:item=>player.eat(item),onChange:meal=>{
     if(!meal)return;
-    const message={approaching:`${meal.shop.caller}! Idhar aana bhai.`, 'taking-order':`${meal.shop.caller}: Haan bolo, kya khana hai?`,cooking:`${meal.shop.caller}: Abhi bana ke laata hoon.`,delivering:`${meal.shop.caller} tumhara order leke aa rahe hain.`,eating:`${meal.shop.caller}: Lo bhai, garam hai. Aaraam se khao.`, 'bill-due':`Khana ho gaya? Bill ₹${meal.price}, khaane ke baad dena.`,paid:'Paisa mil gaya. Shukriya, phir aana!'}[meal.phase];
-    if(message)toast(message,'info',4500);
+    const dialogueKey={approaching:'approaching','taking-order':'takingOrder',cooking:'cooking',delivering:'delivering',eating:'eating','bill-due':'billDue',paid:'paid'}[meal.phase];
+    const line=message(CONTENT.dialogues.stall[dialogueKey],{caller:meal.shop.caller,price:meal.price});
+    if(line)toast(line,'info',4500);
     if(meal.phase==='taking-order')openMenu(meal.shop);
     if(meal.phase==='paid'){player.pay();app.progress.track('buy',{item:meal.item,place:'ldrp'});market.react(meal.shop.id,true);}
   }});
@@ -66,11 +69,11 @@ export function createStreetLife(app,market) {
     const content=h('div',{class:'street-menu'},h('p',{class:'muted small'},`${shop.staff}. Game characters and sample prices. Wallet ₹${app.progress.state.coins} play money; pay after eating.`));
     content.prepend(h("p",{class:"stall-hours"},`${status.text} · ${status.hours} · IST`));
     if(!meal||meal.phase==='paid') {
-      content.append(h('p',{},'Paas baitho ya khade raho, naam se bulao. Woh aake tumhara order lenge.'),h('button',{class:'btn primary',onclick:()=>{const r=service.call(shop);if(r.error)return toast(r.error);player.wave();app.sound.say(`${shop.caller} bhai!`);closePanel();}},`${shop.caller}! Zara idhar aao`));
+      content.append(h('p',{},'Paas baitho ya khade raho, naam se bulao. Woh aake tumhara order lenge.'),h('button',{class:'btn primary',onclick:()=>{const r=service.call(shop);if(r.error)return toast(r.error);player.wave();const gender=CHARACTERS.female.some(c=>c.id===app.me?.look)?'female':'male';app.sound.say(shop.callText||shop.caller,'hi-IN',CONTENT.voices[gender]);closePanel();}},`Call ${shop.callText||shop.caller}`));
     } else if(meal.shop.id!==shop.id)content.append(h('p',{},`Pehle ${meal.shop.name} ka current order aur bill finish karo.`));
     else if(meal.phase==='taking-order') {
       for(const [item,price] of shop.items)content.append(h('button',{class:'street-menu-item',onclick:()=>{const r=service.order(item,app.progress.state.coins);if(r.error)return toast(r.error);closePanel();}},h('span',{},item),h('b',{},`₹${price}`)));
-      if(shop.whisper)content.append(h('button',{class:'btn',onclick:()=>{const r=service.order('Soda bottle',app.progress.state.coins);if(r.error)return toast(r.error);toast('Natu: Thandi soda bottle laata hoon.');closePanel();}},'Dheere se bolo: Natu, soda bottle chahiye'));
+      if(shop.whisper)content.append(h('button',{class:'btn',onclick:()=>{const r=service.order('Soda bottle',app.progress.state.coins);if(r.error)return toast(r.error);toast(CONTENT.dialogues.stall.natu);closePanel();}},'Dheere se bolo: Natu, soda bottle chahiye'));
     } else {
       content.append(h('p',{},`${meal.item||'Tumhara order'} · ${({'approaching':'Staff aa rahe hain','cooking':'Kitchen mein ban raha hai','delivering':'Khana lekar aa rahe hain','eating':'Aaraam se khao','bill-due':'Khana ho gaya, bill dena hai'})[meal.phase]||meal.phase}`));
       if(meal.phase==='bill-due')content.append(h('button',{class:'btn primary',onclick:()=>{const r=service.pay();if(r.error)return toast(r.error);closePanel();}},`₹${meal.price} bill pay karo`));
@@ -83,7 +86,7 @@ export function createStreetLife(app,market) {
     const body=h('div',{},h('p',{},seat.occupant?'Is chhoti table par koi baitha hai.':seat.group?'Yeh table paas wale group ke saath hai. Le jaane se pehle poochna.':'Khaali chhoti table. Ek person baith sakta hai.'));
     if(!seat.occupant&&!seat.carriedBy) {
       if(!seat.group||seat.permission===me)body.append(h('button',{class:'btn primary',onclick:async()=>{const p=player.position,d=Math.hypot(p.x-seat.x,p.z-seat.z);if(d>0.85){const target={x:seat.x+(p.x-seat.x)/d*0.85,y:p.y,z:seat.z+(p.z-seat.z)/d*0.85};if(!app.world.navigation.canTravel(p,target))return toast('Table ke paas khule raste se aao.');}const r=await changeSeat(seat.id,()=>seats.sit(seat.id,me),'sit');if(r?.ok){player.sit(r.seat);closePanel();}}},'Baitho'));
-      if(seat.group&&seat.permission!==me)body.append(h('button',{class:'btn',onclick:async()=>{try{if(onlineMode())await app.backend.tableAction(seat.id,'ask');const answer=seats.ask(seat.id,me);market.react(seat.shopId,!!answer.ok);toast(`Tum: Khaali hai? Table le jaun?  Group: ${answer.answer||answer.error}`,'info',6000);if(answer.ok)seatMenu(seat);}catch(e){toast(e.message);}}},'Group se poochho: Table khaali hai?'));
+      if(seat.group&&seat.permission!==me)body.append(h('button',{class:'btn',onclick:async()=>{try{if(onlineMode())await app.backend.tableAction(seat.id,'ask');const answer=seats.ask(seat.id,me);market.react(seat.shopId,!!answer.ok);toast(`Tum: ${CONTENT.dialogues.seating.ask}  Group: ${answer.answer||answer.error}`,'info',6000);if(answer.ok)seatMenu(seat);}catch(e){toast(e.message);}}},'Group se poochho: Table khaali hai?'));
       else body.append(h('button',{class:'btn',onclick:async()=>{const r=await changeSeat(seat.id,()=>seats.carry(seat.id,me),'carry');if(r?.ok){carried=seat.id;player.setCarrying(true);closePanel();}}},'Table uthao'));
     }
     openPanel('Chhoti table',body);

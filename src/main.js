@@ -18,7 +18,6 @@ import { createSound } from "./systems/sound.js";
 import { createClock, fmtHour, lightingSchedule } from "./systems/clock.js";
 import { createFestival } from "./systems/festival.js";
 import { createHud } from "./ui/hud.js";
-import {createRideRadio} from "./ui/ride-radio.js";
 import {landscape} from "./ui/landscape.js";
 import { createGameControls, openControlGuide } from "./ui/game-controls.js";
 import { createMinimap } from "./ui/minimap.js";
@@ -44,6 +43,8 @@ import {createVoiceRoom} from './systems/voice-room.js';
 import {createCrashScene} from './world/crash-scene.js';
 import {createCampusLife} from './systems/campus.js';
 import {createCampusWeather} from './world/campus-weather.js';
+import {CONTENT,loadGameContent,installTextOverrides} from './systems/game-content.js';
+import {applyGameContent} from './systems/apply-game-content.js';
 
 const loading = document.getElementById("loading");
 const tourMode = new URLSearchParams(location.search).has('tour');
@@ -51,9 +52,14 @@ const tourMode = new URLSearchParams(location.search).has('tour');
 let loadPct=0;
 const setLoading = (t,pct) => { if (!loading) return; if(t)loading.querySelector("p").textContent = t; if(pct!=null){loadPct=Math.max(loadPct,Math.min(100,pct));loading.querySelector(".bar i").style.width=`${Math.max(4,loadPct)}%`;loading.querySelector(".meta b").textContent=`${Math.round(loadPct)}%`;} };
 setLoading("Connecting…",3);
+const backendReady = loadBackend();
+await loadGameContent(await backendReady);
+applyGameContent();document.title=CONTENT.labels.gameName;installTextOverrides();
+window.gogMusic.configure(CONTENT.music);
+// The button gesture starts audio first; either answer then starts the world.
+await window.gogMusic.ready;
 
 // ---------- core ----------
-const backendReady = loadBackend();
 const { renderer, scene, camera, setHour, follow, lowEnd } = createScene(document.getElementById("app"));
 let humanProgress=0,waitingHumans=false;
 const humanAssets=preloadAvatarAssets(f=>{humanProgress=f;setLoading(waitingHumans?'Bringing people to the streets…':null,waitingHumans?70+f*28:null);});
@@ -94,7 +100,6 @@ const labelsEl = document.getElementById("labels");
 const qaScope=tourMode?new URLSearchParams(location.search).get('qa'):null;
 const progress = createProgress(qaScope?`gnr-progress-qa-${qaScope.replace(/[^a-z0-9]/gi,'').slice(0,32)}`:undefined);
 const sound = createSound();
-document.addEventListener('gog-music-toggle',e=>{if(e.detail&&!sound.state.on)sound.set('on',true);sound.set('rideOn',e.detail);});
 const clock = createClock();
 setHour(clock.hour(),clock.solar); // live IST, local seasonal sunrise/sunset
 const festival = createFestival(scene);
@@ -112,7 +117,7 @@ const app = {
   festival: null,
   open: (name) => openNamed(name),
   setCamera(mode){endTourView();player.setCameraMode(mode);},
-  setVehicle(type){const result=player.setVehicle(type);if(!result.error){endTourView();sound.start();app.radio?.select(type);}return result;},
+  setVehicle(type){const result=player.setVehicle(type);if(!result.error){endTourView();sound.start();}return result;},
   requireSignIn(reason) {
     if (app.session) return true;
     prof.openSignIn(app, reason);
@@ -377,7 +382,6 @@ window.addEventListener("keydown", (e) => {
 });
 // Freeze walking while a panel is open so typing does not move you.
 const controls=createGameControls({player,hud});
-app.radio=createRideRadio(app,{hud});
 const syncInputLock=()=>player.freeze(panelOpen()||hud.menuOpen||controls.rotationRequired||document.body.classList.contains("portrait-page-mode")||document.body.classList.contains("accident-active")||document.body.classList.contains("on-landing"));
 const panelObserver = new MutationObserver(syncInputLock);
 panelObserver.observe(document.body, { childList: true,attributes:true,attributeFilter:["class"] });
@@ -403,7 +407,6 @@ function checkPlace() {
     if (best) {
       if (entered) hud.arrive(best);
       progress.track("visit", { place: best.id });
-      sound.setMood(best.kind === "temple" ? "temple" : best.kind);
     }
     backend.updatePresence(presenceState());
   }
@@ -443,7 +446,7 @@ const landSignIn=h("button",{type:"button",class:"land-signin",onclick:()=>{skip
 const landing = h("div", { id: "landing" },
   h("div",{class:"land-scrim"}),
   h("header", { class: "land-top" },
-    h("div", { class: "brand" }, brandMark(), h("b", {}, "People of Gandhinagar")),
+    h("div", { class: "brand" }, brandMark(), h("b", {}, CONTENT.labels.gameName)),
     h("div",{class:"land-top-r"},
       h("span", { class: "chip-live" }, h("i", { class: "pulse" }), h("span", { class: "ticker" }, "Gandhinagar · live")),
       landSignIn)),
@@ -458,7 +461,7 @@ const landing = h("div", { id: "landing" },
       hubs().map((p) => h("button", { type: "button", class: "dest-card", style: { "--pc": "#" + p.color.toString(16).padStart(6, "0") },
         onclick: () => { enter(); setTimeout(() => travel(p.id), 300); } }, h("i", {}), h("span",{},h("b",{},p.name),h("small",{},p.blurb||p.gu||""))))),
     backend.mode === "demo" ? h("p", { class: "demo-line" }, "Demo mode: data stays in this browser.") : null),
-  h("footer", {}, h("span", {}, "© People of Gandhinagar"),
+  h("footer", {}, h("span", {}, `© ${CONTENT.labels.gameName}`),
     h("a", { href: "/terms.html" }, "Terms"), h("a", { href: "/privacy.html" }, "Privacy"),
     h("span", {}, "Map data © OpenStreetMap contributors")));
 document.body.append(landing);
@@ -480,7 +483,7 @@ async function enter() {
   landing.classList.add("gone");
   setTimeout(() => landing.remove(), 600);
   sound.start();
-  sound.say("કેમ છો! ગાંધીનગરમાં તમારું સ્વાગત છે.");
+  sound.say(CONTENT.dialogues.guide.welcome);
   if (app.session) await app.refreshMe();
   backend.joinPresence(presenceState());
   if (!app.session && !skipVisitorToast) toast("You are walking as a visitor. Sign in to wave, chat and be seen.", "info", 6000, { label: "Sign in", fn: () => prof.openSignIn(app) });
@@ -558,7 +561,8 @@ function frame(stamp=performance.now()) {
   const realDt=Math.min(clockT.getDelta(),.05),dt=realDt*crashScene.timeScale;
   t += dt;
   controls.update();
-  app.radio.update(entered&&!player.crashed?player.vehicle:"walk");
+  const musicPosition=player.position;
+  window.gogMusic.update({entered,vehicle:player.crashed?'walk':player.vehicle,inside:entered&&!!world.campuses?.[0]?.zone.contains(musicPosition.x,musicPosition.z)});
   if(!entered)return; // Welcome artwork needs no 3D simulation or rendering.
   // Account/menu pages do not need a running 3D simulation. Keep calls and
   // presence alive, without animating hidden crowds, traffic or campus effects.

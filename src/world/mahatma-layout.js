@@ -88,7 +88,7 @@ export function onCampusRoad(u,v,extra=0) {
   return CAMPUS_ROAD.path.some((a,i)=>i>0&&distanceToSegment(u,v,CAMPUS_ROAD.path[i-1],a)<=CAMPUS_ROAD.width/2+extra);
 }
 
-const c = Math.cos(MAHATMA.yaw), s = Math.sin(MAHATMA.yaw);
+let c = Math.cos(MAHATMA.yaw), s = Math.sin(MAHATMA.yaw);
 export function siteToWorld(origin, u, v) {
   return { x: origin.x + c * u + s * v, z: origin.z - s * u + c * v };
 }
@@ -205,4 +205,12 @@ export function createMahatmaZone(origin) {
       replacesRoad(x,z) { const {u,v}=worldToSite(origin,x,z);return authoredRoad(u,v); },
     },
   };
+}
+
+export function configureMahatma({layout,road,gates,beds,benches,trees}){
+ Object.assign(MAHATMA,structuredClone(layout));c=Math.cos(MAHATMA.yaw);s=Math.sin(MAHATMA.yaw);Object.assign(CAMPUS_ROAD,structuredClone(road));
+ for(const [target,source]of [[CAMPUS_GATES,gates],[SITE_BEDS,beds],[SITE_BENCHES,benches],[SITE_TREES,trees]])target.splice(0,target.length,...structuredClone(source));
+ plantedPolygons.splice(0,plantedPolygons.length,...SITE_BEDS.map(bedOutline));
+ const fences=[...fenceSections(MAHATMA.museumPlot,CAMPUS_GATES.filter(g=>g.plot==='museum')),...fenceSections(MAHATMA.conventionPlot,CAMPUS_GATES.filter(g=>g.plot==='convention'))];
+ CAMPUS_FENCES.splice(0,CAMPUS_FENCES.length,...fences.map(f=>({...f,minU:Math.min(f.a[0],f.b[0]),maxU:Math.max(f.a[0],f.b[0]),minV:Math.min(f.a[1],f.b[1]),maxV:Math.max(f.a[1],f.b[1])})));
 }

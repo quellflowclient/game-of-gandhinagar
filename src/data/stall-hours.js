@@ -3,8 +3,9 @@ export const STALL_HOURS={babu:{open:8,close:16,closedDays:[0]},chintu:{open:8,c
 export const istWeekday=(date=new Date())=>new Date(date.getTime()+19800000).getUTCDay();
 export const businessHour=h=>`${h%12||12} ${h>=12?'PM':'AM'}`;
 export function stallAvailability(shop,hour,weekday=istWeekday()){
+ if(shop.enabled===false)return{open:false,text:'Temporarily closed',hours:'Closed by admin'};
  const s=STALL_HOURS[shop.id]||{open:8,close:20};
- if(s.closedDays?.includes(weekday))return{open:false,text:'Sunday closed · Monday 8 AM',hours:`${businessHour(s.open)} – ${businessHour(s.close)} · Sunday closed`};
+ if(s.closedDays?.includes(weekday))return{open:false,text:'Closed today · see opening days',hours:`${businessHour(s.open)} – ${businessHour(s.close)} · Closed days: ${s.closedDays.join(', ')}`};
  const open=hour>=s.open&&hour<s.close;
- return{open,text:open?`Open until ${businessHour(s.close)}`:`Closed · opens ${businessHour(s.open)}`,hours:`${businessHour(s.open)} – ${businessHour(s.close)}${s.closedDays?' · Sunday closed':''}`};
+ return{open,text:open?`Open until ${businessHour(s.close)}`:`Closed · opens ${businessHour(s.open)}`,hours:`${businessHour(s.open)} – ${businessHour(s.close)}${s.closedDays?.length?' · Closed days: '+s.closedDays.join(', '):''}`};
 }

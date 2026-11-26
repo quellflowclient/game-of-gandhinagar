@@ -1,3 +1,4 @@
+import {CONTENT,textLabel} from '../../systems/game-content.js';
 import {stallAvailability} from '../../data/stall-hours.js';
 import * as THREE from 'three';
 import * as K from './kit.js';
@@ -176,7 +177,7 @@ export function buildLdrpMarket(scene,origin) {
     else if(s.id==='patel')actor(s,'Patel','tea',0.3,0.8,{server:true,prop:'kettle'});
     else {actor(s,'Ajit','tea',-1.1,-0.65,{server:true,prop:'kettle'});actor(s,'Bapu','stern',2.1,-0.55,{older:true,occasional:true});chair(g,2.1,-0.55);}
     const [cu,cv]=at(0,3.3),counterWorld=f.toWorld(cu,cv);
-    shops.push({...s,group3d:g,...counterWorld,place:'ldrp',street:true,caller:({babu:'Babu',chintu:'Chintu',lalbhai:'Lalbhai',natu:'Natu',masi:'Masi',sarpanch:'Sarpanch',patel:'Patel',ajit:'Ajit'})[s.id]});
+    shops.push({...s,group3d:g,...counterWorld,place:'ldrp',street:true,caller:s.caller||({babu:'Babu',chintu:'Chintu',lalbhai:'Lalbhai',natu:'Natu',masi:'Masi',sarpanch:'Sarpanch',patel:'Patel',ajit:'Ajit'})[s.id]});
     for(let i=0;i<5;i++)smoke.push({shop:s,g,seed:i*1.7,kind:'steam',x:serveX,y:1.3,z:0.05});
   }
   K.mergeStatic(root);
@@ -232,7 +233,7 @@ export function buildLdrpMarket(scene,origin) {
     a.avatar=createAvatar(look,0xb98158);if(a.options.older)a.avatar.setOlder();s.group3d.add(a.avatar.root);
     const colors={Saras:0xddd3b8,Babu:0x789b7c,Chintu:0xc7a04e,Kaka:0x9b9788,Lalbhai:0xd3c7af,Natu:0x9b6a51,Masi:0xa96f7c,Patel:0xa4b2ae,Ajit:0x658a93,Bapu:0x858c78,Sarpanch:0x9d906c};
     if(colors[a.name])a.avatar.setClothes(colors[a.name]);
-    a.tag=label(a.name);a.avatar.root.add(a.tag);a.tag.position.y=1.98;
+    a.tag=label(CONTENT.campus.staffNames[a.name]||a.name);a.avatar.root.add(a.tag);a.tag.position.y=1.98;
     const prop=new THREE.Group();a.avatar.root.add(prop);a.prop=prop;
     if(a.options.prop==='spatula'){K.box(prop,0.025,0.025,0.25,steel,0,0,0.08);K.box(prop,0.08,0.012,0.09,steel,0,-0.02,0.24);}
     if(a.options.prop==='plate')plate(prop,0,0,0);

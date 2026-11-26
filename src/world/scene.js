@@ -1,3 +1,4 @@
+import {CONTENT} from '../systems/game-content.js';
 import {lightingSchedule} from '../systems/clock.js';
 import * as THREE from "three";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
@@ -98,7 +99,7 @@ export function createScene(container) {
   const fogDay = new THREE.Color(0xbcd1e8), fogDusk = new THREE.Color(0xe9b98f), fogNight = new THREE.Color(0x63758a);
 
   function setHour(hour) {
-    const sunrise=6.5,sunset=19;
+    const sunrise=CONTENT.gameplay.lightsOff,sunset=CONTENT.gameplay.nightStarts;
     // Sun rises in the east (+x) and arcs through the southern sky (+z) over Gujarat.
     const t = (hour - sunrise) / (sunset-sunrise);
     const elev = Math.sin(Math.PI * t) * 72 * (Math.PI / 180); // up to ~72° at noon
@@ -107,7 +108,7 @@ export function createScene(container) {
     const {night,dusk,lightsOn,sunVisible}=lightingSchedule(hour);
     if (night) sunDir.set(-0.3, -0.25, 0.4).normalize();
     // A visual moon arc for the game's fixed night schedule, not lunar ephemeris.
-    const moonT=((hour>=19?hour-19:hour+5)/11.5),moonAz=-Math.PI*.8+moonT*Math.PI*1.6;
+    const moonT=((hour>=sunset?hour-sunset:hour+24-sunset)/Math.max(1,24-sunset+sunrise)),moonAz=-Math.PI*.8+moonT*Math.PI*1.6;
     moonDir.set(Math.cos(moonAz),.22+Math.sin(Math.PI*moonT)*.72,Math.sin(moonAz)*.75).normalize();
     sunDisc.visible=sunHalo.visible=sunVisible;moonDisc.visible=night;
     sunDisc.material.color.set(sunDir.y<.2?0xffd28a:0xfff7dc);
@@ -143,7 +144,7 @@ export function createScene(container) {
       scene.environment = envTarget.texture;
       scene.environmentIntensity = night ? .75 : 0.3 + height * 0.25;
     }
-    return { night, evening: hour >= 18 && hour < 19, dusk, lightsOn };
+    return { night, evening: hour >= CONTENT.gameplay.lightsOn && hour < sunset, dusk, lightsOn };
   }
 
   // Keep sky, stars and the shadow frustum centred on the player.

@@ -43,9 +43,21 @@
     <script type="module" src="/src/ui/landscape.js"></script>
   </head>
   <body>
-    <audio id="gog-theme" src="/audio/gog-theme.mp3" preload="auto" autoplay loop playsinline></audio>
-    <button id="music-enable" type="button" hidden aria-label="Retry game music" style="position:fixed;right:16px;bottom:100px;z-index:125;padding:10px 14px;border:1px solid #b5f2cd;border-radius:14px;background:#142e28;color:#e9fff1;font:600 12px system-ui;cursor:pointer;">♪ Retry music</button>
-    <button id="music-mute" type="button" aria-label="Mute music" aria-pressed="false" style="position:fixed;right:max(16px,env(safe-area-inset-right));top:76px;z-index:80;min-width:44px;min-height:40px;border:1px solid #b5f2cd66;border-radius:12px;background:#142e28ed;color:#e9fff1;font:600 12px system-ui;cursor:pointer;">♫ On</button>
+    <audio id="gog-theme" src="/audio/gog-theme.mp3" preload="none" loop playsinline crossorigin="anonymous"></audio>
+    <style>
+      #music-choice{width:min(370px,calc(100vw - 36px));max-height:calc(100dvh - 32px);overflow:auto;padding:26px;border:1px solid #91b9a666;border-radius:20px;background:#102e33;color:#edf2e7;font:14px/1.6 Inter,system-ui;box-shadow:0 20px 70px #0006}
+      #music-choice::backdrop{background:#06171be0}#music-choice h2{font-size:22px;line-height:1.3;margin:0 0 10px}#music-choice p{color:#b8cdc5;margin:0 0 22px}
+      #music-choice .music-actions{display:flex;gap:10px}#music-choice button{flex:1;min-height:46px;padding:10px;border:1px solid #bed3c84d;border-radius:12px;font:600 14px Inter,system-ui;background:#1b4344;color:#edf2e7;cursor:pointer}
+      #music-choice #music-yes{background:#e8c98e;color:#183b40}#music-choice button:focus-visible{outline:3px solid #fff;outline-offset:3px}
+      #music-mute,#music-enable{position:fixed;z-index:125;right:max(16px,env(safe-area-inset-right));min-height:40px;padding:9px 13px;border:1px solid #b5f2cd66;border-radius:12px;background:#142e28ed;color:#e9fff1;font:600 12px system-ui;cursor:pointer}#music-mute{top:76px}#music-enable{bottom:100px}
+    </style>
+    <dialog id="music-choice" aria-labelledby="music-title" aria-describedby="music-description">
+      <h2 id="music-title">Would you like to play music?</h2>
+      <p id="music-description">Enjoy the city with its soundtrack. You can mute it anytime.</p>
+      <div class="music-actions"><button id="music-yes" type="button" autofocus>Yes, play music</button><button id="music-no" type="button">No, continue quietly</button></div>
+    </dialog>
+    <button id="music-mute" type="button" hidden aria-label="Mute music" aria-pressed="false">♫ On</button>
+    <button id="music-enable" type="button" hidden>♪ Tap to resume music</button>
     <script src="/audio/theme-player.js"></script>
     <div id="app"></div>
     <div id="labels"></div>

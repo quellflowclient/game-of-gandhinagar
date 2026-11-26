@@ -1,0 +1,173 @@
+{
+  "guard": {
+    "Gaadi bahar parking ma muki ne aavo.": {
+      "url": "/audio/dialogues/guard-d3e5ccb9ce96c6.mp3",
+      "spoken": "गाड़ी बाहर पार्किंग मा मूकी ने आवो।",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "ID kahan hai? ID dikhao.": {
+      "url": "/audio/dialogues/guard-420fd2cdb3c76e.mp3",
+      "spoken": "आई डी कहाँ है? आई डी दिखाओ।",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "ID card vagar entry nai male.": {
+      "url": "/audio/dialogues/guard-7bc1ec353dda07.mp3",
+      "spoken": "आई डी कार्ड वगर एंट्री नई मले।",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "Virtual visitor pass banavi aapu.": {
+      "url": "/audio/dialogues/guard-d5067366885899.mp3",
+      "spoken": "वर्चुअल विज़िटर पास बनावी आपूँ।",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "ID card batavo!": {
+      "url": "/audio/dialogues/guard-1670b644093dd9.mp3",
+      "spoken": "आई डी कार्ड बतावो!",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "Aur beta, kaise ho?": {
+      "url": "/audio/dialogues/guard-b00262070b6c61.mp3",
+      "spoken": "और बेटा, कैसे हो?",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "Gate ke aage mat khade raho.": {
+      "url": "/audio/dialogues/guard-790d34e12eef4d.mp3",
+      "spoken": "गेट के आगे मत खड़े रहो।",
+      "voice": "hi-IN-MadhurNeural"
+    }
+  },
+  "male": {
+    "Babu": {
+      "url": "/audio/dialogues/male-b4514309ab40a1.mp3",
+      "spoken": "बाबू!",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "Chintu": {
+      "url": "/audio/dialogues/male-5f1ea576ffeb40.mp3",
+      "spoken": "चिंटू!",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "Lalbhai bhai!": {
+      "url": "/audio/dialogues/male-7c2c6d4f300362.mp3",
+      "spoken": "लालभाई भाई!",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "Natu": {
+      "url": "/audio/dialogues/male-3c1ef3f6051054.mp3",
+      "spoken": "नटू!",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "Masi": {
+      "url": "/audio/dialogues/male-63d0cfcc96761e.mp3",
+      "spoken": "मासी!",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "Sarpanch": {
+      "url": "/audio/dialogues/male-467bd5890d6aaf.mp3",
+      "spoken": "सरपंच!",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "Patel": {
+      "url": "/audio/dialogues/male-f18d55fabacb86.mp3",
+      "spoken": "पटेल!",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "Ajit": {
+      "url": "/audio/dialogues/male-55defe35b1ad1f.mp3",
+      "spoken": "अजीत!",
+      "voice": "hi-IN-MadhurNeural"
+    },
+    "કેમ છો! ગાંધીનગરમાં તમારું સ્વાગત છે.": {
+      "url": "/audio/dialogues/male-24122c648eb33a.mp3",
+      "spoken": "કેમ છો! ગાંધીનગરમાં તમારું સ્વાગત છે.",
+      "voice": "gu-IN-NiranjanNeural"
+    },
+    "એલડીઆરપી": {
+      "url": "/audio/dialogues/male-c5e6ead621aa13.mp3",
+      "spoken": "એલડીઆરપી",
+      "voice": "gu-IN-NiranjanNeural"
+    },
+    "મહાત્મા મંદિર · દાંડી કુટીર": {
+      "url": "/audio/dialogues/male-2704d9006a340a.mp3",
+      "spoken": "મહાત્મા મંદિર · દાંડી કુટીર",
+      "voice": "gu-IN-NiranjanNeural"
+    },
+    "કેમ છો! ગાંધીનગરમાં નવા છો? ચાલો, ત્રણ જણને હાથ હલાવીને કેમ છો કહો.": {
+      "url": "/audio/dialogues/male-7e455c7eab7e63.mp3",
+      "spoken": "કેમ છો! ગાંધીનગરમાં નવા છો? ચાલો, ત્રણ જણને હાથ હલાવીને કેમ છો કહો.",
+      "voice": "gu-IN-NiranjanNeural"
+    },
+    "What do you do, and what are you working on right now?": {
+      "url": "/audio/dialogues/male-8475063d50b20e.mp3",
+      "spoken": "What do you do, and what are you working on right now?",
+      "voice": "en-IN-PrabhatNeural"
+    },
+    "What are you looking for in Gandhinagar?": {
+      "url": "/audio/dialogues/male-e84af68f392c1f.mp3",
+      "spoken": "What are you looking for in Gandhinagar?",
+      "voice": "en-IN-PrabhatNeural"
+    },
+    "What can people ask you about?": {
+      "url": "/audio/dialogues/male-a42b1f20b9d47a.mp3",
+      "spoken": "What can people ask you about?",
+      "voice": "en-IN-PrabhatNeural"
+    },
+    "What is the best way to work with you?": {
+      "url": "/audio/dialogues/male-9ff6edd58fc75c.mp3",
+      "spoken": "What is the best way to work with you?",
+      "voice": "en-IN-PrabhatNeural"
+    },
+    "Tell me one fun Gandhinagar thing about you.": {
+      "url": "/audio/dialogues/male-37dab6d8980928.mp3",
+      "spoken": "Tell me one fun Gandhinagar thing about you.",
+      "voice": "en-IN-PrabhatNeural"
+    },
+    "Bhai, dhyaan se. Theek hai, chalo.": {
+      "url": "/audio/dialogues/male-89d973564d3810.mp3",
+      "spoken": "भाई, ध्यान से। ठीक है, चलो।",
+      "voice": "hi-IN-MadhurNeural"
+    }
+  },
+  "female": {
+    "Babu": {
+      "url": "/audio/dialogues/female-b68a3a20a35679.mp3",
+      "spoken": "बाबू!",
+      "voice": "hi-IN-SwaraNeural"
+    },
+    "Chintu": {
+      "url": "/audio/dialogues/female-7e4de5774dab4b.mp3",
+      "spoken": "चिंटू!",
+      "voice": "hi-IN-SwaraNeural"
+    },
+    "Lalbhai bhai!": {
+      "url": "/audio/dialogues/female-e38c53420091a4.mp3",
+      "spoken": "लालभाई भाई!",
+      "voice": "hi-IN-SwaraNeural"
+    },
+    "Natu": {
+      "url": "/audio/dialogues/female-4e5e8d131d9dbe.mp3",
+      "spoken": "नटू!",
+      "voice": "hi-IN-SwaraNeural"
+    },
+    "Masi": {
+      "url": "/audio/dialogues/female-00a3970632f60f.mp3",
+      "spoken": "मासी!",
+      "voice": "hi-IN-SwaraNeural"
+    },
+    "Sarpanch": {
+      "url": "/audio/dialogues/female-ac591cb458f9ad.mp3",
+      "spoken": "सरपंच!",
+      "voice": "hi-IN-SwaraNeural"
+    },
+    "Patel": {
+      "url": "/audio/dialogues/female-1fdf91c8948ef2.mp3",
+      "spoken": "पटेल!",
+      "voice": "hi-IN-SwaraNeural"
+    },
+    "Ajit": {
+      "url": "/audio/dialogues/female-e0f8b4d5bc03ed.mp3",
+      "spoken": "अजीत!",
+      "voice": "hi-IN-SwaraNeural"
+    }
+  }
+}

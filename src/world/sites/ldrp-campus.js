@@ -1,3 +1,4 @@
+import {CONTENT} from '../../systems/game-content.js';
 import * as THREE from 'three';
 import * as K from './kit.js';
 import {ROAD5_OUTER_EXPANSION} from './ldrp-market-layout.js';
@@ -177,8 +178,8 @@ export function buildReferenceCampus(scene,map,origin){
  }
  const gate=new THREE.Group();gate.name='Photo reference main gate';g.add(gate);
  for(const x of [-12,0,12]){K.box(gate,.85,5.3,1.2,0x9d9f90,x,0,0);K.box(gate,1.1,.2,1.4,0x858c80,x,5.3,0);solids.push({rect:[x,0,.9,1.2]});}
- K.box(gate,25,.58,1.3,0x898f81,0,5.45,0);K.textPlane(gate,['LILABEN DASHRATHBHAI RAMDAS PATEL INSTITUTE OF TECHNOLOGY AND RESEARCH'],{bg:'#898f81',fg:'#d0bb83',font:'600 62px sans-serif'},24.6,.48,0,5.76,-.67,Math.PI);
- for(const [x,text]of [[-6,'MANAGED BY SARVA VIDYALAYA KELAVANI MANDAL'],[6,'DO GOOD, FOR GOOD WILL COME BACK TO YOU']]){K.box(gate,10.7,.43,1.15,0xa0a390,x,4.3,.05);K.textPlane(gate,[text],{bg:'#a0a390',fg:'#5c6655'},10.3,.31,x,4.55,-.55,Math.PI);}
+ K.box(gate,25,.58,1.3,0x898f81,0,5.45,0);K.textPlane(gate,[CONTENT.labels.gateName],{bg:'#898f81',fg:'#d0bb83',font:'600 62px sans-serif'},24.6,.48,0,5.76,-.67,Math.PI);
+ for(const [x,text]of [[-6,CONTENT.labels.gateLeft],[6,CONTENT.labels.gateRight]]){K.box(gate,10.7,.43,1.15,0xa0a390,x,4.3,.05);K.textPlane(gate,[text],{bg:'#a0a390',fg:'#5c6655'},10.3,.31,x,4.55,-.55,Math.PI);}
  // Outside apron: one even concrete surface from Road 5 to the gate. Everything
  // standing on it lives in `front`, lifted to the apron top.
  D.concreteSlab(g,OUTSIDE_APRON,APRON_Y);

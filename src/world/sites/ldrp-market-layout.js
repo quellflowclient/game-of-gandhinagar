@@ -9,9 +9,10 @@ export const LDRP_PLAY_AREA={minU:-432,maxU:212,minV:-295,maxV:65};
 export function inLdrpArea(origin,x,z,margin=0){const p=toMarket(origin,x,z),b=LDRP_PLAY_AREA;return p.u>=b.minU+margin&&p.u<=b.maxU-margin&&p.v>=b.minV+margin&&p.v<=b.maxV-margin;}
 export const ROAD5_WAYS=[326054220,386749311,386751118,903991653];
 export const ORIGINAL_CARRIAGEWAY_WIDTH=4.8;
-export const CARRIAGEWAY_WIDTH=12;
+export let CARRIAGEWAY_WIDTH=12;
 // Keep the median edge fixed: each carriageway grows only on its outside.
-export const ROAD5_OUTER_EXPANSION=CARRIAGEWAY_WIDTH-ORIGINAL_CARRIAGEWAY_WIDTH;
+export let ROAD5_OUTER_EXPANSION=CARRIAGEWAY_WIDTH-ORIGINAL_CARRIAGEWAY_WIDTH;
+export function configureRoadWidth(width){CARRIAGEWAY_WIDTH=width;ROAD5_OUTER_EXPANSION=width-ORIGINAL_CARRIAGEWAY_WIDTH;}
 export function applyRoad5Profile(map){for(const road of map.roads)if(ROAD5_WAYS.includes(road.id)){road.width=CARRIAGEWAY_WIDTH;road.sidewalkSides=[-1];road.onewayLanes=2;}}
 export const MARKET_SHOPS = [
   {id:'babu',name:'Babu na Chhole Kulche',gu:'બાબુના છોલે કુલચે',u:-155,v:15.5,kind:'food',color:0x87342c,emoji:'🍲',items:[['Chhole kulche',60],['Extra kulcha',15]],staff:'Saras cooks · Masi takes payment · Babu serves'},

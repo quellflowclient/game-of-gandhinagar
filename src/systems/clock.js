@@ -1,3 +1,4 @@
+import {CONTENT} from './game-content.js';
 import { CITY } from "../config.js";
 
 // City clock (live India time, with Morning/Day/Evening/Night overrides and a
@@ -17,8 +18,8 @@ export function istHour() {
 }
 // User-defined visual schedule in local IST. Shop hours remain independent.
 export function lightingSchedule(hour){
- const h=((hour%24)+24)%24,night=h<6.5||h>=19,dusk=!night&&(h<7||h>=18);
- return{night,dusk,lightsOn:h>=18||h<6.5,sunVisible:h>=7&&h<19};
+ const h=((hour%24)+24)%24,night=h<CONTENT.gameplay.lightsOff||h>=CONTENT.gameplay.nightStarts,dusk=!night&&(h<CONTENT.gameplay.dayStarts||h>=CONTENT.gameplay.lightsOn);
+ return{night,dusk,lightsOn:h>=CONTENT.gameplay.lightsOn||h<CONTENT.gameplay.lightsOff,sunVisible:h>=CONTENT.gameplay.dayStarts&&h<CONTENT.gameplay.nightStarts};
 }
 export function periodOf(h) {
   return h >= 5 && h < 11 ? "Morning" : h >= 11 && h < 17 ? "Day" : h >= 17 && h < 21 ? "Evening" : "Night";

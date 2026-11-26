@@ -1,3 +1,4 @@
+import {CONTENT} from '../systems/game-content.js';
 import * as THREE from "three";
 import { createAvatar } from "./avatar.js";
 import {cameraMode as modeDefinition} from './camera-modes.js';
@@ -170,7 +171,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
     const len = Math.hypot(ix, iz);
     if (len > 1) { if(vehicleRoot){ix=THREE.MathUtils.clamp(ix,-1,1);iz=THREE.MathUtils.clamp(iz,-1,1);}else{ix /= len; iz /= len;} }
     const run = runToggle||Math.hypot(joy.x,joy.y)>0.88||keys.has("ShiftLeft") || keys.has("ShiftRight");
-    const maxSpeed = carrying?1.2:cycling ? 10 : run ? 5.2 : 1.8;
+    const maxSpeed = carrying?1.2:cycling ? VEHICLES.cycle.maxKmh/3.6 : run ? 5.2 : 1.8;
     const target = Math.min(len, 1) * maxSpeed;
     speedNow += (target - speedNow) * Math.min(1, dt * 6);
 
@@ -181,7 +182,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
       const braking=keys.has('Space')||(forward&&backward);
       driveSpeed=crashed||frozen?0:braking?Math.sign(driveSpeed)*Math.max(0,Math.abs(driveSpeed)-VEHICLES[vehicle].brake*dt):drivingSpeed(driveSpeed,-iz,dt,vehicle);
       steeringNow+=(THREE.MathUtils.clamp(ix,-1,1)-steeringNow)*Math.min(1,dt*12);
-      if(twoWheeler&&navigation?.zones.some(z=>z.id==='ldrp-campus'&&z.contains(pos.x,pos.z)))driveSpeed=Math.min(driveSpeed,15/3.6);
+      if(twoWheeler&&navigation?.zones.some(z=>z.id==='ldrp-campus'&&z.contains(pos.x,pos.z)))driveSpeed=Math.min(driveSpeed,CONTENT.gameplay.campusMaxKmh/3.6);
       // Bicycle-model steering: yaw rate follows signed speed, so the vehicle
       // only turns while rolling, turns tighter when slow and the nose swings
       // the opposite way when reversing, like a real car or bike.

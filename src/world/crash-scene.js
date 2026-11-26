@@ -1,3 +1,4 @@
+import {CONTENT} from '../systems/game-content.js';
 import * as THREE from 'three';
 import {createAvatar} from './avatar.js';
 import {createAmbulance} from './ambulance.js';
@@ -44,11 +45,11 @@ export function createCrashScene({scene,camera,traffic,player,navigation,roads=[
     }
    }
    if(medical)response(c);
-   else if(vehicles.length===2){for(const [i,v]of vehicles.entries()){const a=actor({x:v.x+Math.cos(v.yaw)*2,y:v.y,z:v.z-Math.sin(v.yaw)*2},i);a.to=a.from.clone();}say('Bhai, dhyaan se. Theek hai, chalo.');}
+   else if(vehicles.length===2){for(const [i,v]of vehicles.entries()){const a=actor({x:v.x+Math.cos(v.yaw)*2,y:v.y,z:v.z-Math.sin(v.yaw)*2},i);a.to=a.from.clone();}say(CONTENT.dialogues.crash.minor);}
    skip.textContent=medical?'Skip 108 scene · Continue':'Skip · Continue';skip.hidden=false;caption.hidden=false;document.body.classList.add("accident-active");
   },
   update(dt){if(!incident)return;const c=incident;c.t+=dt;
-   caption.textContent=c.medical?(c.t<2.6?'108 ambulance aa rahi hai…':c.t<5?'108 team madad kar rahi hai.':'All clear · Safe jagah se continue karo.'):'Chhoti takkar · Sab theek hai, aaraam se chalo.';
+   caption.textContent=c.medical?(c.t<2.6?CONTENT.dialogues.crash.incoming:c.t<5?CONTENT.dialogues.crash.helping:CONTENT.dialogues.crash.clear):CONTENT.dialogues.crash.small;
    if(c.wreckMotion){const m=c.wreckMotion,k=1-(1-Math.min(1,c.t/.65))**3;player.poseWreck({x:m.from.x+(m.to.x-m.from.x)*k,y:m.from.y,z:m.from.z+(m.to.z-m.from.z)*k,yaw:m.from.yaw+(m.to.yaw-m.from.yaw)*k});}
    if(c.ambulance){const n=c.responsePath.length-1,p=THREE.MathUtils.clamp(c.t/2.6,0,1)*n,i=Math.floor(p);c.ambulance.root.position.lerpVectors(c.responsePath[i],c.responsePath[Math.min(n,i+1)],p-i);c.ambulance.update(c.t);}
    for(const a of c.actors){a.avatar.root.visible=!a.medic||c.t>2.5;if(!a.avatar.root.visible)continue;

@@ -10,10 +10,10 @@ export function createCampusWeather(scene,campus,{lowEnd=false}={}){
  scene.traverse(o=>{for(const m of [].concat(o.material||[])){if(!m.isMeshStandardMaterial||materials.has(m))continue;materials.set(m,{roughness:m.roughness});
    if(m.alphaTest>.3&&m.map){const previous=m.onBeforeCompile;m.onBeforeCompile=shader=>{previous?.(shader);shader.uniforms.campusWind=wind;shader.vertexShader='uniform float campusWind;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\ntransformed.x += sin(position.x*.17 + campusWind)*.035*clamp(position.y*.15,0.,1.);');};m.needsUpdate=true;}
  }});
- let time=0,wet=0;
+ let time=0,wet=0,lastWet=-1;
  return{update(dt,player,weather){time+=dt;wind.value=time*(.6+(weather.wind||0)*.03);const code=weather.loaded?weather.code:null,isRain=code!=null&&((code>=51&&code<=67)||(code>=80&&code<=82)||code>=95),fog=code===45||code===48;
   rain.visible=isRain;rain.position.set(player.x,player.y,player.z);puddles.visible=isRain&&Math.hypot(player.x-campus.gateOrigin.x,player.z-campus.gateOrigin.z)<240;
-  wet=THREE.MathUtils.damp(wet,isRain?1:0,.5,dt);for(const[m,base]of materials)if(base.roughness>.7)m.roughness=base.roughness*(1-wet*.42);
+  wet=THREE.MathUtils.damp(wet,isRain?1:0,.5,dt);if(Math.abs(wet-lastWet)>.003){lastWet=wet;for(const[m,base]of materials)if(base.roughness>.7)m.roughness=base.roughness*(1-wet*.42);}
   if(isRain){for(let i=0;i<count;i++){const k=i*6;positions[k+1]-=dt*17;if(positions[k+1]<0)positions[k+1]=28;positions[k+4]=positions[k+1]-.7;}geo.attributes.position.needsUpdate=true;}
   if(scene.fog)scene.fog.far=fog?290:code===3?1500:2000;
   return{rain:isRain,night:false};

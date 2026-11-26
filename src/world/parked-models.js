@@ -41,6 +41,6 @@ export function updateParkedVehicles(scene,position,{lowEnd=false}={}){
     for(const near of [false,true]){const mesh=new THREE.InstancedMesh(geometry,material,512);mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.castShadow=near;mesh.receiveShadow=true;mesh.name=`GLB parking ${type}`;scene.add(mesh);pools.push({mesh,type,near});}
    }
  }
- const visible=anchors.filter(a=>{if(a.anchor.userData.parkingVisible===false)return false;a.anchor.updateWorldMatrix(true,false);const p=new THREE.Vector3().setFromMatrixPosition(a.anchor.matrixWorld);a.distance=Math.hypot(p.x-position.x,p.z-position.z);return a.distance<(lowEnd?55:85);});
- for(const {mesh,type,near} of pools){let count=0;for(const a of visible)if(a.index===type&&(a.distance<22)===near&&count<512)mesh.setMatrixAt(count++,a.anchor.matrixWorld);mesh.count=count;mesh.visible=count>0;mesh.instanceMatrix.needsUpdate=true;if(count){mesh.computeBoundingSphere();mesh.computeBoundingBox();}}
+ const visible=anchors.filter(a=>{if(a.anchor.userData.parkingVisible===false)return false;if(!a.worldMatrix){a.anchor.updateWorldMatrix(true,false);a.worldMatrix=a.anchor.matrixWorld.clone();a.x=a.worldMatrix.elements[12];a.z=a.worldMatrix.elements[14];}a.distance=Math.hypot(a.x-position.x,a.z-position.z);return a.distance<(lowEnd?55:85);});
+ for(const {mesh,type,near} of pools){let count=0;for(const a of visible)if(a.index===type&&(a.distance<22)===near&&count<512)mesh.setMatrixAt(count++,a.worldMatrix);mesh.count=count;mesh.visible=count>0;mesh.instanceMatrix.needsUpdate=true;if(count){mesh.computeBoundingSphere();mesh.computeBoundingBox();}}
 }

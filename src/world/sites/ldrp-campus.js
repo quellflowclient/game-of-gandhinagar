@@ -40,8 +40,20 @@ export function buildReferenceCampus(scene,map,origin){
   }flush();
  }
  for(const path of GARDEN_PATHS)D.paverWalk(g,path.points,path.width,path.height);
+ // Front tree beds end at the road-side outline, rather than at the inner
+ // hedge. Rounded tips leave the central gate approach completely open.
+ const frontBeds=[];
+ for(const mirror of [false,true]){
+  const outline=[[137,54.5],[180,54.5],[187,54.9],[192,56.5],[195,59.5],[193,61.5],[137,61.5]].map(([x,y])=>P(mirror?422-x:x,y));
+  K.slab(g,outline,.1,K.mat(K.dryGround(),{color:0xb8ab88,roughness:1}));
+  D.stoneCurb(g,[...outline,outline[0]],.1,{height:.25,width:.24});frontBeds.push({poly:outline});
+  for(const x of [145,162,179]){const [u,v]=P(mirror?422-x:x,58);K.tree(g,u,v,.55);trees.push([u,v,.22]);}
+ }
+ solids.push(...frontBeds);
  for(const [index,poly]of FOUR_GARDENS.entries()){
-  K.slab(g,poly,.09,lawn,0,3.5);D.stoneCurb(g,[...poly,poly[0]],.09,{height:.25,width:.26});
+  K.slab(g,poly,.09,lawn,0,3.5);
+  let lawnCurb=[];const flushLawn=()=>{if(lawnCurb.length>1)D.stoneCurb(g,lawnCurb,.09,{height:.25,width:.26});lawnCurb=[];};
+  for(const p of D.resample([...poly,poly[0]],.35)){if(frontBeds.some(b=>K.nearPolygon(p[0],p[1],b.poly,1.3)))flushLawn();else lawnCurb.push(p);}flushLawn();
   const [u,v]=K.centroid(poly),homes=[];
   for(let j=0;j<3;j++){const x=u+(j-1)*1.6,z=v-.5;if(!pointIn(x,z,poly))continue;const w=f.toWorld(x,z);homes.push([x,z]);gardenSeats.push({id:`ldrp-garden-${index}-${j}`,x:w.x,y:.098,z:w.z,yaw:-PHOTO_YAW+Math.PI,kind:'ground',garden:index});}
   const plantHere=(x,z,r)=>pointIn(x,z,poly)&&D.pathDistance(x,z,[...poly,poly[0]])>r+.18&&GARDEN_PATHS.every(path=>D.pathDistance(x,z,path.points)>path.width/2+r+.2)&&D.pathDistance(x,z,frontArc)>2.2+r&&homes.every(([a,b])=>Math.hypot(a-x,b-z)>r+1.1)&&Math.hypot(x-FLAG_POINT[0],z-FLAG_POINT[1])>r+2.3;
@@ -113,10 +125,22 @@ export function buildReferenceCampus(scene,map,origin){
    const lo=Math.max(0,entryAt-3-travelled),hi=Math.min(len,entryAt+3-travelled);
    const spans=hi>lo?[[0,lo],[hi,len]]:[[0,len]];
    if(hi>lo){const access=[at(lo,0),at(hi,0),at(hi,3),at(lo,3)];parkingAccess.push(access);D.concreteSlab(g,access,.025);}
+   // The sketch's lot edge is not the asphalt edge. Move the whole path
+   // footprint into the lot until it clears actual widened road geometry.
+   const clearPoint=([u,v])=>{const w=f.toWorld(u,v);return pointIn(u,v,poly)&&offRoad(w.x,w.z,.3)&&!K.nearPolygon(u,v,OUTSIDE_APRON,1)&&!K.nearPolygon(u,v,ENTRY_APRON,.65)&&!K.nearPolygon(u,v,CAMPUS_BOUNDARY,.12);};
    for(const [start,end]of spans){if(end-start<.2)continue;
-    const ring=[at(start,.15),at(end,.15),at(end,1.55),at(start,1.55)];
-    parkingWalks.push(ring);const walk=K.slab(g,ring,.02,D.materials().paver,.46,1.4);walk.name='Raised outside roadside footpath';
-    for(const side of [.15,1.55])D.stoneCurb(g,[at(start,side),at(end,side)],.02,{height:.46,width:.17});
+    let run=[];
+    const flush=()=>{
+     if(run.length>1){const left=D.offsetPoints(run,.7),right=D.offsetPoints(run,-.7),ring=[...left,...right.slice().reverse()];
+      if(ring.every(clearPoint)){parkingWalks.push(ring);const walk=K.slab(g,ring,.02,D.materials().paver,.46,1.4);walk.name='Road-aligned raised parking footpath';for(const edge of [left,right])D.stoneCurb(g,edge,.02,{height:.46,width:.17});}
+     }run=[];
+    };
+    const count=Math.max(1,Math.ceil(end-start));
+    for(let k=0;k<=count;k++){
+     const d=start+(end-start)*k/count;let p=null;
+     for(let inset=.95;inset<9;inset+=.2){const c=at(d,inset);if([-.85,0,.85].every(w=>[-.55,0,.55].every(l=>clearPoint([c[0]+nx*w+dx*l,c[1]+nz*w+dz*l])))){p=c;break;}}
+     if(!p){flush();continue;}if(run.length&&Math.hypot(p[0]-run.at(-1)[0],p[1]-run.at(-1)[1])>1.8)flush();run.push(p);
+    }flush();
    }
    travelled+=len;
   }
@@ -287,7 +311,7 @@ export function buildReferenceCampus(scene,map,origin){
  zone.forbidsVehicles=(x,z,margin=0,type)=>{const p=f.toLocal(x,z);if(!K.nearPolygon(p.u,p.v,CAMPUS_BOUNDARY,margin))return false;if(leftOpening(p.u,p.v)||inGarden(p.u,p.v))return true;if(rightOpening(p.u,p.v)&&entry.side==='outside')return true;return !['bike','scooter'].includes(type)||!entry.allowed||zone.blocked(p.u,p.v,margin);};
  zone.roadHeight=(x,z)=>{const p=f.toLocal(x,z);if(!zone.contains(x,z))return null;return pointIn(p.u,p.v,INSIDE_PARKING)?referenceHeight(p.u,p.v):null;};
  const outsideContains=(x,z)=>{const p=f.toLocal(x,z);return (pointIn(p.u,p.v,OUTSIDE_APRON)||offRoad(x,z,.12)&&(outside.some(poly=>pointIn(p.u,p.v,poly))||pointIn(p.u,p.v,ENTRY_APRON)))&&!zone.contains(x,z);};
- const outsideZone={id:'ldrp-outside-parking',contains:outsideContains,heights:(x,z,r=.38)=>{const p=f.toLocal(x,z);return zone.blocked(p.u,p.v,r)||gateRule(p.u,p.v,r)?[]:[pointIn(p.u,p.v,OUTSIDE_APRON)?APRON_Y+.008:onParkingWalk(p.u,p.v)?.488:pointIn(p.u,p.v,ENTRY_APRON)?referenceHeight(p.u,p.v):.028];},roadHeight:(x,z)=>{if(!outsideContains(x,z))return null;const p=f.toLocal(x,z);return pointIn(p.u,p.v,OUTSIDE_APRON)?APRON_Y:onParkingWalk(p.u,p.v)?.48:pointIn(p.u,p.v,ENTRY_APRON)?.15:.04;},forbidsVehicles:(x,z,r)=>{if(!outsideContains(x,z))return false;const p=f.toLocal(x,z);return onParkingWalk(p.u,p.v,r)||zone.blocked(p.u,p.v,r);},clearing:{contains:(x,z)=>{const p=f.toLocal(x,z);return outside.some(poly=>pointIn(p.u,p.v,poly))||pointIn(p.u,p.v,ENTRY_APRON);},replacesWalk:(x,z)=>{const p=f.toLocal(x,z);return outside.some(poly=>pointIn(p.u,p.v,poly))||pointIn(p.u,p.v,ENTRY_APRON);}}};
+ const outsideZone={id:'ldrp-outside-parking',contains:outsideContains,heights:(x,z,r=.38)=>{const p=f.toLocal(x,z);return zone.blocked(p.u,p.v,r)||gateRule(p.u,p.v,r)?[]:[pointIn(p.u,p.v,OUTSIDE_APRON)?APRON_Y+.008:onParkingWalk(p.u,p.v)?.488:pointIn(p.u,p.v,ENTRY_APRON)?referenceHeight(p.u,p.v):.028];},roadHeight:(x,z)=>{if(!outsideContains(x,z))return null;const p=f.toLocal(x,z);return pointIn(p.u,p.v,OUTSIDE_APRON)?APRON_Y:onParkingWalk(p.u,p.v)?.48:pointIn(p.u,p.v,ENTRY_APRON)?.15:.04;},forbidsVehicles:(x,z,r)=>{if(!outsideContains(x,z))return false;const p=f.toLocal(x,z);return onParkingWalk(p.u,p.v,r)||zone.blocked(p.u,p.v,r);},clearing:{contains:(x,z)=>{const p=f.toLocal(x,z);return outside.some(poly=>pointIn(p.u,p.v,poly))||pointIn(p.u,p.v,OUTSIDE_APRON)||pointIn(p.u,p.v,ENTRY_APRON);},replacesWalk:(x,z)=>{const p=f.toLocal(x,z);return outside.some(poly=>pointIn(p.u,p.v,poly))||pointIn(p.u,p.v,OUTSIDE_APRON)||pointIn(p.u,p.v,ENTRY_APRON);}}};
  const campus={gardenAt(x,z){const p=f.toLocal(x,z);return FOUR_GARDENS.findIndex(poly=>pointIn(p.u,p.v,poly));},frame:f,root:g,zone,entry,gardenSeats,parking,actors,lamps,guard:f.toWorld(0,-4.85),guardYaw:PHOTO_YAW+Math.PI,groundY:APRON_Y,paji:{seat:f.toWorld(13.9,-2.5),desk:f.toWorld(13.9,-3.35),bike:f.toWorld(17.4,-4.4),y:APRON_Y,ride:[[17.4,-4.8],[17.2,-11],[16,-15.6],[45,-16],[75,-16.2]].map(p=>f.toWorld(...p)),yaw:PHOTO_YAW+Math.PI,bikeYaw:PHOTO_YAW+Math.PI/2},gateOrigin,booms,groundHeight(x,z){const p=f.toLocal(x,z);return referenceHeight(p.u,p.v);}};
  const market=buildLdrpMarket(scene,origin),spawn={...f.toWorld(-6,-10),y:.05,yaw:PHOTO_YAW+Math.PI,residents:[],customCrowd:true};
  return{zone,spawn,frame:f,market,campus,extraZones:[outsideZone,market.zone],update(t,p){flag.rotation.y=Math.sin(t*1.25)*.12;

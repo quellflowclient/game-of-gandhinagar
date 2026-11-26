@@ -33,7 +33,8 @@ function route(){
 }
 function refresh(){
  if(!audio)return;
- mute.setAttribute('aria-pressed',String(!prefs.rideOn));mute.setAttribute('aria-label',prefs.rideOn?'Mute music':'Unmute music');mute.textContent=prefs.rideOn?'♫ On':'♫ Off';
+ const audible=prefs.on&&prefs.rideOn;
+ mute.setAttribute('aria-pressed',String(!audible));mute.setAttribute('aria-label',audible?'Mute music':'Unmute music');mute.textContent=audible?'♫ On':'♫ Off';
  route();if(track===desired)volume(target());
  if(document.hidden||!prefs.on||!prefs.rideOn){audio.pause();enable.hidden=true;return;}
  if(audio.paused&&!blocked&&!pending)play();
@@ -43,8 +44,11 @@ function play(){
  pending=true;const ticket=epoch;
  audio.play().then(()=>{if(ticket!==epoch)return;blocked=false;enable.hidden=true;}).catch(()=>{if(ticket!==epoch)return;blocked=true;enable.hidden=true;}).finally(()=>{if(ticket===epoch)pending=false;});
 }
-function unlock(){
+function unlock(event){
  if(!audio||!prefs.on||!prefs.rideOn)return;
+ // Ride selection may run at startup, outside browser user activation.
+ // Keep native playback intact until a real gesture can unlock Web Audio.
+ if(!event?.isTrusted&&!navigator.userActivation?.isActive){play();return;}
  try{
   if(!ctx){const AC=window.AudioContext||window.webkitAudioContext;if(AC){ctx=new AC();gain=ctx.createGain();source=ctx.createMediaElementSource(audio);source.connect(gain);gain.connect(ctx.destination);gain.gain.value=audio.volume;cancelAnimationFrame(fade);audio.volume=1;lastTarget=-1;}}
   if(ctx?.state==='suspended')ctx.resume().then(()=>{lastTarget=-1;refresh();}).catch(()=>{});
@@ -57,12 +61,15 @@ if(audio){
  audio.addEventListener('playing',()=>{enable.hidden=true;});
  audio.addEventListener('error',()=>{enable.hidden=false;enable.textContent='Music unavailable · Retry';});
  mute.addEventListener('click',()=>{
-  prefs.rideOn=!prefs.rideOn;
-  try{const saved=JSON.parse(localStorage.getItem('gnr-sound-v1')||'{}');localStorage.setItem('gnr-sound-v1',JSON.stringify({...saved,rideOn:prefs.rideOn}));}catch{}
+  prefs.rideOn=!(prefs.on&&prefs.rideOn);if(prefs.rideOn)prefs.on=true;
+  try{const saved=JSON.parse(localStorage.getItem('gnr-sound-v1')||'{}');localStorage.setItem('gnr-sound-v1',JSON.stringify({...saved,on:prefs.on,rideOn:prefs.rideOn}));}catch{}
   document.dispatchEvent(new CustomEvent('gog-music-toggle',{detail:prefs.rideOn}));refresh();if(prefs.rideOn)unlock();
  });
  enable.addEventListener('click' ,()=>{if(audio.error)audio.load();unlock();});
  document.addEventListener('pointerdown',unlock,{capture:true,passive:true});
+ document.addEventListener('pointerup',unlock,{capture:true,passive:true});
+ document.addEventListener('touchend',unlock,{capture:true,passive:true});
+ document.addEventListener('click',unlock,{capture:true});
  document.addEventListener('keydown',e=>{if(!e.repeat)unlock();},{capture:true});
  document.addEventListener('visibilitychange',refresh);
  window.addEventListener('pagehide',()=>audio.pause());

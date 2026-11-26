@@ -21,10 +21,11 @@ export function createTraffic(scene,map,{count=40,zones=[]}={}) {
     }
     members.forEach((v,i)=>entries.set(v.id,{i,instances}));models.set(type,model);
   }
+  const instanceMeshes=[...new Set([...entries.values()].flatMap(e=>e.instances))];
   const matrix=new THREE.Matrix4(),rotation=new THREE.Quaternion(),position=new THREE.Vector3(),up=new THREE.Vector3(0,1,0),scale=new THREE.Vector3(1,1,1);
   function update(dt,center,options) {
     simulation.update(dt,center,options);
-    render();
+    if(!options?.deferRender)render();
   }
   function render() {
     for(const v of simulation.vehicles) {
@@ -37,7 +38,7 @@ export function createTraffic(scene,map,{count=40,zones=[]}={}) {
       const damaged=(v.crashTime||0)>0;
       if(damaged!==v.damageRendered){v.damageRendered=damaged;for(const mesh of instances)if(mesh.userData.paint){mesh.setColorAt(i,new THREE.Color(damaged?0x59534e:v.type==='auto'?0x2f7a3c:v.type==='bus'?0xd6a21e:palette[v.id%palette.length]));mesh.instanceColor.needsUpdate=true;}}
     }
-    for(const {instances} of entries.values())for(const mesh of instances)mesh.instanceMatrix.needsUpdate=true;
+    for(const mesh of instanceMeshes)mesh.instanceMatrix.needsUpdate=true;
   }
   return {update,render,
     recover(id){const v=simulation.vehicles.find(v=>v.id===id);if(!v?.pose)return;

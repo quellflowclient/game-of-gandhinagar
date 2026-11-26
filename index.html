@@ -13,8 +13,9 @@
     <meta name="twitter:card" content="summary_large_image" />
     <!-- Start the heavy downloads before any script runs. -->
     <link rel="preload" href="/data/gandhinagar-live.json" as="fetch" crossorigin="anonymous" />
-    <link rel="preload" href="/models/humans/male.glb" as="fetch" crossorigin="anonymous" />
-    <link rel="preload" href="/models/humans/female.glb" as="fetch" crossorigin="anonymous" />
+    <script>
+      for(const gender of ['male','female']){const link=document.createElement('link');link.rel='preload';link.as='fetch';link.crossOrigin='anonymous';link.href='/models/humans/'+gender+'.glb'+('DecompressionStream' in window?'.gz':'');document.head.append(link);}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhai+2:wght@600;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -22,21 +23,20 @@
     <link rel="stylesheet" href="/src/premium.css" />
     <link rel="stylesheet" href="/src/game-shell.css" />
     <style>
-      /* Inline so the loader paints on the very first frame. */
-      #loading{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:radial-gradient(1200px 600px at 20% 10%,#14302a 0%,transparent 60%),radial-gradient(900px 500px at 90% 90%,#2b2113 0%,transparent 55%),#0b1116;color:#e8eee9;font-family:Inter,system-ui,sans-serif;transition:opacity .6s ease}
+      #loading{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:24px;background:#0b2027;color:#edf2e7;font-family:Inter,system-ui;transition:opacity .35s}
       #loading.done{opacity:0;pointer-events:none}
-      #loading .ld{width:min(360px,84vw);display:grid;gap:18px;justify-items:center;text-align:center}
-      #loading .mark{width:64px;height:64px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(145deg,#1f8f63,#0f5d41);box-shadow:0 12px 40px rgba(31,143,99,.35),inset 0 1px 0 rgba(255,255,255,.25);animation:ld-breathe 2.4s ease-in-out infinite}
-      #loading .mark svg{width:34px;height:34px}
-      #loading h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.02em}
-      #loading h1 span{display:block;font:600 13px Inter,sans-serif;letter-spacing:.18em;color:#8fa79c;margin-top:6px;text-transform:uppercase}
-      #loading .bar{width:100%;height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
-      #loading .bar i{display:block;height:100%;width:4%;border-radius:inherit;background:linear-gradient(90deg,#1fb27a,#f2a33a);box-shadow:0 0 18px rgba(31,178,122,.6);transition:width .45s cubic-bezier(.2,.8,.2,1)}
-      #loading .meta{display:flex;justify-content:space-between;width:100%;font-size:12.5px;color:#9db1a8}
-      #loading .meta b{color:#e8eee9;font-weight:600}
-      #loading .meta p{margin:0}
-      @keyframes ld-breathe{50%{transform:translateY(-4px) scale(1.03)}}
-      @media (prefers-reduced-motion:reduce){#loading .mark{animation:none}}
+      #loading .ld{width:min(320px,86vw);text-align:center}
+      #loading h1{font-size:22px;font-weight:600;letter-spacing:-.04em;margin:8px 0 30px}
+      .metro-loader{height:65px;position:relative;overflow:hidden;margin-bottom:25px}
+      .metro-track{position:absolute;bottom:9px;left:0;right:0;height:3px;background:#73968a;border-bottom:1px solid #395e54}
+      .metro-track:after{content:'';position:absolute;top:8px;left:0;width:100%;height:1px;background:repeating-linear-gradient(90deg,#426b5c 0 10px,transparent 10px 20px)}
+      .metro-train{position:absolute;bottom:12px;left:0;display:flex;gap:3px;animation:metro-pass 2.7s linear infinite;will-change:transform}
+      .metro-car{position:relative;display:flex;gap:4px;align-items:flex-start;padding:7px 7px 10px;width:60px;height:29px;background:#dce5db;border-top:4px solid #dfbd7a;border-radius:4px 4px 2px 2px;box-sizing:border-box}
+      .metro-car:first-child{border-radius:13px 4px 2px 2px}.metro-car:last-child{border-radius:4px 13px 2px 2px}.metro-car:after{content:'';position:absolute;left:9px;right:9px;bottom:-4px;height:6px;border-left:7px solid #8aa198;border-right:7px solid #8aa198}.metro-car i{width:10px;height:8px;background:#2f585b;border-radius:1px}
+      #loading .bar{height:3px;background:#ffffff14;border-radius:3px;overflow:hidden}#loading .bar i{display:block;height:100%;width:4%;background:#b9d5b8;transition:width .25s}
+      #loading .meta{display:flex;justify-content:space-between;gap:12px;margin-top:12px;color:#93afa1;font-size:10px;line-height:1.5;text-align:left}#loading .meta p{margin:0}#loading .meta b{font-weight:500;color:#cbdcc9;white-space:nowrap}
+      @keyframes metro-pass{from{transform:translateX(-190px)}to{transform:translateX(330px)}}
+      @media(prefers-reduced-motion:reduce){.metro-train{animation:none;left:50%;transform:translateX(-50%)}#loading .bar i{transition:none}}
     </style>
     <link rel="stylesheet" href="/src/welcome.css" />
     <link rel="preload" href="/art/gog-city.svg" as="image" />
@@ -51,24 +51,8 @@
     <div id="labels"></div>
     <div id="loading" role="status" aria-live="polite">
       <div class="ld">
-        <div class="load-heading"><span class="load-badge">GOG</span><span>WORLD ASSEMBLY <i></i></span></div>
-        <div class="build-scene" aria-hidden="true">
-          <svg viewBox="0 0 440 260" fill="none">
-            <path d="M20 165 217 53 421 165 218 245Z" fill="#102e32" stroke="#32605a"/>
-            <g stroke="#3e665c" opacity=".3"><path d="m60 188 197-112M101 211 197-112M142 233 197-112M62 141l197 112M103 118l197 112M144 94l197 112"/></g>
-            <path class="build-road" d="m43 173 86-49 186 103m-128-69 127-74" stroke="#87bba3" stroke-width="15"/>
-            <path class="build-road road-line" d="m43 173 86-49 186 103m-128-69 127-74" stroke="#dfc886" stroke-width="1.5" stroke-dasharray="5 7"/>
-            <g class="build-tower" style="--rise:.02"><path d="m150 131 52-30 48 27-53 31Z" fill="#bdd3b5"/><path d="M150 131V64l47 27v68Z" fill="#638e79"/><path d="m197 91 53-30v67l-53 31Z" fill="#335f56"/><path d="m150 64 52-30 48 27-53 30Z" fill="#a7c8ad"/><path d="m159 83 28 16m-28 2 28 16m-28 2 28 16m20-29 34-19m-34 37 34-19m-34 36 34-19" stroke="#e0d49b" stroke-width="3"/></g>
-            <g class="build-tower" style="--rise:.02"><path d="m273 156 40-23 39 22-40 24Z" fill="#aac4a5"/><path d="M273 156v-49l39 22v50Z" fill="#749a7e"/><path d="m312 129 40-23v49l-40 24Z" fill="#345f52"/><path d="m273 107 40-23 39 22-40 23Z" fill="#c7d1a5"/><path d="m282 125 21 12m-21 1 21 12m18-11 22-12m-22 24 22-12" stroke="#f0d9a0" stroke-width="3"/></g>
-            <g class="build-tower" style="--rise:.02"><path d="m74 165 30-49 31 49-31 18Z" fill="#c1c9a6"/><path d="m104 116 31 49-31 18Z" fill="#658c73"/><path d="m86 152 18 10 18-10" stroke="#e4d6b1"/></g>
-            <g class="build-tower" style="--rise:.02"><path d="M227 208v-43l25-15 25 15v43l-25 14Z" fill="#365f53"/><path d="m227 165 25 14 25-14-25-15Z" fill="#aac4a5"/><path d="M252 179v43M235 181l9 5m-9 9 9 5m17-15 9-5m-9 19 9-5" stroke="#d0c99d" stroke-width="2"/></g>
-            <g stroke="#e9c875" stroke-width="2"><path d="M345 130V39m-39 2h75m-47-11 11 9 16-9M370 41v36m-5 0h10"/><path d="m337 120 16-9m-16-9 16-9m-16-9 16-9m-16-9 16-9" opacity=".6"/></g>
-            <g class="build-lights" fill="#f5d88d"><circle cx="136" cy="159" r="3"/><circle cx="288" cy="203" r="3"/><circle cx="290" cy="108" r="3"/></g>
-          </svg>
-          <span class="assembly-label">LDRP · MAHATMA MANDIR · KH-5</span>
-        </div>
-        <div class="load-title"><span>YOUR CITY IS TAKING SHAPE</span><h1>A little closer<br>to real life<span>Gandhinagar · ગાંધીનગર</span></h1></div>
-        <div class="load-steps" aria-hidden="true"><span class="load-step">01 Terrain</span><span class="load-step">02 Streets</span><span class="load-step">03 People</span></div>
+        <h1>Gandhinagar loading…</h1>
+        <div class="metro-loader" aria-hidden="true"><div class="metro-track"></div><div class="metro-train"><span class="metro-car"><i></i><i></i><i></i></span><span class="metro-car"><i></i><i></i><i></i></span><span class="metro-car"><i></i><i></i><i></i></span></div></div>
         <div class="bar"><i></i></div>
         <div class="meta"><p>Waking up the city…</p><b>0%</b></div>
       </div>

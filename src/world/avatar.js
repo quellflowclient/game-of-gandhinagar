@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {loadPackedGltf} from './packed-model.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { lookById, CHARACTERS } from '../data/content.js';
@@ -15,7 +16,7 @@ export function preloadAvatarAssets(onProgress) {
     const loader=new GLTFLoader(),bytes={male:[0,4371592],female:[0,6326132]};
     const report=()=>{const done=bytes.male[0]+bytes.female[0],total=bytes.male[1]+bytes.female[1];onProgress?.(Math.min(1,done/total));};
     loading=Promise.all(['male','female'].map(async gender=>{
-      const gltf=await loader.loadAsync(`/models/humans/${gender}.glb`,e=>{bytes[gender]=[e.loaded,e.total||bytes[gender][1]];report();});
+      const gltf=await loadPackedGltf(loader,`/models/humans/${gender}.glb`,e=>{bytes[gender]=[e.loaded,e.total||bytes[gender][1]];report();});
       for(const clip of gltf.animations) for(const track of clip.tracks) {
         if(/Hips\.position$/.test(track.name)) {
           // Captured walks contain root motion. Navigation owns translation;

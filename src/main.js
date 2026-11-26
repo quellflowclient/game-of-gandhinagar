@@ -49,7 +49,7 @@ const loading = document.getElementById("loading");
 const tourMode = new URLSearchParams(location.search).has('tour');
 // Loader: stage text + a progress bar that never moves backwards.
 let loadPct=0;
-const setLoading = (t,pct) => { if (!loading) return; if(t)loading.querySelector("p").textContent = t; if(pct!=null){loadPct=Math.max(loadPct,Math.min(100,pct));loading.querySelector(".bar i").style.width=`${Math.max(4,loadPct)}%`;loading.querySelector(".meta b").textContent=`${Math.round(loadPct)}%`;loading.style.setProperty('--build',loadPct/100);loading.querySelectorAll('.build-tower').forEach((el,i)=>el.style.setProperty('--rise',Math.max(.025,Math.min(1,(loadPct-15-i*12)/28))));loading.querySelectorAll('.load-step').forEach((el,i)=>el.classList.toggle('complete',loadPct>=[10,40,80][i]));} };
+const setLoading = (t,pct) => { if (!loading) return; if(t)loading.querySelector("p").textContent = t; if(pct!=null){loadPct=Math.max(loadPct,Math.min(100,pct));loading.querySelector(".bar i").style.width=`${Math.max(4,loadPct)}%`;loading.querySelector(".meta b").textContent=`${Math.round(loadPct)}%`;} };
 setLoading("Connecting…",3);
 
 // ---------- core ----------
@@ -61,8 +61,10 @@ const parkedAssets=preloadParkedModels(renderer);
 setLoading("Loading the map of Gandhinagar…",10);
 const mapData = alignMetroRoads(createLiveMap(await loadMap()));
 setLoading("Building LDRP campus and Mahatma Mandir…",22);
+await new Promise(resolve=>setTimeout(resolve,0));
 await parkedAssets;
 const world = buildLandmarks(scene, mapData);
+await new Promise(resolve=>setTimeout(resolve,0));
 const metro = buildMetro(scene, mapData, { lowEnd });
 const metroOffRoad=roadClearance(mapData),inRoadMedian=roadMedian(mapData);
 const metroGarden=buildMetroGarden(scene,metro.piers||[],placePos(placeById('ldrp')),(x,z,r)=>metroOffRoad(x,z,r)&&inRoadMedian(x,z));
@@ -92,7 +94,7 @@ const labelsEl = document.getElementById("labels");
 const qaScope=tourMode?new URLSearchParams(location.search).get('qa'):null;
 const progress = createProgress(qaScope?`gnr-progress-qa-${qaScope.replace(/[^a-z0-9]/gi,'').slice(0,32)}`:undefined);
 const sound = createSound();
-document.addEventListener('gog-music-toggle',e=>sound.set('rideOn',e.detail));
+document.addEventListener('gog-music-toggle',e=>{if(e.detail&&!sound.state.on)sound.set('on',true);sound.set('rideOn',e.detail);});
 const clock = createClock();
 setHour(clock.hour(),clock.solar); // live IST, local seasonal sunrise/sunset
 const festival = createFestival(scene);
@@ -578,7 +580,7 @@ function frame(stamp=performance.now()) {
   cityObj.update(t);
   world.update(t,player.position);
   metro.trains?.update(t, entered ? player.position : showcase);
-  traffic.update(dt, entered ? player.position : showcase, {obstacles:trafficObstacles(),density:trafficDensity(clock.hour())});
+  traffic.update(dt, entered ? player.position : showcase, {obstacles:trafficObstacles(),density:trafficDensity(clock.hour()),deferRender:true});
   if(entered&&t>honkAt){const p=player.position;if(traffic.vehicles.some(v=>v.pose&&v.waiting>3&&Math.hypot(v.pose.x-p.x,v.pose.z-p.z)<12)){sound.honk?.();honkAt=t+9;}}
   if(entered){collisions.update(dt,collisionEntities());traffic.render();}
   crashScene.update(realDt);

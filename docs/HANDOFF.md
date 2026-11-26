@@ -1,3 +1,16 @@
+## Music unlock / garden fronts / outside footpaths — local only
+- Web Audio creation now requires actual browser user activation; programmatic ride selection retains native playback. Pointer-up, touch-end and click retry playback/resume. Music toggle reflects master mute and explicitly re-enables sound when requested. Audible autoplay still depends on browser permission/gesture.
+- Front garden tree strips now have outer stone borders with rounded gate-side tips, enclosed planting and no duplicate inner lawn curb beside those beds.
+- Road 5 carriageways now 12 m each; shared outward expansion shifts campus/stalls while retaining median edge. Parking footpaths sample the actual asphalt clearance and full path footprint inside lots, excluding gate apron/campus boundary. Flush parking openings retained.
+- Generic sidewalks also check their own road at bends, preventing a return curve from putting paving over asphalt. Gate apron included in city-walk replacement clearing.
+- Production build passed; no browser/gameplay/device testing or push.
+
+## Simple metro loader and lighter runtime — local only
+- Replaced world-assembly loader with Gandhinagar loading text, small CSS metro animation and real progress. Reduced-motion supported. Welcome artwork retained.
+- Added lossless gzip human GLBs: 10,697,724 to 9,404,905 bytes combined (~1.29 MB saved), streamed browser decompression with original GLB fallback. Preloads match supported format.
+- Removed duplicate traffic matrix rendering, precomputed traffic mesh list, cached static parking world matrices, and avoided unchanged wet-material updates. Startup yields between heavy phases so loader can paint. Render resolution and model appearance retained.
+- Production build passed. No gameplay/browser/device testing; phone performance and heat not measured. Not pushed.
+
 ## Visible sun/moon and readable lighting — local only
 - Added procedural sun disc / soft halo and cratered moon sprites anchored in sky direction; no external image downloads or postprocessing.
 - Sun visibility follows existing 07:00–19:00 custom schedule; moon at night follows a visual arc (not real astronomical phase/position).

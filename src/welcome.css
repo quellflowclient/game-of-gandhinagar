@@ -23,16 +23,6 @@
 #landing footer{padding:15px clamp(22px,5vw,76px) calc(20px + env(safe-area-inset-bottom));font-size:10px;color:#8fa99e;gap:7px 16px}#landing footer a{color:#becdc1}
 body.on-landing #music-mute{top:auto!important;bottom:calc(20px + env(safe-area-inset-bottom));right:20px;font-size:11px!important;background:#173c35!important}
 body.on-landing #landing footer{padding-right:90px}
-#loading{background:radial-gradient(ellipse at 50% 35%,#1b423d 0%,#0b2229 52%,#07171e 100%);padding:24px;--build:0}
-#loading .ld{width:min(430px,88vw);gap:20px;text-align:left;justify-items:stretch}
-.load-heading{display:flex;align-items:center;justify-content:space-between;gap:18px}.load-badge{font:900 26px/1 Inter,system-ui;letter-spacing:-.08em;color:#e8c58c}.load-heading>span:last-child{display:flex;align-items:center;gap:8px;font:600 8px/1.4 Inter,system-ui;letter-spacing:.18em;color:#a5c0b0}.load-heading i{height:5px;width:5px;background:#e8c58c;border-radius:50%}
-.build-scene{position:relative;height:clamp(150px,29vh,240px);width:100%;border-bottom:1px solid #b3ccae1c;padding-bottom:10px}
-.build-scene svg{width:100%;height:100%;overflow:visible}.build-tower{transform:scaleY(var(--rise,.025));transform-box:fill-box;transform-origin:center bottom;transition:transform .8s cubic-bezier(.2,.8,.2,1)}
-.build-road{opacity:calc(.18 + var(--build)*.82);transition:opacity .5s}.build-lights{opacity:var(--build);transition:opacity 1s}.assembly-label{position:absolute;bottom:0;left:0;width:100%;text-align:center;font:600 7px/1.5 Inter,system-ui;letter-spacing:.16em;color:#708f85}
-#loading .load-title>span{color:#c2b88e;font:700 8px/1.5 Inter,system-ui;letter-spacing:.18em}#loading .load-title h1{font:700 clamp(29px,6vw,38px)/1.12 Inter,system-ui;letter-spacing:-.045em;margin:10px 0 0;color:#eff2dc}
-#loading .load-title h1 span{font:500 11px/1.5 Inter,system-ui;color:#8eafa0;letter-spacing:.02em;text-transform:none;margin-top:11px}
-.load-steps{display:flex;justify-content:space-between;gap:7px}.load-step{font:600 9px/1.5 Inter,system-ui;color:#6f8e82;transition:color .4s}.load-step.complete{color:#d9d6ae}.load-step.complete:after{content:' ✓';color:#b7d4aa}
-#loading .bar{height:3px;background:#ffffff12}#loading .bar i{height:3px;background:#d9ba80;box-shadow:none;border-radius:0}#loading .meta{align-items:flex-start;gap:12px;font:500 10px/1.6 Inter,system-ui;color:#9cb5a7}#loading .meta p{max-width:32ch}#loading .meta b{font:600 13px/1.4 Consolas,monospace;color:#e5c997}
 @media(orientation:portrait){
  #landing{background-position:64% 0;background-size:auto 100%;background-attachment:fixed}
  #landing .land-scrim{background:linear-gradient(0deg,#061a21 4%,#071d25f5 26%,#071d25ca 53%,#0a22283b 83%,#0a222844)}
@@ -44,6 +34,6 @@ body.on-landing #landing footer{padding-right:90px}
 }
 @media(orientation:landscape) and (max-height:600px){
  #landing .land-top{padding:10px 22px 4px}#landing .land-main{align-self:center;grid-template-columns:minmax(0,1fr) minmax(165px,.65fr);width:100%;padding:14px 26px;gap:9px 28px}#landing h1{font-size:clamp(30px,5.5vw,49px)}#landing h1 .gu{font-size:14px;margin-top:4px}#landing .eyebrow{font-size:7px}#landing .lede{font-size:11px;line-height:1.5}#landing .land-dests{grid-column:2;grid-row:1/span 5;grid-template-columns:1fr;align-self:center;gap:8px}#landing .land-dests .dl{grid-column:1}#landing .land-actions{display:flex;gap:8px}#landing .cta{min-height:41px;min-width:0;font-size:11px;padding:7px 9px 7px 12px}#landing .cta .arrow{width:27px;height:27px}#landing .cta-ghost{min-height:41px;padding:7px 10px;font-size:10px}#landing footer{padding-top:4px;padding-bottom:8px;font-size:7px}
- #loading .ld{width:min(650px,90vw);display:grid;grid-template-columns:1fr 1fr;gap:13px 30px}.load-heading{grid-column:1/-1}.build-scene{grid-column:1;grid-row:2/span 4;height:190px;align-self:center}.load-title{grid-column:2}.load-steps,#loading .bar,#loading .meta{grid-column:2}#loading .load-title h1{font-size:29px}
+
 }
-@media(prefers-reduced-motion:reduce){.build-tower,.build-road,.build-lights,.load-step{transition:none}#landing .cta{transition:none}}
+@media(prefers-reduced-motion:reduce){#landing .cta{transition:none}}

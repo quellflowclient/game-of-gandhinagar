@@ -292,7 +292,7 @@ export const waterNormals = () => {
 
 // Text sign on a coloured board.
 export function textTexture(lines, { bg = "#1d4e89", fg = "#ffffff", w = 1024, h = 256, font = "800 96px 'Baloo Bhai 2', Inter, sans-serif" } = {}) {
-  lines=lines.map(textLabel);
+  lines=(Array.isArray(lines)?lines:[lines]).map(textLabel);
   const c = document.createElement("canvas");
   c.width = w; c.height = h;
   const x = c.getContext("2d");

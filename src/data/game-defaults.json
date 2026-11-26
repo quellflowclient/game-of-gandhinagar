@@ -485,7 +485,7 @@
     "general": "/audio/gog-theme.mp3",
     "campus": "/audio/ldrp-campus.mp3",
     "welcomeVolume": 1,
-    "walkingVolume": 0.18,
+    "walkingVolume": 0.25,
     "vehicleVolume": 1,
     "campusVolume": 1,
     "prompt": "Would you like to play music?",

@@ -187,7 +187,9 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
       // only turns while rolling, turns tighter when slow and the nose swings
       // the opposite way when reversing, like a real car or bike.
       const sp=Math.abs(driveSpeed),wheelbase=vehicle==='car'?2.6:vehicle==='auto'?1.9:1.35,maxSteer=vehicle==='car'?.55:vehicle==='auto'?.6:.7;
-      const steer=-steeringNow*maxSteer/(1+sp*.25),turn=-Math.sign(driveSpeed)*sp/wheelbase*Math.tan(steer)*dt,steps=Math.max(1,Math.ceil(sp*dt/.15));
+      // In this coordinate frame, positive yaw turns left when driving forward.
+      // Right input therefore reduces yaw; reverse naturally turns the nose back.
+      const steer=steeringNow*maxSteer/(1+sp*.25),turn=-Math.sign(driveSpeed)*sp/wheelbase*Math.tan(steer)*dt,steps=Math.max(1,Math.ceil(sp*dt/.15));
       for(let i=0;i<steps;i++){
         const angle=heading+turn/steps,x=pos.x+Math.sin(angle)*driveSpeed*dt/steps,z=pos.z+Math.cos(angle)*driveSpeed*dt/steps;
         const pose=withinArea(x,z)&&driving.pose(x,z,angle,vehicle);

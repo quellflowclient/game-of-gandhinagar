@@ -7,7 +7,7 @@ export function chooseRide(app,hud,id){
 }
 export function openVehicles(app,hud){
  const body=h('div',{class:'camera-menu ride-grid'},h('p',{class:'muted small'},'Left / Right: steer · Race: forward · Brake / Reverse: stop, then reverse while held. Release to slow down. Keyboard: W forward, S brake/reverse, A/D steer, Space brake only.'));
- for(const [id,icon,name,detail] of [['walk','🚶','Walk','Explore campus and stalls'],['cycle','🚲','Cycle','Campus open grounds and paths'],['bike','🏍️','Bike','0–45 km/h · campus limit 15'],['scooter','🛵','Activa / Scooter','0–35 km/h · campus limit 15'],['auto','🛺','Auto','0–35 km/h · public roads'],['car','🚗','Car','0–80 km/h · outside parking only']])body.append(h('button',{type:'button',class:'camera-choice','aria-pressed':String(app.player.vehicle===id),onclick:()=>{
+ for(const [id,icon,name,detail] of [['walk','🚶','Walk','Explore campus and stalls'],['cycle','🚲','Cycle','Campus open grounds and paths'],['bike','🏍️','Bike','0–45 km/h · campus limit 15'],['scooter','🛵','Activa / Scooter','0–35 km/h · campus limit 15'],['auto','🛺','Auto','0–35 km/h · public roads'],['car','🚗','Premium sedan','0–80 km/h · LED lights · alloy wheels · outside parking']])body.append(h('button',{type:'button',class:'camera-choice','aria-pressed':String(app.player.vehicle===id),onclick:()=>{
    chooseRide(app,hud,id);
  }},h('b',{},`${icon} ${name}`),h('span',{},detail)));
  openPanel('Choose your ride',body);

@@ -2,6 +2,7 @@
 // welcome screen, walking and every vehicle; no iframe or per-ride downloads.
 const audio=document.getElementById('gog-theme');
 const enable=document.getElementById('music-enable');
+const mute=document.getElementById('music-mute');
 let prefs={on:true,rideOn:true,rideVolume:100},vehicle='walk',ducked=false;
 try{const saved=JSON.parse(localStorage.getItem('gnr-sound-v1')||'{}');prefs={...prefs,...saved,rideVolume:saved.musicVersion===2?(saved.rideVolume??100):100};}catch{}
 let ctx=null,gain=null,source=null,pending=false,blocked=false,lastTarget=-1,fade=0;
@@ -31,14 +32,16 @@ function route(){
  },350);
 }
 function refresh(){
- if(!audio)return;route();if(track===desired)volume(target());
+ if(!audio)return;
+ mute.setAttribute('aria-pressed',String(!prefs.rideOn));mute.setAttribute('aria-label',prefs.rideOn?'Mute music':'Unmute music');mute.textContent=prefs.rideOn?'♫ On':'♫ Off';
+ route();if(track===desired)volume(target());
  if(document.hidden||!prefs.on||!prefs.rideOn){audio.pause();enable.hidden=true;return;}
  if(audio.paused&&!blocked&&!pending)play();
 }
 function play(){
  if(!audio||pending||document.hidden||!prefs.on||!prefs.rideOn)return;
  pending=true;const ticket=epoch;
- audio.play().then(()=>{if(ticket!==epoch)return;blocked=false;enable.hidden=true;}).catch(()=>{if(ticket!==epoch)return;blocked=true;enable.hidden=false;}).finally(()=>{if(ticket===epoch)pending=false;});
+ audio.play().then(()=>{if(ticket!==epoch)return;blocked=false;enable.hidden=true;}).catch(()=>{if(ticket!==epoch)return;blocked=true;enable.hidden=true;}).finally(()=>{if(ticket===epoch)pending=false;});
 }
 function unlock(){
  if(!audio||!prefs.on||!prefs.rideOn)return;
@@ -53,7 +56,12 @@ if(audio){
  audio.addEventListener('loadedmetadata',()=>{const t=positions[track];if(t>0&&t<audio.duration)audio.currentTime=t;});
  audio.addEventListener('playing',()=>{enable.hidden=true;});
  audio.addEventListener('error',()=>{enable.hidden=false;enable.textContent='Music unavailable · Retry';});
- enable.addEventListener('click',()=>{if(audio.error)audio.load();unlock();});
+ mute.addEventListener('click',()=>{
+  prefs.rideOn=!prefs.rideOn;
+  try{const saved=JSON.parse(localStorage.getItem('gnr-sound-v1')||'{}');localStorage.setItem('gnr-sound-v1',JSON.stringify({...saved,rideOn:prefs.rideOn}));}catch{}
+  document.dispatchEvent(new CustomEvent('gog-music-toggle',{detail:prefs.rideOn}));refresh();if(prefs.rideOn)unlock();
+ });
+ enable.addEventListener('click' ,()=>{if(audio.error)audio.load();unlock();});
  document.addEventListener('pointerdown',unlock,{capture:true,passive:true});
  document.addEventListener('keydown',e=>{if(!e.repeat)unlock();},{capture:true});
  document.addEventListener('visibilitychange',refresh);

@@ -265,7 +265,7 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
   const lightSpots = new Map();
   const roadClearanceForLights=roadClearance(map);
   for (const r of sorted) {
-    const [defaultWidth, cls] = ROAD[r.kind] || [6, 0];
+    const [defaultWidth, baseClass] = ROAD[r.kind] || [6, 0],cls=r.onewayLanes===2?2:baseClass;
     const width=r.width||defaultWidth;
     const y = 0.2 + width * 0.004;
     // Split long roads by chunk so culling works.

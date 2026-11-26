@@ -71,3 +71,33 @@ body:is([data-ride=car],[data-ride=auto],[data-ride=bike],[data-ride=scooter]) .
 .game-panel-open .quick-rides,.game-menu-open .quick-rides,.portrait-page-mode .quick-rides,.accident-active .quick-rides{display:none}
 @media(orientation:landscape) and (max-height:600px){.quick-rides{top:70px;padding:4px;gap:3px}.quick-rides .ride-shortcut{min-height:36px;padding:5px 8px}.drive-pedals{right:max(18px,env(safe-area-inset-right))}.drive-key.brake,.drive-key.accelerator{width:72px}.drive-key small{font-size:9px}}
 @media(orientation:landscape) and (max-height:360px){.quick-rides{top:64px}.drive-key.brake{height:58px}.drive-key.accelerator{height:70px}.drive-steering,.drive-pedals{bottom:12px}.vehicle-speed{font-size:10px!important;min-width:125px!important}}
+
+/* Steering has the same pedal silhouette, grip and pressed feedback as braking. */
+.drive-key.steering-pedal{width:82px;height:95px;border-radius:18px 18px 12px 12px;background:repeating-linear-gradient(0deg,#ffffff0a 0 3px,transparent 3px 9px),linear-gradient(#69707ae6,#303c46ed);border-color:#ffffff65;box-shadow:inset 0 2px #ffffff35,0 7px 0 #0b1920,0 9px 18px #0003}
+.drive-key.steering-pedal.held{transform:translateY(5px);background:repeating-linear-gradient(0deg,#ffffff12 0 3px,transparent 3px 9px),#47665c;box-shadow:inset 0 3px 8px #0004,0 2px 0 #0b1920}
+@media(orientation:landscape) and (max-height:600px){.drive-key.steering-pedal{width:72px;height:82px}}
+@media(orientation:landscape) and (max-height:360px){.drive-key.steering-pedal{height:70px}}
+
+/* Portrait is a full gameplay layout; landscape follows the user's rotation. */
+#hud .hud-actions .jump{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;pointer-events:auto;touch-action:manipulation}
+#hud .hud-actions .jump .i{font-size:26px}#hud .hud-actions .jump .l{font:700 10px Inter,system-ui}
+#hud .hud-actions .jump[hidden]{display:none!important}
+@media(orientation:portrait){
+ .hud-tl{top:calc(12px + env(safe-area-inset-top));max-width:calc(100vw - 100px)}
+ .place-card{max-width:calc(100vw - 118px);padding:10px}.pc-name{font-size:12px}.pc-time{font-size:9px}
+ .hub-launcher{top:calc(12px + env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right))}.hub-toggle{padding:10px;min-height:44px}
+ .quick-rides{top:calc(83px + env(safe-area-inset-top));left:12px;max-width:calc(100vw - 82px);gap:2px;padding:4px}
+ #hud .ride-shortcut{min-width:42px;padding:6px;min-height:40px;font-size:10px}.ride-shortcut .i{font-size:17px!important}
+ .joystick{left:18px;bottom:calc(28px + env(safe-area-inset-bottom));width:108px;height:108px}
+ .hud-actions{right:18px;bottom:calc(38px + env(safe-area-inset-bottom))}
+ .drive-steering{left:max(12px,env(safe-area-inset-left));bottom:calc(26px + env(safe-area-inset-bottom));gap:6px}
+ .drive-pedals{right:max(12px,env(safe-area-inset-right));bottom:calc(26px + env(safe-area-inset-bottom));gap:6px}
+ .drive-key,.drive-key.brake,.drive-key.accelerator,.drive-key.steering-pedal{width:clamp(50px,15vw,66px);min-width:48px;height:82px;border-radius:15px}
+ .drive-key.accelerator{height:96px}.drive-key small{font-size:8px;padding:0 3px;line-height:1.4}.drive-key span{font-size:31px}
+ body:is([data-ride=car],[data-ride=auto],[data-ride=bike],[data-ride=scooter]) .vehicle-speed{bottom:calc(134px + env(safe-area-inset-bottom));min-width:140px}
+ .street-actions,.campus-actions,.context{bottom:calc(160px + env(safe-area-inset-bottom));width:calc(100vw - 32px);max-width:360px}
+ .near-player{bottom:calc(212px + env(safe-area-inset-bottom));max-width:calc(100vw - 28px)}
+ .arrival{top:143px;max-width:calc(100vw - 30px)}
+ .more{width:calc(100vw - 24px);right:12px;top:72px;max-height:calc(100dvh - 90px);overflow:auto;grid-template-columns:1fr 1fr}
+ .more-sec .more-grid button{min-height:46px}.sheet-back{padding:10px}.sheet{max-height:calc(100dvh - 20px)}
+}

@@ -38,18 +38,37 @@
       @keyframes ld-breathe{50%{transform:translateY(-4px) scale(1.03)}}
       @media (prefers-reduced-motion:reduce){#loading .mark{animation:none}}
     </style>
+    <link rel="stylesheet" href="/src/welcome.css" />
+    <link rel="preload" href="/art/gog-city.svg" as="image" />
     <script type="module" src="/src/ui/landscape.js"></script>
   </head>
   <body>
     <audio id="gog-theme" src="/audio/gog-theme.mp3" preload="auto" autoplay loop playsinline></audio>
-    <button id="music-enable" type="button" hidden aria-label="Enable game music" style="position:fixed;right:16px;bottom:16px;z-index:125;padding:12px 16px;border:1px solid #b5f2cd;border-radius:14px;background:#142e28;color:#e9fff1;font:600 13px system-ui;cursor:pointer;">♪ Tap to enable music</button>
+    <button id="music-enable" type="button" hidden aria-label="Retry game music" style="position:fixed;right:16px;bottom:100px;z-index:125;padding:10px 14px;border:1px solid #b5f2cd;border-radius:14px;background:#142e28;color:#e9fff1;font:600 12px system-ui;cursor:pointer;">♪ Retry music</button>
+    <button id="music-mute" type="button" aria-label="Mute music" aria-pressed="false" style="position:fixed;right:max(16px,env(safe-area-inset-right));top:76px;z-index:80;min-width:44px;min-height:40px;border:1px solid #b5f2cd66;border-radius:12px;background:#142e28ed;color:#e9fff1;font:600 12px system-ui;cursor:pointer;">♫ On</button>
     <script src="/audio/theme-player.js"></script>
     <div id="app"></div>
     <div id="labels"></div>
     <div id="loading" role="status" aria-live="polite">
       <div class="ld">
-        <div class="mark"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19c8 0 14-5 14-14-7 0-13 4-13 11" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M5 19c2-5 5-8 9-10" stroke="#cdeee0" stroke-width="2" stroke-linecap="round"/></svg></div>
-        <h1>People of Gandhinagar<span>Gandhinagar · ગાંધીનગર</span></h1>
+        <div class="load-heading"><span class="load-badge">GOG</span><span>WORLD ASSEMBLY <i></i></span></div>
+        <div class="build-scene" aria-hidden="true">
+          <svg viewBox="0 0 440 260" fill="none">
+            <path d="M20 165 217 53 421 165 218 245Z" fill="#102e32" stroke="#32605a"/>
+            <g stroke="#3e665c" opacity=".3"><path d="m60 188 197-112M101 211 197-112M142 233 197-112M62 141l197 112M103 118l197 112M144 94l197 112"/></g>
+            <path class="build-road" d="m43 173 86-49 186 103m-128-69 127-74" stroke="#87bba3" stroke-width="15"/>
+            <path class="build-road road-line" d="m43 173 86-49 186 103m-128-69 127-74" stroke="#dfc886" stroke-width="1.5" stroke-dasharray="5 7"/>
+            <g class="build-tower" style="--rise:.02"><path d="m150 131 52-30 48 27-53 31Z" fill="#bdd3b5"/><path d="M150 131V64l47 27v68Z" fill="#638e79"/><path d="m197 91 53-30v67l-53 31Z" fill="#335f56"/><path d="m150 64 52-30 48 27-53 30Z" fill="#a7c8ad"/><path d="m159 83 28 16m-28 2 28 16m-28 2 28 16m20-29 34-19m-34 37 34-19m-34 36 34-19" stroke="#e0d49b" stroke-width="3"/></g>
+            <g class="build-tower" style="--rise:.02"><path d="m273 156 40-23 39 22-40 24Z" fill="#aac4a5"/><path d="M273 156v-49l39 22v50Z" fill="#749a7e"/><path d="m312 129 40-23v49l-40 24Z" fill="#345f52"/><path d="m273 107 40-23 39 22-40 23Z" fill="#c7d1a5"/><path d="m282 125 21 12m-21 1 21 12m18-11 22-12m-22 24 22-12" stroke="#f0d9a0" stroke-width="3"/></g>
+            <g class="build-tower" style="--rise:.02"><path d="m74 165 30-49 31 49-31 18Z" fill="#c1c9a6"/><path d="m104 116 31 49-31 18Z" fill="#658c73"/><path d="m86 152 18 10 18-10" stroke="#e4d6b1"/></g>
+            <g class="build-tower" style="--rise:.02"><path d="M227 208v-43l25-15 25 15v43l-25 14Z" fill="#365f53"/><path d="m227 165 25 14 25-14-25-15Z" fill="#aac4a5"/><path d="M252 179v43M235 181l9 5m-9 9 9 5m17-15 9-5m-9 19 9-5" stroke="#d0c99d" stroke-width="2"/></g>
+            <g stroke="#e9c875" stroke-width="2"><path d="M345 130V39m-39 2h75m-47-11 11 9 16-9M370 41v36m-5 0h10"/><path d="m337 120 16-9m-16-9 16-9m-16-9 16-9m-16-9 16-9" opacity=".6"/></g>
+            <g class="build-lights" fill="#f5d88d"><circle cx="136" cy="159" r="3"/><circle cx="288" cy="203" r="3"/><circle cx="290" cy="108" r="3"/></g>
+          </svg>
+          <span class="assembly-label">LDRP · MAHATMA MANDIR · KH-5</span>
+        </div>
+        <div class="load-title"><span>YOUR CITY IS TAKING SHAPE</span><h1>A little closer<br>to real life<span>Gandhinagar · ગાંધીનગર</span></h1></div>
+        <div class="load-steps" aria-hidden="true"><span class="load-step">01 Terrain</span><span class="load-step">02 Streets</span><span class="load-step">03 People</span></div>
         <div class="bar"><i></i></div>
         <div class="meta"><p>Waking up the city…</p><b>0%</b></div>
       </div>

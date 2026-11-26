@@ -24,7 +24,7 @@ export function createCampusLife(app,campus,{scene,renderer,lowEnd=false}){
   if(!valid){const slot=lot?.slots.find(s=>!s.occupied);if(slot){Object.assign(parked,{x:slot.x,y:slot.y,z:slot.z,yaw:slot.yaw,slot:slot.id});persist();}else{parked=null;persist();return;}}
   if(['bike','scooter'].includes(parked.type))model=createRideTwoWheeler(parked.type);
   else if(parked.type==='cycle')model=bicycle();
-  else{model=new THREE.Group();const m=createVehicleModel(parked.type==='auto'?'auto':'sedan');for(const p of m.parts){const mesh=new THREE.Mesh(p.geometry,p.material);if(p.paint)p.material.color.setHex(0x718884);mesh.castShadow=mesh.receiveShadow=true;model.add(mesh);}}
+  else{model=new THREE.Group();const m=createVehicleModel(parked.type==='auto'?'auto':'premium');for(const p of m.parts){const mesh=new THREE.Mesh(p.geometry,p.material);if(p.paint)p.material.color.setHex(0x718884);mesh.castShadow=mesh.receiveShadow=true;model.add(mesh);}}
   model.position.set(parked.x,parked.y,parked.z);model.rotation.y=parked.yaw;scene.add(model);
  }
  function nearbyLot(){const p=player.position;return campus.parking.map(lot=>({lot,d:Math.min(Infinity,...lot.slots.map(s=>Math.hypot(s.x-p.x,s.z-p.z)))})).sort((a,b)=>a.d-b.d)[0];}

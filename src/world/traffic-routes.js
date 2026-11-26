@@ -31,7 +31,7 @@ export function roadPose(route,s,direction,vehicle,zones=[]) {
   const len=Math.hypot(b.x-a.x,b.z-a.z)||1,fx=(b.x-a.x)/len*direction,fz=(b.z-a.z)/len*direction;
   // Oneway OSM ways already describe separate carriageways; do not invent a
   // second opposite lane on those. Bidirectional ways use left-hand traffic.
-  const lane=route.oneway?0:width*0.25;
+  const lane=route.oneway?(route.onewayLanes===2?width*(['bike','scooter'].includes(vehicle.type)?.38:(vehicle.id||0)%2===0?-.22:.16):0):width*.25;
   const x=center.x+fz*lane,z=center.z-fx*lane;
   const halfW=vehicle.width/2+0.12,halfL=vehicle.length/2+0.2;
   if(s<halfL+1||s>route.length-halfL-1)return null;
@@ -95,11 +95,17 @@ export function createTrafficSimulation(map,zones=[],{count=40,random=Math.rando
     const sees=new Map();
     for(const v of vehicles){if(!v.pose||v.crashTime>0)continue;const list=[];for(const o of vehicles)if(o!==v&&o.pose){const g=corridorGap(v,o.pose.x,o.pose.z,o.width/2);if(g<Infinity)list.push([o,g]);}sees.set(v,list);}
     for(const v of vehicles) {
-      if(v.crashTime>0){v.crashTime-=dt;v.speed=0;if(v.crashTime<=0){if(v.resumeOnExpiry)v.resumeOnExpiry=false;else spawn(v,center);}continue;}
+      if(v.crashTime>0){
+        v.crashTime=Math.max(0,v.crashTime-dt);v.speed=0;
+        if(v.crashMotion){const m=v.crashMotion;m.t+=dt;const p=Math.min(1,m.t/.65),e=1-(1-p)**3;v.pose={...m.from,x:m.from.x+(m.to.x-m.from.x)*e,z:m.from.z+(m.to.z-m.from.z)*e,y:m.from.y+(m.to.y-m.from.y)*e,yaw:m.from.yaw+Math.atan2(Math.sin(m.to.yaw-m.from.yaw),Math.cos(m.to.yaw-m.from.yaw))*e};}
+        if(v.crashTime===0){v.departure={from:{...v.pose},t:0};v.crashMotion=null;v.departureSlow=3;v.resumeOnExpiry=false;}
+        continue;
+      }
       if(v.id>=active&&(!v.pose||Math.hypot(v.pose.x-center.x,v.pose.z-center.z)>140)){v.pose=null;v.route=null;continue;}
       if(!v.route){spawn(v,center);continue;}
+      v.departureSlow=Math.max(0,(v.departureSlow||0)-dt);
       if(v.distracted>0)v.distracted-=dt;
-      let target=v.cruise*(v.id>=active?1.1:1),gap=Infinity;
+      let target=v.cruise*(v.departureSlow>0?.3:v.id>=active?1.1:1),gap=Infinity;
       for(const[o,g]of sees.get(v)||[]) {
         if(v.distracted>0)continue;
         const mutual=(sees.get(o)||[]).some(([w])=>w===v);
@@ -114,7 +120,13 @@ export function createTrafficSimulation(map,zones=[],{count=40,random=Math.rando
       if(v.speed<0.02&&target===0)v.speed=0;
       v.s+=v.speed*dt*v.direction;
       const pose=roadPose(v.route,v.s,v.direction,v,zones);
+      if(!pose&&v.damageRoot&&v.pose&&Math.hypot(v.pose.x-center.x,v.pose.z-center.z)<140){
+        // A damaged vehicle at a route end stays parked in view; only normal
+        // distance culling may recycle it once the player has moved away.
+        v.s-=v.speed*dt*v.direction;v.speed=0;continue;
+      }
       if(!pose||Math.hypot(pose.x-center.x,pose.z-center.z)>750){if(v.id<active)spawn(v,center);else{v.pose=null;v.route=null;}}
+      else if(v.departure){const m=v.departure;m.t+=dt;const e=Math.min(1,m.t/1.4),k=e*e*(3-2*e);v.pose={...pose,x:m.from.x+(pose.x-m.from.x)*k,z:m.from.z+(pose.z-m.from.z)*k,yaw:m.from.yaw+Math.atan2(Math.sin(pose.yaw-m.from.yaw),Math.cos(pose.yaw-m.from.yaw))*k};if(e===1)v.departure=null;}
       else v.pose=pose;
     }
   }

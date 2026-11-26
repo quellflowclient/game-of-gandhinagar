@@ -1,3 +1,40 @@
+## Visible sun/moon and readable lighting — local only
+- Added procedural sun disc / soft halo and cratered moon sprites anchored in sky direction; no external image downloads or postprocessing.
+- Sun visibility follows existing 07:00–19:00 custom schedule; moon at night follows a visual arc (not real astronomical phase/position).
+- Warm stronger daylight and shadow fill. Night directional moonlight is softened, ambient/hemi visibility retained, blue night sky/stars; streetlight schedule remains 18:00–06:30.
+- Added three small sky draw calls; existing low-power phone/shadow settings remain.
+- Production build passed; shader insertion checked against installed Sky.js source. No browser/gameplay/device visual testing or push.
+
+## Welcome background and world assembly loader — local only
+- Added lightweight original SVG evening-city artwork at public/art/gog-city.svg (about 11 KB), with campus facade, salt-mound silhouette, avenue and planting. Illustrated, not a surveyed image.
+- New welcome.css adds dark emerald/gold welcome treatment, clearer actions, two location cards, responsive portrait/landscape and scrollable short-height layout.
+- Loading illustration builds up four structures using actual setLoading progress; terrain/streets/people milestones follow real loading stages, with no artificial delay. Reduced-motion support included.
+- Opaque static welcome artwork no longer runs hidden world simulation or renders the 3D orbit; music still updates before the welcome frame early return.
+- Production build passed. No browser/device/visual testing or push. Earlier pending changes remain local.
+
+## Portrait gameplay / mute / jump / premium car — local only
+- Removed portrait gameplay blocking and automatic fullscreen/orientation locking. Both orientations follow the phone; fullscreen is explicit only.
+- Portrait HUD positions for ride choices, jump, joystick, steering/pedals, speed and interactions. Jump is walk-only, Space supported, ballistic height approx .9 m, no double-jump, blends a knee/arm pose and follows camera/presence height. Ground navigation still constrains horizontal movement.
+- Removed continuous generated traffic/water noise loops (wind-like hiss); discrete effects remain.
+- Soundtrack attempts autoplay from parsing/loading and retries on first user gesture without asking. Persistent screen mute/unmute syncs to Sound settings. Browser audible-autoplay restrictions cannot be bypassed; actual media errors retain Retry.
+- Added custom premium fastback player/owned car geometry with metallic body, sloped cabin, LED-style lamps, grille and alloys; same car collision/speed dimensions. No external model download or new rendering effects.
+- Production build passed, no gameplay/browser/device tests or push. Earlier accident/road/gate changes also remain local.
+
+## Wider college frontage road — local only
+- Road 5 carriageways widened from 4.8 m to 10.2 m each. Centre lines shift outward by 2.7 m, preserving the median-side edge and fixed metro geometry.
+- Shared width is used by road mesh, road clearance, driving footprints, sidewalk placement and traffic. Two same-direction car lane positions plus an outer two-wheeler position; dashed same-direction road markings.
+- Campus frontage/parking frame and stall/shoulder/backdrop rows set back by the 5.4 m outer expansion to retain their existing road clearance and pedestrian space. Campus building layout within the frame is unchanged.
+- Production build passed; no browser/gameplay/device tests or push.
+
+## Accident continuity / campus edges / sliding exit — local only
+- Fixed traffic disappearance: contact pauses and cinematic recovery retain the vehicle/route, animate impact deflection and straighten/pull away. Damage stays on the visible vehicle. Damaged route-end vehicles stay parked nearby rather than respawn in view.
+- Impact recoil/yaw constrained to road-valid candidate poses; player wreck receives a matching short impact tween. Recovering traffic suppresses repeat accident effects.
+- Outer roadside parking footpath now has a raised extruded top at .48 m (old .18 m was below public road surface), edge curbs, matching navigation height, flush driveway gaps retained.
+- Replaced exit barrier pipe with a steel sliding gate, ground rail/wheels, horizontal opening and moving collision footprint; gate animation uses elapsed time.
+- Garden outer borders strengthened; promenade border splits only at path openings (previous whole-run filtering omitted it); grass/trees kept inside border.
+- Left/right controls use matching pedal faces, grip ribs and held state for all motor rides.
+- Production build only. No browser/gameplay/device test or push.
+
 ## LDRP campus soundtrack — local only
 - New user recording 20261126-0544-56.2721238.mp4 extracted to public/audio/ldrp-campus.mp3 (3:53, ~3.8 MB).
 - Two-pass FFmpeg loudnorm, target -14 LUFS / -1.5 dBTP, from measured -28.97 LUFS recording; 48kHz MP3.

@@ -32,17 +32,24 @@ export function createCrashScene({scene,camera,traffic,player,navigation,roads=[
   start(hit){
    if(incident){if(!hit.player)return;finish();}
    if(!hit.player&&(performance.now()<cooldownUntil||Math.hypot(player.position.x-hit.x,player.position.z-hit.z)>20))return;
-   const vehicles=[hit.a,hit.b].filter(v=>v.motor&&!v.twoWheeler&&!v.passive);
+   const vehicles=[hit.a,hit.b].filter(v=>v.motor&&!v.passive);
    const medical=!!hit.player&&(hit.speed>=8||[hit.a,hit.b].some(v=>v.player&&(!v.motor||v.twoWheeler)));
    incident={t:0,hit,vehicles,medical,actors:[],original:camera.position.clone(),duration:medical?7:4.2};const c=incident;
-   for(const v of vehicles)if(v.trafficId!=null){traffic.hold(v.trafficId,c.duration+1);traffic.damage(v.trafficId,Math.min(1,hit.speed/12));}
-   if(hit.player&&vehicles.some(v=>v.player))player.leaveWreck(true);
+   for(const v of vehicles)if(v.trafficId!=null){traffic.hold(v.trafficId,c.duration+1);traffic.damage(v.trafficId,Math.min(1,hit.speed/12));traffic.impact(v.trafficId,hit);}
+   if(hit.player&&vehicles.some(v=>v.player)){
+    player.leaveWreck(true);
+    const wreck=player.wreck;if(wreck){const from={x:wreck.x,y:wreck.y,z:wreck.z,yaw:wreck.yaw},dx=from.x-hit.x,dz=from.z-hit.z,len=Math.hypot(dx,dz)||1;
+     let to={...from};for(const f of [1,.5,.2]){const yaw=from.yaw+.3*f,q=road.pose(from.x+dx/len*.75*f,from.z+dz/len*.75*f,yaw,wreck.type==='auto'?'auto':'car');if(q){to=q;break;}}
+     c.wreckMotion={from,to};
+    }
+   }
    if(medical)response(c);
    else if(vehicles.length===2){for(const [i,v]of vehicles.entries()){const a=actor({x:v.x+Math.cos(v.yaw)*2,y:v.y,z:v.z-Math.sin(v.yaw)*2},i);a.to=a.from.clone();}say('Bhai, dhyaan se. Theek hai, chalo.');}
    skip.textContent=medical?'Skip 108 scene · Continue':'Skip · Continue';skip.hidden=false;caption.hidden=false;document.body.classList.add("accident-active");
   },
   update(dt){if(!incident)return;const c=incident;c.t+=dt;
    caption.textContent=c.medical?(c.t<2.6?'108 ambulance aa rahi hai…':c.t<5?'108 team madad kar rahi hai.':'All clear · Safe jagah se continue karo.'):'Chhoti takkar · Sab theek hai, aaraam se chalo.';
+   if(c.wreckMotion){const m=c.wreckMotion,k=1-(1-Math.min(1,c.t/.65))**3;player.poseWreck({x:m.from.x+(m.to.x-m.from.x)*k,y:m.from.y,z:m.from.z+(m.to.z-m.from.z)*k,yaw:m.from.yaw+(m.to.yaw-m.from.yaw)*k});}
    if(c.ambulance){const n=c.responsePath.length-1,p=THREE.MathUtils.clamp(c.t/2.6,0,1)*n,i=Math.floor(p);c.ambulance.root.position.lerpVectors(c.responsePath[i],c.responsePath[Math.min(n,i+1)],p-i);c.ambulance.update(c.t);}
    for(const a of c.actors){a.avatar.root.visible=!a.medic||c.t>2.5;if(!a.avatar.root.visible)continue;
     if(a.to)a.avatar.root.position.lerpVectors(a.from,a.to,a.medic?THREE.MathUtils.clamp((c.t-2.5)/1.4,0,1):0);

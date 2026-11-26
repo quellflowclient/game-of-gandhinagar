@@ -15,7 +15,7 @@ export function createGameControls({player,hud}){
     for(const name of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(name,end);
     return button;
   }
-  const steering=h('div',{class:'drive-steering','aria-label':'Steering'},hold('‹','Left','steer',-1),hold('›','Right','steer',1));
+  const steering=h('div',{class:'drive-steering','aria-label':'Steering'},hold('↶','Left','steer',-1,'steering-pedal'),hold('↷','Right','steer',1,'steering-pedal'));
   const pedals=h('div',{class:'drive-pedals'},hold('▰','Brake / Reverse','brake',1,'brake'),hold('⇧','Race / Forward','throttle',1,'accelerator'));
   const drive=h('div',{class:'drive-controls',hidden:true},steering,pedals);
   hud.root.append(drive);
@@ -30,6 +30,7 @@ export function openControlGuide(){
     row('✥','Walk & run','Left thumb joystick se aage, peeche aur sideways chalo. Outer ring tak push karo to run. Running button se bhi toggle kar sakte ho.'),
     row('◉','Look around','Screen ke empty area par drag karke camera ghumao. Pinch to zoom. Camera button se first-person, follow aur wide views choose karo.'),
     row('⇄','Drive your ride','Left / right hold karke steer karo. Race se aage chalo. Brake / Reverse se pehle ruko; hold rakho to rukne ke baad dheere peeche chalo. Dono pedals saath dabane par gaadi rukti hai. Space sirf brake hai.'),
-    row('⌨','Keyboard','WASD / arrows: movement or driving. Shift: run. Space: brake. C: choose ride. E: interact. Esc: close panel.'),
-    row('⛶','Landscape play','Phone sideways rakho. Fullscreen button supported browsers mein extra space deta hai. Login, profile aur ID portrait mein bhi khul sakte hain.')));
+    row('⌨','Keyboard','WASD / arrows: movement or driving. Shift: run. Space: jump on foot / brake in vehicle. C: choose ride. E: interact. Esc: close panel.'),
+    row('↑','Jump','Jump button ya Space dabao. Sirf paidal mode mein jump hota hai; zameen par aane ke baad phir jump kar sakte ho.'),
+    row('⛶','Portrait or landscape','Seedhe phone par game khelo. Landscape chahiye to phone khud rotate karo. Game orientation lock nahi karta.')));
 }

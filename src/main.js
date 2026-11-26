@@ -49,7 +49,7 @@ const loading = document.getElementById("loading");
 const tourMode = new URLSearchParams(location.search).has('tour');
 // Loader: stage text + a progress bar that never moves backwards.
 let loadPct=0;
-const setLoading = (t,pct) => { if (!loading) return; if(t)loading.querySelector("p").textContent = t; if(pct!=null){loadPct=Math.max(loadPct,Math.min(100,pct));loading.querySelector(".bar i").style.width=`${Math.max(4,loadPct)}%`;loading.querySelector(".meta b").textContent=`${Math.round(loadPct)}%`;} };
+const setLoading = (t,pct) => { if (!loading) return; if(t)loading.querySelector("p").textContent = t; if(pct!=null){loadPct=Math.max(loadPct,Math.min(100,pct));loading.querySelector(".bar i").style.width=`${Math.max(4,loadPct)}%`;loading.querySelector(".meta b").textContent=`${Math.round(loadPct)}%`;loading.style.setProperty('--build',loadPct/100);loading.querySelectorAll('.build-tower').forEach((el,i)=>el.style.setProperty('--rise',Math.max(.025,Math.min(1,(loadPct-15-i*12)/28))));loading.querySelectorAll('.load-step').forEach((el,i)=>el.classList.toggle('complete',loadPct>=[10,40,80][i]));} };
 setLoading("Connecting…",3);
 
 // ---------- core ----------
@@ -92,6 +92,7 @@ const labelsEl = document.getElementById("labels");
 const qaScope=tourMode?new URLSearchParams(location.search).get('qa'):null;
 const progress = createProgress(qaScope?`gnr-progress-qa-${qaScope.replace(/[^a-z0-9]/gi,'').slice(0,32)}`:undefined);
 const sound = createSound();
+document.addEventListener('gog-music-toggle',e=>sound.set('rideOn',e.detail));
 const clock = createClock();
 setHour(clock.hour(),clock.solar); // live IST, local seasonal sunrise/sunset
 const festival = createFestival(scene);
@@ -199,6 +200,7 @@ function act(name) {
   sound.start();
   if(name.startsWith('ride:'))return chooseRide(app,hud,name.slice(5));
   if(name==='run')return player.toggleRun();
+  if(name==='jump')return player.jump();
   if (name === "cycle") {
     openVehicles(app,hud);
   } else if (name === "wave") {
@@ -444,13 +446,13 @@ const landing = h("div", { id: "landing" },
       h("span", { class: "chip-live" }, h("i", { class: "pulse" }), h("span", { class: "ticker" }, "Gandhinagar · live")),
       landSignIn)),
   h("main", { class: "land-main" },
-    h("p", { class: "eyebrow" }, "Live 3D city · Gujarat"),
+    h("p", { class: "eyebrow" }, h("span",{class:"welcome-live-dot"}),"YOUR CITY. YOUR PEOPLE. YOUR GAME."),
     h("h1", {}, "Gandhinagar", h("span", { class: "gu" }, "ગાંધીનગર")),
-    h("p", { class: "lede" }, "Walk the LDRP campus and Mahatma Mandir. Ride, stop for chai at the KH-5 tapris and meet real people, live."),
+    h("p", { class: "lede" }, "Campus roads. Chai with friends. A city that feels like home. Walk, ride and meet real people in Gandhinagar."),
     h("div",{class:"land-actions"},
-      h("button", { type: "button", class: "cta", onclick: () => enter() }, h("span",{},"Enter the city"), h("span", { class: "arrow" }, "→")),
+      h("button", { type: "button", class: "cta", onclick: () => enter() }, h("span",{},"Let’s go, Gandhinagar"), h("span", { class: "arrow" }, "→")),
       !app.session?h("button",{type:"button",class:"cta-ghost",onclick:()=>{skipVisitorToast=true;enter();setTimeout(()=>prof.openSignIn(app),350);}},"Sign in with email"):null),
-    h("div", { class: "land-dests" }, h("span", { class: "dl" }, "Start at"),
+    h("div", { class: "land-dests" }, h("span", { class: "dl" }, "CHOOSE YOUR FIRST STOP"),
       hubs().map((p) => h("button", { type: "button", class: "dest-card", style: { "--pc": "#" + p.color.toString(16).padStart(6, "0") },
         onclick: () => { enter(); setTimeout(() => travel(p.id), 300); } }, h("i", {}), h("span",{},h("b",{},p.name),h("small",{},p.blurb||p.gu||""))))),
     backend.mode === "demo" ? h("p", { class: "demo-line" }, "Demo mode: data stays in this browser.") : null),
@@ -509,7 +511,7 @@ const recoverButton=h('button',{class:'accident-recover',hidden:true,onclick:asy
 document.body.append(recoverButton);
 const collisions=createCollisionSystem(hit=>{impactEffects.burst(hit);if(hit.player||!hit.a.passive&&!hit.b.passive){endTourView();crashScene.start(hit);}if(hit.player)sound.impact();});
 function collisionEntities(){
-  const entities=traffic.vehicles.filter(v=>v.pose).map(v=>({id:`traffic-${v.id}`,trafficId:v.id,...v.pose,width:v.width,length:v.length,motor:true,twoWheeler:['bike','scooter'].includes(v.type),
+  const entities=traffic.vehicles.filter(v=>v.pose).map(v=>({id:`traffic-${v.id}`,trafficId:v.id,recovering:v.crashTime>0||v.departureSlow>0,...v.pose,width:v.width,length:v.length,motor:true,twoWheeler:['bike','scooter'].includes(v.type),
     stop:p=>traffic.stop(v.id,p)}));
   if(entered){const p=player.position,spec=VEHICLES[player.vehicle],motor=!!spec.width;if(!player.crashed)entities.push({id:'player',x:p.x,y:p.y,z:p.z,yaw:player.heading,
     width:spec.width||.55,length:spec.length||(player.cycling?1.8:.55),twoWheeler:['bike','scooter'].includes(player.vehicle),
@@ -555,6 +557,7 @@ function frame(stamp=performance.now()) {
   t += dt;
   controls.update();
   app.radio.update(entered&&!player.crashed?player.vehicle:"walk");
+  if(!entered)return; // Welcome artwork needs no 3D simulation or rendering.
   // Account/menu pages do not need a running 3D simulation. Keep calls and
   // presence alive, without animating hidden crowds, traffic or campus effects.
   if(pagePaused){

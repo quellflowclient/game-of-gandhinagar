@@ -242,7 +242,7 @@ export function openSound(app) {
     h("label", { class: "check" }, h("input", { type: "checkbox", checked: s.state.on, onchange: (e) => { s.start(); s.set("on", e.target.checked); } }), " Sound: everything on or off"),
     h("label", {class:"check"},h("input",{type:"checkbox",checked:s.state.rideOn,onchange:e=>{s.start();s.set("rideOn",e.target.checked);}}),"Game music · welcome, walking and all rides"),
     slider("rideVolume","Music volume","Welcome/loading and rides: full selected volume. LDRP campus: its own song on every ride and on foot. Outside walking: 18%. Voice calls: quieter."),
-    slider("city", "🏙️ City", "Traffic, water, footsteps, horns"),
+    slider("city", "🏙️ City", "Footsteps, horns and collision effects · continuous wind noise removed"),
     slider("voice", "🗣️ Voice guide", "A Gujarati hello and the place names"),
     h("button", { type: "button", class: "btn", onclick: () => { s.start(); s.say("કેમ છો! ગાંધીનગરમાં તમારું સ્વાગત છે."); } }, "▶ Test the voice guide")));
 }

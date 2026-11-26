@@ -48,7 +48,48 @@ export function createVehicleModel(type) {
     if(helmet)sphere(0.142,helmetMat,x,hip+0.79,z+0.01,1.05);
     else{const cap=new THREE.SphereGeometry(0.112,14,8,0,Math.PI*2,0,Math.PI*0.5);cap.scale(1,1.05,1.05);emit(cap,hair,x,hip+0.79,z);}
   };
-  if(['sedan','suv','hatch'].includes(type)) {
+  if(type==='premium') {
+    // Compact luxury fastback: same 1.84 x 4.5 m gameplay footprint, with
+    // sculpted shoulders, a sloped glass cabin, dark roof and LED signatures.
+    paint.roughness=.22;paint.metalness=.72;
+    rounded(1.74,.43,4.38,paint,0,.61,0,.15);
+    rounded(1.68,.22,3.96,paint,0,.87,-.03,.1);
+    rounded(1.67,.1,4.3,rubber,0,.31,0,.045);
+    rounded(1.58,.12,1.32,paint,0,.91,1.35,.055);
+    rounded(1.61,.1,.88,paint,0,.91,-1.7,.045);
+    const cabinPts=[[-.79,.98,-1.38],[.79,.98,-1.38],[-.79,.98,1.04],[.79,.98,1.04],[-.65,1.44,-.72],[.65,1.44,-.72],[-.65,1.44,.43],[.65,1.44,.43]],vertices=[];
+    for(const i of [0,1,4,1,5,4,2,6,3,3,6,7,0,4,2,2,4,6,1,3,5,3,7,5])vertices.push(...cabinPts[i]);
+    const windows=new THREE.BufferGeometry();windows.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));windows.computeVertexNormals();emit(windows,glass);
+    rounded(1.35,.07,1.3,rubber,0,1.46,-.15,.035);
+    for(const side of [-1,1]){
+      beam([side*.79,.97,1.04],[side*.65,1.44,.43],.035,paint);
+      beam([side*.79,.97,-1.38],[side*.65,1.44,-.72],.038,paint);
+      beam([side*.79,.98,-.15],[side*.65,1.44,-.2],.027,rubber);
+      beam([side*.8,.98,-1.3],[side*.8,.98,1],.012,chrome);
+      rounded(.16,.09,.2,paint,side*.84,1.06,.75,.03);
+      box(.025,.045,.13,glass,side*.91,1.07,.75);
+      for(const z of [-.7,.48]){box(.015,.028,.15,chrome,side*.875,.92,z);box(.01,.46,.012,rubber,side*.877,.66,z-.25);}
+      box(.025,.045,3.25,chrome,side*.87,.39,0);
+      for(const z of [-1.35,1.34]){wheel(side*.79,z,.335);
+        for(let k=0;k<10;k++){const angle=k*Math.PI/5;beam([side*.895,.335,z],[side*.895,.335+Math.cos(angle)*.21,z+Math.sin(angle)*.21],.012,chrome);}
+      }
+      rounded(.53,.045,.035,head,side*.52,.88,2.21,.015);
+      box(.05,.12,.025,head,side*.76,.81,2.22);
+      rounded(.62,.045,.03,tail,side*.48,.94,-2.21,.012);
+      box(.23,.11,.035,rubber,side*.65,.46,2.21);
+      rounded(.19,.065,.13,chrome,side*.61,.37,-2.17,.02);
+    }
+    rounded(1.0,.3,.035,rubber,0,.62,2.22,.06);
+    for(let x=-.43;x<=.44;x+=.085)box(.016,.25,.025,chrome,x,.62,2.244);
+    box(1.45,.025,.025,chrome,0,.46,2.22);
+    rounded(.39,.11,.025,plate,0,.46,2.24,.01);
+    rounded(.39,.11,.025,plate,0,.61,-2.23,.01);
+    box(1.48,.022,.025,tail,0,.94,-2.22);
+    rounded(1.4,.16,.4,rubber,0,.94,.63,.04);
+    rounded(.31,.05,.08,rubber,-.38,.99,.42,.02);
+    person(-.38,.52,-.15,{hands:[.16,1.0,.38,true]});
+    person(.38,.52,-.15);
+  } else if(['sedan','suv','hatch'].includes(type)) {
     const suv=type==='suv',hatch=type==='hatch',w=suv?1.88:hatch?1.7:1.78,l=hatch?4:4.5,roof=suv?1.69:1.45,base=suv?1.03:0.92;
     rounded(w,0.55,l,paint,0,0.66,0,0.13);
     rounded(w-0.1,0.16,l-0.15,rubber,0,0.38,0,0.06);

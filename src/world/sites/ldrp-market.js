@@ -2,7 +2,7 @@ import {stallAvailability} from '../../data/stall-hours.js';
 import * as THREE from 'three';
 import * as K from './kit.js';
 import {createAvatar} from '../avatar.js';
-import {MARKET,MARKET_GROUND,MARKET_SHOPS,LDRP_PLAY_AREA,marketPoint,toMarket,shopYaw,shopPoint,shopPlot} from './ldrp-market-layout.js';
+import {ROAD5_OUTER_EXPANSION,MARKET,MARKET_GROUND,MARKET_SHOPS,LDRP_PLAY_AREA,marketPoint,toMarket,shopYaw,shopPoint,shopPlot} from './ldrp-market-layout.js';
 import {referenceStall,referenceBackdrop,parkedReferenceVan} from './ldrp-stall-models.js';
 import {createVehicleModel} from '../vehicle-models.js';
 import {buildKh5Sculpture} from '../kh5-sculpture.js';
@@ -14,7 +14,7 @@ export function buildLdrpMarket(scene,origin) {
   const root=new THREE.Group();root.name='KH-5 street life';root.position.set(worldOrigin.x,0,worldOrigin.z);root.rotation.y=MARKET.yaw;scene.add(root);
   const solids=[],plots=MARKET_SHOPS.map(shopPlot),seats=[],actors=[],shops=[],smoke=[];
   const rect=(a,b,c,d)=>[[a,c],[b,c],[b,d],[a,d]];
-  const shoulders=[rect(-175,-24,9.5,25.65),rect(23,185,9.5,25.65),rect(20,185,-24,-8),rect(-117.5,-108.5,-13,-7.9)],walkAreas=[...plots,...shoulders];
+  const extra=ROAD5_OUTER_EXPANSION,shoulders=[rect(-175,-24,9.5+extra,25.65+extra),rect(23,185,9.5+extra,25.65+extra),rect(20,185,-24-extra,-8-extra),rect(-117.5,-108.5,-13-extra,-7.9-extra)],walkAreas=[...plots,...shoulders];
   // The shared metro-garden builder owns the surveyed median and both mesh fences.
   // Do not add a second guessed strip beside the college carriageway.
   const medianSections=[],medianAreas=[];
@@ -85,7 +85,7 @@ export function buildLdrpMarket(scene,origin) {
   // The 4th shoulder sits in front of the LDRP gate: still walkable, but drawn as
   // plain road (no separate sand patch) so the gate floor is one surface.
   for(const plot of shoulders.slice(0,3))K.slab(root,plot,MARKET_GROUND-0.012,soil,0,5);
-  for(const [a,b,v] of [[-175,-24,25.6],[23,185,25.6],[20,185,-23.9]]) {
+  for(const [a,b,v] of [[-175,-24,25.6+extra],[23,185,25.6+extra],[20,185,-23.9-extra]]) {
     K.box(root,b-a,1.8,0.24,wallStone,(a+b)/2,MARKET_GROUND,v);
     for(let u=a;u<=b;u+=3.5){K.box(root,0.25,2.3,0.3,wallStone,u,MARKET_GROUND,v);for(let d=0.3;d<3.3&&u+d<b;d+=0.4)K.box(root,0.02,0.5,0.02,0x3e624a,u+d,MARKET_GROUND+1.8,v);}
     K.box(root,b-a,0.025,0.025,0x3e624a,(a+b)/2,MARKET_GROUND+2.28,v);solids.push({rect:[(a+b)/2,v,b-a,0.3,0]});

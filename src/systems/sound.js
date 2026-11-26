@@ -39,15 +39,8 @@ export function createSound() {
     let last = 0;
     for (let i = 0; i < d.length; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.5; }
     noise = buf;
-    const loop = (freq, q) => {
-      const src = ctx.createBufferSource(); src.buffer = noise; src.loop = true;
-      const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
-      const g = ctx.createGain(); g.gain.value = 0;
-      src.connect(f); f.connect(g); g.connect(cityGain); src.start();
-      return g;
-    };
-    trafficGain = loop(180, 0.7);
-    waterGain = loop(900, 0.4);
+    // Continuous noise loops sounded like wind. Keep only discrete footsteps,
+    // horns and collision effects; music is supplied by the MP3 player.
     apply();
   }
 
@@ -73,8 +66,6 @@ export function createSound() {
   function update({ near = {}, speed = 0 } = {}) {
     if (!ctx || !st.on) return;
     const t = ctx.currentTime;
-    trafficGain.gain.setTargetAtTime(near.road ? 0.35 : 0.12, t, 0.5);
-    waterGain.gain.setTargetAtTime(near.water ? 0.25 : 0, t, 0.8);
     if (Math.random() < 0.0015 && near.road) horn(t);
     stepSound(speed);
   }

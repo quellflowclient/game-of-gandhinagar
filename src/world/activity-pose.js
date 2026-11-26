@@ -26,6 +26,10 @@ export function createActivityPose(root,model,bones) {
     }
     const head=root.worldToLocal(b('Head').getWorldPosition(new THREE.Vector3()));
     let left=new THREE.Vector3(0.19,seated?0.88:1.02,0.3),right=new THREE.Vector3(-0.18,seated?0.88:1.02,0.3);
+    if(kind==='jump'){
+      model.rotation.x=-.06;left.set(.36,1.0,.15);right.set(-.36,1.0,.15);
+      for(const [side,sign]of [['Left',1],['Right',-1]])solve(b(`${side}UpLeg`),b(`${side}Leg`),b(`${side}Foot`),root.localToWorld(new THREE.Vector3(sign*.13,.13,.16)),new THREE.Vector3(sign*.1,0,1).transformDirection(root.matrixWorld));
+    }
     if(kind==='cook'){right.set(-0.13+Math.sin(t*2.5)*0.09,1.0,0.37+Math.cos(t*2.5)*0.065);left.set(0.22,0.97,0.3);}
     if(kind==='tea'){right.set(-0.14,1.06+Math.sin(t*1.8)*0.07,0.32);left.set(0.16,0.99,0.32);}
     if(kind==='serve'){left.set(0.15,1.02,0.35);right.set(-0.15,1.02,0.35);}

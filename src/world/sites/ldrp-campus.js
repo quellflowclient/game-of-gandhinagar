@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as K from './kit.js';
+import {ROAD5_OUTER_EXPANSION} from './ldrp-market-layout.js';
 import {buildLdrpMarket} from './ldrp-market.js';
 import {roadClearance} from '../metro-road-clearance.js';
 import {createVehicleModel} from '../vehicle-models.js';
@@ -8,7 +9,7 @@ import {PHOTO_YAW,ACADEMIC_WING_ANGLES,ACADEMIC_LINKS,HOSTEL_YARD,photoPoint as 
 
 export const REFERENCE_LDRP={area:CAMPUS_BOUNDARY,gates:[{u:0,v:0,width:24,main:true}],gardenCentre:GARDEN_CENTRE,gardenRadius:43,hub:P(211,51)};
 export function buildReferenceCampus(scene,map,origin){
- const gateOrigin={x:origin.x-25+Math.sin(PHOTO_YAW)*6.5,z:origin.z-87.93+Math.cos(PHOTO_YAW)*6.5},f=K.frame(gateOrigin,PHOTO_YAW),g=new THREE.Group();g.position.set(gateOrigin.x,0,gateOrigin.z);g.rotation.y=PHOTO_YAW;g.name='LDRP reference campus';scene.add(g);
+ const gateOrigin={x:origin.x-25+Math.sin(PHOTO_YAW)*(6.5+ROAD5_OUTER_EXPANSION),z:origin.z-87.93+Math.cos(PHOTO_YAW)*(6.5+ROAD5_OUTER_EXPANSION)},f=K.frame(gateOrigin,PHOTO_YAW),g=new THREE.Group();g.position.set(gateOrigin.x,0,gateOrigin.z);g.rotation.y=PHOTO_YAW;g.name='LDRP reference campus';scene.add(g);
  const solids=[],trees=[],lamps=[],parking=[],gardenSeats=[],entry={allowed:false,checking:false,open:0},actors=[];
  const floor=K.mat(K.greyPavers(),{color:0xa9a197,roughness:.97}),brick=K.mat(K.brickPaving(),{color:0xc6b2a1,roughness:.95}),lawn=K.mat(K.lawnTex(),{color:0xa2ae82,roughness:1});
  const rect=(a,b,c,d)=>[[a,c],[b,c],[b,d],[a,d]],photoRect=r=>rect(r[0],r[2],r[1],r[3]).map(p=>P(...p));
@@ -30,15 +31,22 @@ export function buildReferenceCampus(scene,map,origin){
  }
  // Four separate garden lawns, with a clear cross-path and front promenade.
  const frontArc=GARDEN_PROMENADE.points,shrubs=D.createShrubbery(),grass=D.createGrassBorders();
- D.paverWalk(g,frontArc,4.4,.14);for(const side of [-1,1])curbRuns(D.offsetPoints(frontArc,side*2.3),-1).filter(r=>!r.some(([u,v])=>GARDEN_PATHS.some(d=>D.pathDistance(u,v,d.points)<d.width/2+.2))).forEach(run=>D.stoneCurb(g,run,.14,{height:.16,width:.16}));
+ D.paverWalk(g,frontArc,4.4,.14);
+ // Split at path junctions instead of dropping an entire curved border when
+ // just one point touches an entrance. Border follows the outer planted edge.
+ for(const side of [-1,1]){let run=[];const flush=()=>{if(run.length>1)D.stoneCurb(g,run,.14,{height:.22,width:.24});run=[];};
+  for(const [u,v]of D.resample(D.offsetPoints(frontArc,side*2.3),.35)){
+   if(CAMPUS_DRIVES.some(d=>D.pathDistance(u,v,d.points)<d.width/2+.2)||pointIn(u,v,GATE_FORECOURT)||GARDEN_PATHS.some(d=>D.pathDistance(u,v,d.points)<d.width/2+.18))flush();else run.push([u,v]);
+  }flush();
+ }
  for(const path of GARDEN_PATHS)D.paverWalk(g,path.points,path.width,path.height);
  for(const [index,poly]of FOUR_GARDENS.entries()){
-  K.slab(g,poly,.09,lawn,0,3.5);D.stoneCurb(g,[...poly,poly[0]],.09,{height:.18});
+  K.slab(g,poly,.09,lawn,0,3.5);D.stoneCurb(g,[...poly,poly[0]],.09,{height:.25,width:.26});
   const [u,v]=K.centroid(poly),homes=[];
   for(let j=0;j<3;j++){const x=u+(j-1)*1.6,z=v-.5;if(!pointIn(x,z,poly))continue;const w=f.toWorld(x,z);homes.push([x,z]);gardenSeats.push({id:`ldrp-garden-${index}-${j}`,x:w.x,y:.098,z:w.z,yaw:-PHOTO_YAW+Math.PI,kind:'ground',garden:index});}
-  const plantHere=(x,z,r)=>pointIn(x,z,poly)&&GARDEN_PATHS.every(path=>D.pathDistance(x,z,path.points)>path.width/2+r+.2)&&D.pathDistance(x,z,frontArc)>2.2+r&&homes.every(([a,b])=>Math.hypot(a-x,b-z)>r+1.1)&&Math.hypot(x-FLAG_POINT[0],z-FLAG_POINT[1])>r+2.3;
+  const plantHere=(x,z,r)=>pointIn(x,z,poly)&&D.pathDistance(x,z,[...poly,poly[0]])>r+.18&&GARDEN_PATHS.every(path=>D.pathDistance(x,z,path.points)>path.width/2+r+.2)&&D.pathDistance(x,z,frontArc)>2.2+r&&homes.every(([a,b])=>Math.hypot(a-x,b-z)>r+1.1)&&Math.hypot(x-FLAG_POINT[0],z-FLAG_POINT[1])>r+2.3;
   for(const [du,dv]of [[-2,-3],[2.2,-2.8]])if(plantHere(u+du,v+dv,.65)){K.palm(g,u+du,v+dv,.65);trees.push([u+du,v+dv,.22]);}
-  grass.add(poly,poly.filter((_,i)=>i%6===0));
+  grass.add(poly,poly.filter((_,i)=>i%6===0),{inset:.8,band:.65});
   for(const [pu,pv]of poly.filter((_,i)=>i%4===0)){const x=pu+(u-pu)*.35,z=pv+(v-pv)*.35;if(plantHere(x,z,.8)){shrubs.topiary(x,z,.8);trees.push([x,z,.15]);}}
  }
  const [flagU,flagV]=FLAG_POINT;
@@ -107,8 +115,8 @@ export function buildReferenceCampus(scene,map,origin){
    if(hi>lo){const access=[at(lo,0),at(hi,0),at(hi,3),at(lo,3)];parkingAccess.push(access);D.concreteSlab(g,access,.025);}
    for(const [start,end]of spans){if(end-start<.2)continue;
     const ring=[at(start,.15),at(end,.15),at(end,1.55),at(start,1.55)];
-    parkingWalks.push(ring);K.slab(g,ring,.18,D.materials().paver,0,1.4);
-    D.stoneCurb(g,[at(start,.15),at(end,.15)],.02,{height:.16,width:.15});
+    parkingWalks.push(ring);const walk=K.slab(g,ring,.02,D.materials().paver,.46,1.4);walk.name='Raised outside roadside footpath';
+    for(const side of [.15,1.55])D.stoneCurb(g,[at(start,side),at(end,side)],.02,{height:.46,width:.17});
    }
    travelled+=len;
   }
@@ -156,7 +164,7 @@ export function buildReferenceCampus(scene,map,origin){
  K.box(front,.3,.02,.22,0xf1ead8,-.2,.76,-5.6);K.cyl(front,.05,.04,.1,0xe9e2cf,.28,.76,-5.65,10);
  K.box(front,.48,.45,.46,0x3d5e78,0,0,-4.85);K.box(front,.48,.48,.06,0x3d5e78,0,.45,-4.62);
  D.patioUmbrella(front,1.05,-5.3);solids.push({rect:[0,-5.6,1.1,.7]},{rect:[0,-4.85,.55,.55]},{circle:[1.05,-5.3,.1]});
- const booms=[];K.box(g,.4,1,.4,0xd8d0c0,-10.5,0,.35);
+ const booms=[];
  // Narrow pedestrian entry lane through the LEFT opening (seen from Road 5).
  // No signs: the gate rules themselves stop anyone walking out this way.
  const lane=[4.4,5.9];
@@ -254,8 +262,18 @@ export function buildReferenceCampus(scene,map,origin){
    const bus=busModel();bus.position.set(u,.15,v);bus.rotation.y=yaw;solids.push({rect:[u,v,2.6,11,yaw]});n++;}}
 
 
- const boomTex=K.canvasTex(128,16,(c,w,h)=>{for(let i=0;i<16;i++){c.fillStyle=i%2?'#eee9d8':'#b94532';c.fillRect(i*w/16,0,w/16,h);}});
- for(const x of [-10.5]){const pivot=new THREE.Group();pivot.position.set(x,1,.35);g.add(pivot);K.box(pivot,8,.09,.1,K.mat(boomTex),4,-.045,0);booms.push(pivot);}
+ // Exit: a full steel sliding gate retracts along the west boundary wall.
+ // Built after static batching so the entire leaf remains animated as one mesh.
+ const slidingGate=new THREE.Group(),gateMetal=K.mat(0x43514d,{metalness:.65,roughness:.55});
+ slidingGate.name='LDRP exit sliding gate';
+ for(const y of [.22,1.15,2.2])K.box(slidingGate,10.4,.12,.18,gateMetal,5.2,y,0);
+ for(let x=.1;x<=10.3;x+=.28)K.box(slidingGate,.065,2.12,.085,gateMetal,x,.24,0);
+ for(const x of [.12,10.28])K.box(slidingGate,.14,2.35,.22,gateMetal,x,.12,0);
+ for(const x of [1,9.4]){const wheel=K.cyl(slidingGate,.13,.13,.12,0x242c29,x,.03,0,12);wheel.rotation.x=Math.PI/2;}
+ K.mergeStatic(slidingGate);slidingGate.position.set(-11.2,.15,.55);g.add(slidingGate);booms.push(slidingGate);
+ K.box(g,22,.025,.075,0x6f7774,-11.5,.15,.55);
+ const slidingSolid={rect:[-6,.55,10.4,.25]};solids.push(slidingSolid);
+ let gateLastTime=null;
  const zone=K.createSiteZone({id:'ldrp-campus',f,area:CAMPUS_BOUNDARY,solids,walls,groundY:referenceHeight,replaceRoads:true});
  const baseHeights=zone.heights;
  // Gate rules: LEFT opening (+u) = pedestrian entry only; RIGHT opening (-u) =
@@ -269,12 +287,12 @@ export function buildReferenceCampus(scene,map,origin){
  zone.forbidsVehicles=(x,z,margin=0,type)=>{const p=f.toLocal(x,z);if(!K.nearPolygon(p.u,p.v,CAMPUS_BOUNDARY,margin))return false;if(leftOpening(p.u,p.v)||inGarden(p.u,p.v))return true;if(rightOpening(p.u,p.v)&&entry.side==='outside')return true;return !['bike','scooter'].includes(type)||!entry.allowed||zone.blocked(p.u,p.v,margin);};
  zone.roadHeight=(x,z)=>{const p=f.toLocal(x,z);if(!zone.contains(x,z))return null;return pointIn(p.u,p.v,INSIDE_PARKING)?referenceHeight(p.u,p.v):null;};
  const outsideContains=(x,z)=>{const p=f.toLocal(x,z);return (pointIn(p.u,p.v,OUTSIDE_APRON)||offRoad(x,z,.12)&&(outside.some(poly=>pointIn(p.u,p.v,poly))||pointIn(p.u,p.v,ENTRY_APRON)))&&!zone.contains(x,z);};
- const outsideZone={id:'ldrp-outside-parking',contains:outsideContains,heights:(x,z,r=.38)=>{const p=f.toLocal(x,z);return zone.blocked(p.u,p.v,r)||gateRule(p.u,p.v,r)?[]:[pointIn(p.u,p.v,OUTSIDE_APRON)?APRON_Y+.008:onParkingWalk(p.u,p.v)?.188:pointIn(p.u,p.v,ENTRY_APRON)?referenceHeight(p.u,p.v):.028];},roadHeight:(x,z)=>{if(!outsideContains(x,z))return null;const p=f.toLocal(x,z);return pointIn(p.u,p.v,OUTSIDE_APRON)?APRON_Y:onParkingWalk(p.u,p.v)?.18:pointIn(p.u,p.v,ENTRY_APRON)?.15:.04;},forbidsVehicles:(x,z,r)=>{if(!outsideContains(x,z))return false;const p=f.toLocal(x,z);return onParkingWalk(p.u,p.v,r)||zone.blocked(p.u,p.v,r);},clearing:{contains:(x,z)=>{const p=f.toLocal(x,z);return outside.some(poly=>pointIn(p.u,p.v,poly))||pointIn(p.u,p.v,ENTRY_APRON);},replacesWalk:(x,z)=>{const p=f.toLocal(x,z);return outside.some(poly=>pointIn(p.u,p.v,poly))||pointIn(p.u,p.v,ENTRY_APRON);}}};
+ const outsideZone={id:'ldrp-outside-parking',contains:outsideContains,heights:(x,z,r=.38)=>{const p=f.toLocal(x,z);return zone.blocked(p.u,p.v,r)||gateRule(p.u,p.v,r)?[]:[pointIn(p.u,p.v,OUTSIDE_APRON)?APRON_Y+.008:onParkingWalk(p.u,p.v)?.488:pointIn(p.u,p.v,ENTRY_APRON)?referenceHeight(p.u,p.v):.028];},roadHeight:(x,z)=>{if(!outsideContains(x,z))return null;const p=f.toLocal(x,z);return pointIn(p.u,p.v,OUTSIDE_APRON)?APRON_Y:onParkingWalk(p.u,p.v)?.48:pointIn(p.u,p.v,ENTRY_APRON)?.15:.04;},forbidsVehicles:(x,z,r)=>{if(!outsideContains(x,z))return false;const p=f.toLocal(x,z);return onParkingWalk(p.u,p.v,r)||zone.blocked(p.u,p.v,r);},clearing:{contains:(x,z)=>{const p=f.toLocal(x,z);return outside.some(poly=>pointIn(p.u,p.v,poly))||pointIn(p.u,p.v,ENTRY_APRON);},replacesWalk:(x,z)=>{const p=f.toLocal(x,z);return outside.some(poly=>pointIn(p.u,p.v,poly))||pointIn(p.u,p.v,ENTRY_APRON);}}};
  const campus={gardenAt(x,z){const p=f.toLocal(x,z);return FOUR_GARDENS.findIndex(poly=>pointIn(p.u,p.v,poly));},frame:f,root:g,zone,entry,gardenSeats,parking,actors,lamps,guard:f.toWorld(0,-4.85),guardYaw:PHOTO_YAW+Math.PI,groundY:APRON_Y,paji:{seat:f.toWorld(13.9,-2.5),desk:f.toWorld(13.9,-3.35),bike:f.toWorld(17.4,-4.4),y:APRON_Y,ride:[[17.4,-4.8],[17.2,-11],[16,-15.6],[45,-16],[75,-16.2]].map(p=>f.toWorld(...p)),yaw:PHOTO_YAW+Math.PI,bikeYaw:PHOTO_YAW+Math.PI/2},gateOrigin,booms,groundHeight(x,z){const p=f.toLocal(x,z);return referenceHeight(p.u,p.v);}};
  const market=buildLdrpMarket(scene,origin),spawn={...f.toWorld(-6,-10),y:.05,yaw:PHOTO_YAW+Math.PI,residents:[],customCrowd:true};
  return{zone,spawn,frame:f,market,campus,extraZones:[outsideZone,market.zone],update(t,p){flag.rotation.y=Math.sin(t*1.25)*.12;
   if(p){const l=f.toLocal(p.x,p.z);if(l.v>2.6&&zone.contains(p.x,p.z))entry.side='inside';else if(l.v<-1.2)entry.side='outside';}
-  entry.open=THREE.MathUtils.damp(entry.open,entry.openTarget?1:0,3,.016);for(const b of booms)b.rotation.z=-entry.open*Math.PI*.46;market.update(t,p);}};
+  const gateDt=gateLastTime===null?0:Math.min(.1,Math.max(0,t-gateLastTime));gateLastTime=t;entry.open=THREE.MathUtils.damp(entry.open,entry.openTarget?1:0,3,gateDt);slidingGate.position.x=-11.2-entry.open*11;slidingSolid.rect[0]=-6-entry.open*11;market.update(t,p);}};
 }
 
 function createBus(g,u,v){const bus=new THREE.Group();bus.position.set(u,0,v);g.add(bus);K.box(bus,2.3,2.8,8.2,0xc9a449,0,.38,0);K.box(bus,2.32,.9,6.8,0x354f50,0,1.7,0);for(const x of [-1.1,1.1])for(const z of [-2.6,2.7]){const wheel=K.cyl(bus,.42,.42,.2,0x272c2b,x,.2,z,16);wheel.rotation.z=Math.PI/2;}K.textPlane(bus,['LDRP COLLEGE BUS'],{bg:'#c9a449',fg:'#303c39'},2.0,.3,0,2.8,-4.11,Math.PI);return bus;}

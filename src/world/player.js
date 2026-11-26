@@ -12,7 +12,8 @@ import {createRideTwoWheeler} from './parked-models.js';
 export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigation, cameraObstacles = [],driving,playArea }) {
   let avatar = createAvatar("casual");
   scene.add(avatar.root);
-  const pos = new THREE.Vector3(); // source of truth; copied onto the avatar each frame
+  const pos = new THREE.Vector3(); // Ground position used by navigation.
+  const airbornePosition=new THREE.Vector3();let jumpHeight=0,jumpVelocity=0;
 
   let yaw = Math.PI;      // camera yaw around the player
   let pitch = 0.32;       // camera pitch
@@ -23,6 +24,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
   const withinArea=(x,z)=>!areaLocked||playArea(x,z);
   function removeVehicle(){if(vehicleRoot){scene.remove(vehicleRoot);vehicleRoot.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});}vehicleRoot=null;vehicleModel=null;driveSpeed=0;}
   function setVehicle(type){
+    if(jumpHeight>0)return{error:'Pehle zameen par land hone do.'};
     if(crashed)return{error:'Accident ke baad pehle safe jagah recover karo.'};
     if(!(type in VEHICLES))return{error:'Unknown vehicle'};
     if(sitting||carrying)return{error:'Pehle table se utho ya table rakh do.'};
@@ -34,7 +36,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
       if(!pose||!withinArea(pose.x,pose.z))return{error:'Car/auto ke liye public road ke paas jao (14 m ke andar).'};
       mountFrom=pos.clone();mountT=two?0:2;removeVehicle();vehicle=type;cycling=false;avatar.setCycling(false);avatar.setMotorcycle(false);avatar.root.visible=two;
       if(two){vehicleRoot=createRideTwoWheeler(type);vehicleModel=null;}
-      else{vehicleModel=createVehicleModel(type==='car'?'sedan':'auto');vehicleRoot=new THREE.Group();for(const p of vehicleModel.parts){const mesh=new THREE.Mesh(p.geometry,p.material);if(p.paint)p.material.color.setHex(type==='car'?0x648b99:0x36764e);mesh.castShadow=mesh.receiveShadow=true;vehicleRoot.add(mesh);}}
+      else{vehicleModel=createVehicleModel(type==='car'?'premium':'auto');vehicleRoot=new THREE.Group();for(const p of vehicleModel.parts){const mesh=new THREE.Mesh(p.geometry,p.material);if(p.paint)p.material.color.setHex(type==='car'?0x233341:0x36764e);mesh.castShadow=mesh.receiveShadow=true;vehicleRoot.add(mesh);}}
       vehicleRoot.name=`Player ${type}`;scene.add(vehicleRoot);
       pos.set(pose.x,pose.y,pose.z);heading=pose.yaw;yaw=heading+Math.PI;steeringNow=0;speedNow=0;return{ok:true};
     }
@@ -65,6 +67,8 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
   const keys = new Set();
   window.addEventListener("keydown", (e) => {
     if (isTyping(e)) return;
+    if(e.code==='Space'&&!e.repeat&&vehicle==='walk'){e.preventDefault();jump();}
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();
     keys.add(e.code);
   });
   window.addEventListener("keyup", (e) => keys.delete(e.code));
@@ -134,8 +138,13 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
   const cameraRay = new THREE.Raycaster();
   const rayDirection = new THREE.Vector3();
 
+  function jump(){
+    if(frozen||crashed||sitting||carrying||vehicle!=='walk'||jumpHeight>0||jumpVelocity>0)return false;
+    jumpVelocity=4.2;jumpHeight=.001;return true;
+  }
   function update(dt) {
     actualSpeed = 0;
+    if(!frozen&&(jumpHeight>0||jumpVelocity>0)){jumpVelocity-=9.8*dt;jumpHeight=Math.max(0,jumpHeight+jumpVelocity*dt);if(jumpHeight===0)jumpVelocity=0;}
     mountT=Math.min(2,mountT+dt);gestureTime=Math.max(0,gestureTime-dt);
     const twoWheeler=['bike','scooter'].includes(vehicle);
     if(twoWheeler)avatar.setMotorcycle(mountT>.6);
@@ -221,10 +230,11 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
     }
     avatar.root.position.copy(pos);
     if(mountT<1.1&&mountFrom)avatar.root.position.lerpVectors(mountFrom,pos,Math.min(1,mountT/1.1));
+    avatar.root.position.y+=jumpHeight;
     if(sitAnim){sitAnim.time+=dt;if(sitAnim.time<0.55)avatar.root.position.lerpVectors(sitAnim.from,pos,sitAnim.time/0.55);else sitAnim=null;}
     eatTime=Math.max(0,eatTime-dt);
     payTime=Math.max(0,payTime-dt);
-    avatar.setActivity(mountT<.6?'helmet':gestureTime>0?gesture:payTime>0?'pay':eatTime>0?(sitting?'eat':'eat-standing'):sitting&&!sitAnim?(sittingGround?'ground-sit':'sit'):carrying?'carry':null);
+    avatar.setActivity(jumpHeight>0?'jump':mountT<.6?'helmet':gestureTime>0?gesture:payTime>0?'pay':eatTime>0?(sitting?'eat':'eat-standing'):sitting&&!sitAnim?(sittingGround?'ground-sit':'sit'):carrying?'carry':null);
     avatar.update(dt, sitAnim?1.4:actualSpeed);
     if(twoWheeler&&mountT>.55){if(!helmetMesh){helmetMesh=new THREE.Mesh(new THREE.SphereGeometry(.14,18,12,0,Math.PI*2,0,Math.PI*.65),new THREE.MeshStandardMaterial({color:0x252e30,roughness:.38}));avatar.root.add(helmetMesh);}helmetMesh.visible=true;helmetMesh.position.copy(avatar.socket('Head')).add(new THREE.Vector3(0,.15,0));}else if(helmetMesh)helmetMesh.visible=false;
     if(foodProp){foodProp.visible=eatTime>0;foodProp.position.copy(avatar.socket('LeftHand'));}
@@ -237,10 +247,10 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
       yaw+=delta*Math.min(1,dt*(viewMode==='eyes'?7:3));
     }
     // Follow camera.
-    camTarget.set(pos.x, pos.y + 1.6, pos.z);
+    camTarget.set(pos.x, pos.y + jumpHeight + 1.6, pos.z);
     if(viewMode==='eyes') {
       const eye=vehicleRoot?(vehicle==='car'?1.13:1.28):sitting?1.24:avatar.gender==='female'?1.53:1.63;
-      tmp.set(pos.x-Math.sin(yaw)*0.12,pos.y+eye,pos.z-Math.cos(yaw)*0.12);camera.position.lerp(tmp,Math.min(1,dt*16));
+      tmp.set(pos.x-Math.sin(yaw)*0.12,pos.y+jumpHeight+eye,pos.z-Math.cos(yaw)*0.12);camera.position.lerp(tmp,Math.min(1,dt*16));
       camera.lookAt(camera.position.x-Math.sin(yaw)*Math.cos(pitch),camera.position.y-Math.sin(pitch),camera.position.z-Math.cos(yaw)*Math.cos(pitch));return;
     }
     const dist = camDist + (vehicleRoot?4:cycling ? 1.5 : 0),cameraYaw=viewMode==='front'?heading:yaw;
@@ -274,11 +284,12 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
       avatar.setFall();avatar.setMotorcycle(false);avatar.setCycling(false);avatar.setActivity(null);avatar.setFirstPerson(viewMode==='eyes');avatar.root.visible=true;if(helmetMesh)helmetMesh.visible=false;
       if(point)pos.set(point.x,point.y,point.z);avatar.root.position.copy(pos);
     },
+    poseWreck(p){if(!wreck)return;Object.assign(wreck,p);wreck.root.position.set(p.x,p.y,p.z);wreck.root.rotation.y=p.yaw;},
     resumeAfterAccident(){if(fall)return;crashed=false;avatar.root.visible=true;},
     leaveWreck(hide=false){if(!vehicleRoot)return false;const type=vehicle,root=vehicleRoot;wreck={root,x:pos.x,y:pos.y,z:pos.z,yaw:heading,type};wreckAge=0;vehicleRoot=null;vehicleModel=null;vehicle='walk';cycling=false;avatar.root.visible=!hide;const x=pos.x+Math.cos(heading)*1.8,z=pos.z-Math.sin(heading)*1.8,p=navigation?.safePoint(x,z,pos.y,.38,3)||{x,y:pos.y,z};pos.set(p.x,p.y,p.z);avatar.root.position.copy(pos);return true;},
-    stopAt(p){pos.set(p.x,p.y||0,p.z);heading=p.yaw??heading;speedNow=actualSpeed=driveSpeed=0;avatar.root.position.copy(pos);if(vehicleRoot){vehicleRoot.position.copy(pos);vehicleRoot.rotation.y=heading;}},
-    hit(info){if(crashed)return;crashed=true;speedNow=actualSpeed=driveSpeed=0;keys.clear();if(vehicleRoot&&['bike','scooter'].includes(vehicle)){fallenBike=vehicleRoot;fallenBike.userData.owned=true;fallenBike.position.copy(pos);fallenBike.rotation.set(0,heading,1.3);const box=new THREE.Box3().setFromObject(fallenBike);fallenBike.position.y+=Math.max(0,pos.y+.02-box.min.y);vehicleRoot=null;vehicleModel=null;vehicle='walk';avatar.setMotorcycle(false);avatar.root.visible=true;launch(info);}else if(vehicleRoot){vehicleRoot.rotation.z=.025;damageVehicle(vehicleRoot,Math.min(1.5,(info?.speed||5)/8));}else launch(info);},
-    get position() { return pos; },
+    stopAt(p){pos.set(p.x,(p.y||0)-jumpHeight,p.z);heading=p.yaw??heading;speedNow=actualSpeed=driveSpeed=0;avatar.root.position.copy(pos);if(vehicleRoot){vehicleRoot.position.copy(pos);vehicleRoot.rotation.y=heading;}},
+    hit(info){if(crashed)return;jumpHeight=jumpVelocity=0;crashed=true;speedNow=actualSpeed=driveSpeed=0;keys.clear();if(vehicleRoot&&['bike','scooter'].includes(vehicle)){fallenBike=vehicleRoot;fallenBike.userData.owned=true;fallenBike.position.copy(pos);fallenBike.rotation.set(0,heading,1.3);const box=new THREE.Box3().setFromObject(fallenBike);fallenBike.position.y+=Math.max(0,pos.y+.02-box.min.y);vehicleRoot=null;vehicleModel=null;vehicle='walk';avatar.setMotorcycle(false);avatar.root.visible=true;launch(info);}else if(vehicleRoot){vehicleRoot.rotation.z=.025;damageVehicle(vehicleRoot,Math.min(1.5,(info?.speed||5)/8));}else launch(info);},
+    get position() { airbornePosition.copy(pos);airbornePosition.y+=jumpHeight;return airbornePosition; },
     get heading() { return heading; },
     get cycling() { return cycling; },
     get vehicle(){return vehicle;},get driveDirection(){return driveSpeed<-.02?'R':driveSpeed>.02?'D':'STOP';},get speedKmh(){return actualSpeed*3.6;},get areaLocked(){return areaLocked;},setVehicle,
@@ -299,17 +310,18 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
       const food=new THREE.Mesh(new THREE.CylinderGeometry(tea?0.038:0.08,tea?0.038:0.08,0.015,16),new THREE.MeshStandardMaterial({color:tea?0x815837:0x9b5d2f}));food.position.set(tea?0:-0.04,tea?0.065:0.04,0);foodProp.add(food);
     },
     pay(){payTime=2.5;if(!payProp){payProp=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.003,0.045),new THREE.MeshStandardMaterial({color:0xb0bc8f,roughness:1}));avatar.root.add(payProp);}},
-    sit(seat){if(vehicleRoot)return false;if(cycling){vehicle='walk';cycling=false;avatar.setCycling(false);}sitAnim={from:pos.clone(),time:0};sitting=seat.id;sittingGround=seat.kind==='ground';pos.set(seat.x,seat.y??0.04,seat.z);heading=seat.yaw;avatar.root.rotation.y=heading;return true;},
+    sit(seat){if(vehicleRoot||jumpHeight>0)return false;if(cycling){vehicle='walk';cycling=false;avatar.setCycling(false);}sitAnim={from:pos.clone(),time:0};sitting=seat.id;sittingGround=seat.kind==='ground';pos.set(seat.x,seat.y??0.04,seat.z);heading=seat.yaw;avatar.root.rotation.y=heading;return true;},
     stand(){if(!sitting)return;const safe=navigation?.safePoint(pos.x,pos.z,0,0.38)||pos;pos.set(safe.x,safe.y,safe.z);sitting=null;sitAnim=null;sittingGround=false;},
     get speed() { return actualSpeed; },
     get distanceCycled() { return distanceCycled; },
     get wasDrag() { return dragDist > 8; },
     update,
+    jump,
     onMove(fn) { listeners.move.push(fn); },
     // faceYaw 0 = camera south of the player looking north, toward the landmark.
     teleport(x, z, faceYaw = 0, height = 0) {
       if(sitting||carrying)return false;
-      crashed=false;fall=null;avatar.setFall();clearFallenBike();removeVehicle();vehicle='walk';cycling=false;avatar.setCycling(false);avatar.root.visible=true;areaLocked=!!playArea?.(x,z);
+      jumpHeight=jumpVelocity=0;crashed=false;fall=null;avatar.setFall();clearFallenBike();removeVehicle();vehicle='walk';cycling=false;avatar.setCycling(false);avatar.root.visible=true;areaLocked=!!playArea?.(x,z);
       const safe = navigation ? navigation.safePoint(x, z, height) : { x, y: 0, z };
       pos.set(safe.x, safe.y, safe.z);
       speedNow = actualSpeed = 0;

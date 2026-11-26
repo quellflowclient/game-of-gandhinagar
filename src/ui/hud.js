@@ -39,7 +39,8 @@ export function createHud({ open, act }) {
   const waveBtn = ibtn("👋", null, "Wave (Q)", () => act("wave"), "fab wave");
   const runBtn = ibtn('🏃',null,'Toggle running',()=>{const on=act('run');runBtn.setAttribute('aria-pressed',String(on));},'fab run');
   runBtn.setAttribute('aria-pressed','false');
-  const actions = h("div", { class: "hud-actions" }, runBtn, waveBtn);
+  const jumpBtn=ibtn('↑','Jump','Jump (Space)',()=>act('jump'),'fab jump');
+  const actions = h("div", { class: "hud-actions" }, runBtn,jumpBtn, waveBtn);
   const carQuick=ibtn('🚗','Car','Choose car',()=>act('ride:car'),'ride-shortcut');
   const autoQuick=ibtn('🛺','Rickshaw','Choose rickshaw',()=>act('ride:auto'),'ride-shortcut');
   const exitRide=ibtn('↗','Exit','Stop and leave vehicle',()=>act('ride:walk'),'ride-shortcut ride-exit');exitRide.hidden=true;
@@ -97,7 +98,7 @@ export function createHud({ open, act }) {
   return {
     root, joystick, miniCanvas,
     get menuOpen(){return !more.hidden;},
-    setVehicle(type){if(type===lastRide)return;lastRide=type;carQuick.setAttribute('aria-pressed',String(type==='car'));autoQuick.setAttribute('aria-pressed',String(type==='auto'));exitRide.hidden=type==='walk';cycleBtn.setAttribute('aria-label',`Choose ride. Current: ${type}`);},
+    setVehicle(type){if(type===lastRide)return;lastRide=type;jumpBtn.hidden=type!=='walk';carQuick.setAttribute('aria-pressed',String(type==='car'));autoQuick.setAttribute('aria-pressed',String(type==='auto'));exitRide.hidden=type==='walk';cycleBtn.setAttribute('aria-label',`Choose ride. Current: ${type}`);},
     setDrive(type,kmh,locked,direction='STOP'){speed.hidden=!['car','auto','bike','scooter'].includes(type);const text=`${direction} · ${Math.round(kmh)} / ${({auto:35,car:80,bike:45,scooter:35})[type]||0} km/h`;if(speed.textContent!==text)speed.textContent=text;area.hidden=!locked;},
     setPlace(p) {
       placeName.textContent = p ? p.name : "Gandhinagar";

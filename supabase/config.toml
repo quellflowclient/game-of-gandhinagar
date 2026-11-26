@@ -432,9 +432,9 @@ enabled = true
 # Hosted project: paste supabase/templates/otp.html into Dashboard → Authentication →
 # Emails → Templates for "Confirm signup" and "Magic Link".
 [auth.email.template.confirmation]
-subject = "Your Gandhinagar sign-in code: {{ .Token }}"
+subject = "Your GOG sign-in code"
 content_path = "./supabase/templates/otp.html"
 
 [auth.email.template.magic_link]
-subject = "Your Gandhinagar sign-in code: {{ .Token }}"
+subject = "Your GOG sign-in code"
 content_path = "./supabase/templates/otp.html"

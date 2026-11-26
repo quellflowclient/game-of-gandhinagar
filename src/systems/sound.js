@@ -16,12 +16,12 @@ const MOODS = {
 export function createSound() {
   const saved = (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } })();
   const st = { on: saved.on ?? true, music: saved.music ?? 80, city: saved.city ?? 80, voice: saved.voice ?? 80,
-    rideOn: saved.rideOn ?? true, rideVolume: saved.rideVolume ?? 65, musicForced: false };
+    rideOn: saved.rideOn ?? true, rideVolume: saved.musicVersion===2?(saved.rideVolume??100):100, musicForced: false };
   let ctx = null, master, musicGain, cityGain, noise, waterGain, trafficGain;
   let mood = MOODS.default, nextNote = 0, step = 0, ridePlaying=false;
 
   function persist() {
-    try { localStorage.setItem(KEY, JSON.stringify({ on: st.on, music: st.music, city: st.city, voice: st.voice, rideOn:st.rideOn, rideVolume:st.rideVolume })); } catch { /* ignore */ }
+    try { localStorage.setItem(KEY, JSON.stringify({ on: st.on, music: st.music, city: st.city, voice: st.voice, rideOn:st.rideOn, rideVolume:st.rideVolume,musicVersion:2 })); } catch { /* ignore */ }
   }
 
   function start() {
@@ -55,7 +55,7 @@ export function createSound() {
     if (!ctx) return;
     master.gain.value = st.on ? 1 : 0;
     const musicOn = !isPhone || st.musicForced;
-    musicGain.gain.value = musicOn && !ridePlaying ? (st.music / 100) * 0.18 : 0;
+    musicGain.gain.value = 0; // The bundled MP3 is the only background music.
     cityGain.gain.value = (st.city / 100) * 0.5;
   }
 
@@ -73,13 +73,6 @@ export function createSound() {
   function update({ near = {}, speed = 0 } = {}) {
     if (!ctx || !st.on) return;
     const t = ctx.currentTime;
-    if (nextNote < t) nextNote = t;
-    while (nextNote < t + 0.3) {
-      const deg = mood.scale[(step * 3 + (step >> 2)) % mood.scale.length];
-      const oct = step % 8 === 0 ? 0.5 : step % 5 === 0 ? 2 : 1;
-      if (step % 2 === 0 || Math.random() < 0.4) note(mood.root * Math.pow(2, deg / 12) * oct, nextNote, mood.tempo * 1.6, 0.35);
-      nextNote += mood.tempo; step++;
-    }
     trafficGain.gain.setTargetAtTime(near.road ? 0.35 : 0.12, t, 0.5);
     waterGain.gain.setTargetAtTime(near.water ? 0.25 : 0, t, 0.8);
     if (Math.random() < 0.0015 && near.road) horn(t);
@@ -133,7 +126,7 @@ export function createSound() {
     },
     setRidePlaying(on){if(ridePlaying===on)return;ridePlaying=on;apply();},
     setMood(kind) { mood = MOODS[kind] || MOODS.default; },
-    set(k, v) { st[k] = v; apply(); persist(); },
+    set(k, v) { st[k] = v; apply(); persist(); document.dispatchEvent(new CustomEvent('gog-sound-settings',{detail:st})); },
     forceMusic() { st.musicForced = true; apply(); },
   };
 }

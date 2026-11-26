@@ -39,7 +39,13 @@ export function createHud({ open, act }) {
   const waveBtn = ibtn("👋", null, "Wave (Q)", () => act("wave"), "fab wave");
   const runBtn = ibtn('🏃',null,'Toggle running',()=>{const on=act('run');runBtn.setAttribute('aria-pressed',String(on));},'fab run');
   runBtn.setAttribute('aria-pressed','false');
-  const actions = h("div", { class: "hud-actions" }, runBtn,cycleBtn, waveBtn);
+  const actions = h("div", { class: "hud-actions" }, runBtn, waveBtn);
+  const carQuick=ibtn('🚗','Car','Choose car',()=>act('ride:car'),'ride-shortcut');
+  const autoQuick=ibtn('🛺','Rickshaw','Choose rickshaw',()=>act('ride:auto'),'ride-shortcut');
+  const exitRide=ibtn('↗','Exit','Stop and leave vehicle',()=>act('ride:walk'),'ride-shortcut ride-exit');exitRide.hidden=true;
+  cycleBtn.className='ride-shortcut ride-more';cycleBtn.replaceChildren(h('span',{class:'i'},'＋'),h('span',{class:'l'},'Rides'));
+  const rideBar=h('nav',{class:'quick-rides','aria-label':'Choose a vehicle'},carQuick,autoQuick,cycleBtn,exitRide);
+  let lastRide=null;
   const speed=h('div',{class:'vehicle-speed glass',hidden:true,'aria-live':'off'}),area=h('div',{class:'play-area-label glass',hidden:true},'LDRP · KH-5 · STALLS');
   const cameraBtn=ibtn('◉',null,'Camera view',()=>open('camera'),'fab camera-view');
 
@@ -84,15 +90,15 @@ export function createHud({ open, act }) {
   const arrival = h("div", { class: "arrival", hidden: true });
   const activity = h("div", { class: "activity" });
 
-  root.append(topLeft, minimap,cameraBtn, actions, joystick, hint, context, dock, more, arrival, activity,speed);
+  root.append(topLeft,rideBar, minimap,cameraBtn, actions, joystick, hint, context, dock, more, arrival, activity,speed);
   document.body.append(root);
 
   let arrivalTimer = 0;
   return {
     root, joystick, miniCanvas,
     get menuOpen(){return !more.hidden;},
-    setVehicle(type){cycleBtn.querySelector('.i').textContent=({walk:'🚶',cycle:'🚲',bike:'🏍️',scooter:'🛵',auto:'🛺',car:'🚗'})[type];cycleBtn.classList.toggle('on',type!=='walk');},
-    setDrive(type,kmh,locked){speed.hidden=!['car','auto','bike','scooter'].includes(type);speed.textContent=`${Math.round(kmh)} / ${({auto:35,car:80,bike:45,scooter:35})[type]||0} km/h`;area.hidden=!locked;},
+    setVehicle(type){if(type===lastRide)return;lastRide=type;carQuick.setAttribute('aria-pressed',String(type==='car'));autoQuick.setAttribute('aria-pressed',String(type==='auto'));exitRide.hidden=type==='walk';cycleBtn.setAttribute('aria-label',`Choose ride. Current: ${type}`);},
+    setDrive(type,kmh,locked,direction='STOP'){speed.hidden=!['car','auto','bike','scooter'].includes(type);const text=`${direction} · ${Math.round(kmh)} / ${({auto:35,car:80,bike:45,scooter:35})[type]||0} km/h`;if(speed.textContent!==text)speed.textContent=text;area.hidden=!locked;},
     setPlace(p) {
       placeName.textContent = p ? p.name : "Gandhinagar";
       placeGu.textContent = p ? p.gu : "ગાંધીનગર · Green City";

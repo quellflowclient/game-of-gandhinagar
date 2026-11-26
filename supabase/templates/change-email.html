@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Confirm your new GOG email</title>
+</head>
+<body style="margin:0;padding:0;background:#eef1ef;color:#182b28;font-family:Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%;">
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">Confirm your new GOG email.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eef1ef;">
+    <tr><td align="center" style="padding:28px 12px;">
+      <!--[if mso]><table role="presentation" width="520"><tr><td><![endif]-->
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#ffffff;border:1px solid #dfe6e1;border-radius:20px;overflow:hidden;">
+        <tr><td style="padding:28px 24px;background:#142e28;border-bottom:4px solid #edc66c;">
+          <p style="margin:0;color:#edc66c;font-size:32px;line-height:38px;font-weight:900;letter-spacing:5px;">GOG</p>
+          <p style="margin:6px 0 0;color:#d5e4dc;font-size:12px;line-height:18px;letter-spacing:1px;">GAME OF GANDHINAGAR</p>
+        </td></tr>
+        <tr><td style="padding:30px 24px 0;">
+          <p style="margin:0 0 10px;color:#577368;font-size:11px;font-weight:700;letter-spacing:2px;">YOUR GOG ACCOUNT</p>
+          <h1 style="margin:0 0 12px;font-size:27px;line-height:34px;font-weight:800;color:#142e28;">Confirm your email change</h1>
+          <p style="margin:0;color:#52635c;font-size:15px;line-height:24px;">Confirm the requested change to your GOG account email: {{ .Email }} to {{ .NewEmail }}.</p>
+        </td></tr>
+        <tr><td style="padding:24px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="#174b38" style="border-radius:10px;mso-padding-alt:16px 24px;"><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:16px 24px;font-size:15px;line-height:22px;font-weight:700;color:#ffffff;text-decoration:none;">Confirm email change</a></td></tr></table>
+          <p style="margin:16px 0 0;font-size:12px;line-height:20px;color:#52635c;">Button not working? Copy this link into your browser:</p>
+          <p style="margin:6px 0 0;font-size:12px;line-height:20px;word-break:break-all;"><a href="{{ .ConfirmationURL }}" style="color:#174b38;">{{ .ConfirmationURL }}</a></p>
+        </td></tr>
+        <tr><td style="padding:0 24px 28px;">
+          <p style="margin:0 0 14px;color:#52635c;font-size:13px;line-height:21px;">This link can be used once. If it expires, request a new email.</p>
+          <p style="margin:0;color:#52635c;font-size:13px;line-height:21px;">If you were not expecting this email, do not use the link. You can ignore this message.</p>
+        </td></tr>
+        <tr><td style="padding:18px 24px;background:#f7f9f7;border-top:1px solid #e5ebe6;">
+          <p style="margin:0;color:#718078;font-size:12px;line-height:20px;overflow-wrap:anywhere;word-break:break-word;">Sent to {{ .Email }}</p>
+          <p style="margin:3px 0 0;color:#718078;font-size:12px;line-height:20px;">GOG &middot; Explore. Meet. Play.</p>
+        </td></tr>
+      </table>
+      <!--[if mso]></td></tr></table><![endif]-->
+      <p style="margin:18px 0 0;color:#7a8880;font-size:11px;line-height:18px;">An email-only sign-in. Your world is waiting.</p>
+    </td></tr>
+  </table>
+</body>
+</html>

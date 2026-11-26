@@ -33,7 +33,7 @@ import {openCamera} from './ui/camera.js';
 import {preloadParkedModels,updateParkedVehicles} from './world/parked-models.js';
 import {createDrivingSurface,VEHICLES} from './world/driving.js';
 import {inLdrpArea} from './world/sites/ldrp-market-layout.js';
-import {openVehicles} from './ui/vehicles.js';
+import {openVehicles,chooseRide} from './ui/vehicles.js';
 import {buildMetroGarden} from './world/metro-garden.js';
 import {createLiveMap} from './world/live-map.js';
 import {alignMetroRoads,roadClearance,roadMedian} from './world/metro-road-clearance.js';
@@ -197,6 +197,7 @@ function openNamed(name) {
 // ---------- actions ----------
 function act(name) {
   sound.start();
+  if(name.startsWith('ride:'))return chooseRide(app,hud,name.slice(5));
   if(name==='run')return player.toggleRun();
   if (name === "cycle") {
     openVehicles(app,hud);
@@ -597,7 +598,7 @@ function frame(stamp=performance.now()) {
   if (t - lastMini > 0.2) {
     lastMini = t;
     updateParkedVehicles(scene,player.position,{lowEnd});
-    hud.setVehicle(player.vehicle);hud.setDrive(player.vehicle,player.speedKmh,player.areaLocked);
+    hud.setVehicle(player.vehicle);hud.setDrive(player.vehicle,player.speedKmh,player.areaLocked,player.driveDirection);
     const dots = people.all().map((p) => ({ x: p.x, z: p.z, real: !p.data.ai }));
     minimap.draw(player.position, player.heading, dots);
     if (tourMode) {

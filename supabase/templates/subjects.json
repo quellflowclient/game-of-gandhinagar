@@ -1,0 +1,32 @@
+[
+  {
+    "template": "Confirm sign up",
+    "subject": "Confirm your GOG email",
+    "file": "confirm-signup.html"
+  },
+  {
+    "template": "Magic link or OTP",
+    "subject": "Your GOG sign-in code",
+    "file": "magic-link.html"
+  },
+  {
+    "template": "Invite user",
+    "subject": "You are invited to GOG",
+    "file": "invite-user.html"
+  },
+  {
+    "template": "Change email address",
+    "subject": "Confirm your new GOG email",
+    "file": "change-email.html"
+  },
+  {
+    "template": "Reset password",
+    "subject": "Reset your GOG password",
+    "file": "reset-password.html"
+  },
+  {
+    "template": "Reauthentication",
+    "subject": "Your GOG verification code",
+    "file": "reauthentication.html"
+  }
+]

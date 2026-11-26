@@ -1,3 +1,20 @@
+## Unified user-provided music — local only
+- User recording extracted as MP3, bundled at public/audio/gog-theme.mp3 (~2 MB).
+- Removed old YouTube ride tracks/player and device override picker/manifest; one continuous loop now covers all vehicles and welcome/walking.
+- Tiny classic theme-player.js starts before the large game module so loading screen music/unlock works independently of map/model readiness.
+- Default selected music volume 100%; welcome/loading 100%, walking fades to 18%, any vehicle 100%; voice conversations duck to 6%. Existing master mute remains respected; Sound page has unified music controls. Legacy music preferences migrated on first save.
+- Native autoplay attempted, gesture retry and visible enable button when blocked; media-element WebAudio gain handles volume fades on mobile without changing device volume. Hidden tab pauses.
+- Production build only, no browser/device audio test or push.
+
+## Driving controls and ride access — local only
+- Direct Car / Rickshaw / Rides / Exit toolbar; shared selection guard for meals and moving vehicles.
+- Removed D/R toggle. Accelerator drives forward; Brake/Reverse first stops forward motion and then reverses while held. Opposing pedals or Space brake without reverse. Keyboard W/S matches pedals.
+- Signed steering smoothed; reverse turns follow signed movement. Camera starts behind vehicle and recentres after manual looking stops.
+- Pointer-capture cleanup handles simultaneous steering/pedals and multiple fingers on one button; accident/page/rotation locks clear held inputs.
+- Road spawn searches valid lane offsets near the player instead of only road centre, preserving full footprint / campus restrictions.
+- Speed HUD labels STOP / D / R. No render-quality reduction.
+- Production build only, no gameplay/device tests, no push. TURN and email-template changes from earlier requests remain uncommitted too.
+
 ## Parking / roadside footpath correction — local only
 - Parking bay placement validates the full footprint, excluding gate apron, public roadway, footpath and six-metre parking access openings.
 - Raised 18 cm roadside paver footpaths along the two outside parking lots; driveway breaks remain flush. Navigation heights and vehicle exclusion use the footpath geometry.

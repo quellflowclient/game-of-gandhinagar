@@ -5,7 +5,7 @@ export function createTurnHandler(env=process.env){return async function handler
  const reply=(status,data)=>{res.setHeader('Cache-Control','no-store');return res.status(status).json(data);};
  if(req.method!=='GET')return reply(405,{error:'Method not allowed'});
  const auth=req.headers.authorization;if(!auth?.startsWith('Bearer '))return reply(401,{error:'Sign in first'});
- if(!env.TURN_KEY_ID||!env.TURN_KEY_API_TOKEN)return reply(503,{error:'TURN relay is not configured'});
+ if(!env.TURN_KEY_ID||!env.TURN_KEY_API_TOKEN){res.setHeader('Retry-After','60');return reply(503,{code:'TURN_NOT_CONFIGURED',error:'TURN relay is not configured'});}
  try{
   const url=env.SUPABASE_URL||env.VITE_SUPABASE_URL||PUBLIC_SUPABASE_PROJECT.url;
   const key=env.SUPABASE_PUBLISHABLE_KEY||env.VITE_SUPABASE_PUBLISHABLE_KEY||env.VITE_SUPABASE_ANON_KEY||PUBLIC_SUPABASE_PROJECT.publishableKey;
@@ -16,6 +16,6 @@ export function createTurnHandler(env=process.env){return async function handler
   if(!response.ok)return reply(502,{error:'Relay credentials could not be issued'});
   const data=await response.json();if(!Array.isArray(data.iceServers))return reply(502,{error:'Invalid relay response'});
   return reply(200,{iceServers:data.iceServers,ttl:3600});
- }catch{return reply(503,{error:'Relay temporarily unavailable'});}
+ }catch{return reply(503,{code:'TURN_UNAVAILABLE',error:'Relay temporarily unavailable'});}
 };}
 export default createTurnHandler();

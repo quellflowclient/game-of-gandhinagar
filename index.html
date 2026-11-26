@@ -41,6 +41,9 @@
     <script type="module" src="/src/ui/landscape.js"></script>
   </head>
   <body>
+    <audio id="gog-theme" src="/audio/gog-theme.mp3" preload="auto" autoplay loop playsinline></audio>
+    <button id="music-enable" type="button" hidden aria-label="Enable game music" style="position:fixed;right:16px;bottom:16px;z-index:125;padding:12px 16px;border:1px solid #b5f2cd;border-radius:14px;background:#142e28;color:#e9fff1;font:600 13px system-ui;cursor:pointer;">♪ Tap to enable music</button>
+    <script src="/audio/theme-player.js"></script>
     <div id="app"></div>
     <div id="labels"></div>
     <div id="loading" role="status" aria-live="polite">

@@ -18,7 +18,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
   let pitch = 0.32;       // camera pitch
   let heading = Math.PI;  // direction the character faces
   let cycling = false;
-  let vehicle='walk',vehicleRoot=null,vehicleModel=null,driveSpeed=0,areaLocked=false;
+  let vehicle='walk',vehicleRoot=null,vehicleModel=null,driveSpeed=0,areaLocked=false,steeringNow=0,lastLookAt=0;
   let helmetMesh=null,mountT=2,mountFrom=null,gesture=null,gestureTime=0,sittingGround=false;
   const withinArea=(x,z)=>!areaLocked||playArea(x,z);
   function removeVehicle(){if(vehicleRoot){scene.remove(vehicleRoot);vehicleRoot.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});}vehicleRoot=null;vehicleModel=null;driveSpeed=0;}
@@ -36,7 +36,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
       if(two){vehicleRoot=createRideTwoWheeler(type);vehicleModel=null;}
       else{vehicleModel=createVehicleModel(type==='car'?'sedan':'auto');vehicleRoot=new THREE.Group();for(const p of vehicleModel.parts){const mesh=new THREE.Mesh(p.geometry,p.material);if(p.paint)p.material.color.setHex(type==='car'?0x648b99:0x36764e);mesh.castShadow=mesh.receiveShadow=true;vehicleRoot.add(mesh);}}
       vehicleRoot.name=`Player ${type}`;scene.add(vehicleRoot);
-      pos.set(pose.x,pose.y,pose.z);heading=pose.yaw;speedNow=0;return{ok:true};
+      pos.set(pose.x,pose.y,pose.z);heading=pose.yaw;yaw=heading+Math.PI;steeringNow=0;speedNow=0;return{ok:true};
     }
     if(vehicleRoot){
       let exit=null;
@@ -117,7 +117,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
     if (e.pointerId !== dragId) return;
     const dx = e.clientX - lastX, dy = e.clientY - lastY;
     dragDist += Math.abs(dx) + Math.abs(dy);
-    yaw -= dx * 0.005;
+    lastLookAt=performance.now();yaw -= dx * 0.005;
     pitch = THREE.MathUtils.clamp(pitch + dy * 0.004, viewMode==='eyes'?-0.85:0.05, viewMode==='eyes'?1.05:1.2);
     lastX = e.clientX; lastY = e.clientY;
   });
@@ -155,7 +155,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
       if (keys.has("KeyA") || keys.has("ArrowLeft")) ix -= 1;
       if (keys.has("KeyD") || keys.has("ArrowRight")) ix += 1;
       ix += joy.x; iz += joy.y;
-      if(vehicleRoot){ix += driveInput.steer; iz -= driveInput.throttle * driveInput.gear;}
+      if(vehicleRoot){ix += driveInput.steer; iz += driveInput.brake-driveInput.throttle;}
     }
     if(sitting||payTime>0){ix=0;iz=0;speedNow=0;}
     const len = Math.hypot(ix, iz);
@@ -167,14 +167,17 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
 
     if(vehicleRoot){
       const oldX=pos.x,oldZ=pos.z;
-      const braking=driveInput.brake>0 || keys.has("Space");
-      driveSpeed=crashed?0:braking?Math.sign(driveSpeed)*Math.max(0,Math.abs(driveSpeed)-VEHICLES[vehicle].brake*dt):drivingSpeed(driveSpeed,frozen?0:-iz,dt,vehicle);
+      const forward=driveInput.throttle>0||keys.has('KeyW')||keys.has('ArrowUp');
+      const backward=driveInput.brake>0||keys.has('KeyS')||keys.has('ArrowDown');
+      const braking=keys.has('Space')||(forward&&backward);
+      driveSpeed=crashed||frozen?0:braking?Math.sign(driveSpeed)*Math.max(0,Math.abs(driveSpeed)-VEHICLES[vehicle].brake*dt):drivingSpeed(driveSpeed,-iz,dt,vehicle);
+      steeringNow+=(THREE.MathUtils.clamp(ix,-1,1)-steeringNow)*Math.min(1,dt*12);
       if(twoWheeler&&navigation?.zones.some(z=>z.id==='ldrp-campus'&&z.contains(pos.x,pos.z)))driveSpeed=Math.min(driveSpeed,15/3.6);
       // Bicycle-model steering: yaw rate follows signed speed, so the vehicle
       // only turns while rolling, turns tighter when slow and the nose swings
       // the opposite way when reversing, like a real car or bike.
       const sp=Math.abs(driveSpeed),wheelbase=vehicle==='car'?2.6:vehicle==='auto'?1.9:1.35,maxSteer=vehicle==='car'?.55:vehicle==='auto'?.6:.7;
-      const steer=-ix*maxSteer/(1+sp*.25),turn=-Math.sign(driveSpeed)*sp/wheelbase*Math.tan(steer)*dt*(ix?1:0),steps=Math.max(1,Math.ceil(sp*dt/.15));
+      const steer=-steeringNow*maxSteer/(1+sp*.25),turn=-Math.sign(driveSpeed)*sp/wheelbase*Math.tan(steer)*dt,steps=Math.max(1,Math.ceil(sp*dt/.15));
       for(let i=0;i<steps;i++){
         const angle=heading+turn/steps,x=pos.x+Math.sin(angle)*driveSpeed*dt/steps,z=pos.z+Math.cos(angle)*driveSpeed*dt/steps;
         const pose=withinArea(x,z)&&driving.pose(x,z,angle,vehicle);
@@ -227,6 +230,12 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
     if(foodProp){foodProp.visible=eatTime>0;foodProp.position.copy(avatar.socket('LeftHand'));}
     if(payProp){payProp.visible=payTime>0;payProp.position.copy(avatar.socket('RightHand'));}
 
+    // Re-centre behind a moving vehicle after the player finishes looking.
+    // This keeps on-screen left/right consistent with the vehicle's front.
+    if(vehicleRoot&&Math.abs(driveSpeed)>.15&&dragId===null&&performance.now()-lastLookAt>1400&&['follow','wide','eyes'].includes(viewMode)){
+      const delta=Math.atan2(Math.sin(heading+Math.PI-yaw),Math.cos(heading+Math.PI-yaw));
+      yaw+=delta*Math.min(1,dt*(viewMode==='eyes'?7:3));
+    }
     // Follow camera.
     camTarget.set(pos.x, pos.y + 1.6, pos.z);
     if(viewMode==='eyes') {
@@ -272,7 +281,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
     get position() { return pos; },
     get heading() { return heading; },
     get cycling() { return cycling; },
-    get vehicle(){return vehicle;},get speedKmh(){return actualSpeed*3.6;},get areaLocked(){return areaLocked;},setVehicle,
+    get vehicle(){return vehicle;},get driveDirection(){return driveSpeed<-.02?'R':driveSpeed>.02?'D':'STOP';},get speedKmh(){return actualSpeed*3.6;},get areaLocked(){return areaLocked;},setVehicle,
     get soleHeight(){return avatar.soleHeight;},
     setNight(on){vehicleModel?.setNight(on);},
     gesture(kind,seconds=1.8){gesture=kind;gestureTime=seconds;},
@@ -328,7 +337,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
     },
     wave() { avatar.wave(); },
     setDriveInput(input) { Object.assign(driveInput,input); },
-    resetInput(){keys.clear();joy.x=joy.y=0;joy.id=null;driveInput.steer=driveInput.throttle=driveInput.brake=0;if(joystickEl)joystickEl.querySelector(".knob").style.transform="";},
+    resetInput(){keys.clear();joy.x=joy.y=0;joy.id=null;driveInput.steer=driveInput.throttle=driveInput.brake=0;steeringNow=0;if(joystickEl)joystickEl.querySelector(".knob").style.transform="";},
     freeze(on) { frozen = on; if (on) {keys.clear();joy.x=joy.y=0;driveInput.steer=driveInput.throttle=driveInput.brake=0;driveSpeed=0;if(joystickEl)joystickEl.querySelector(".knob").style.transform="";} },
     keys,
   };

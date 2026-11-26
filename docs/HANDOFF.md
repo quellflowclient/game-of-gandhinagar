@@ -1,3 +1,10 @@
+## LDRP campus soundtrack — local only
+- New user recording 20261126-0544-56.2721238.mp4 extracted to public/audio/ldrp-campus.mp3 (3:53, ~3.8 MB).
+- Two-pass FFmpeg loudnorm, target -14 LUFS / -1.5 dBTP, from measured -28.97 LUFS recording; 48kHz MP3.
+- Actual LDRP campus polygon selects campus track regardless of walking/cycle/vehicle. Campus volume full selected level; mute and voice duck remain respected.
+- Leaving campus restores main theme, with short fade and independent saved playback positions. One audio element/decoder, campus file loaded only when needed.
+- Production build only, no device/gameplay tests; not pushed.
+
 ## Unified user-provided music — local only
 - User recording extracted as MP3, bundled at public/audio/gog-theme.mp3 (~2 MB).
 - Removed old YouTube ride tracks/player and device override picker/manifest; one continuous loop now covers all vehicles and welcome/walking.

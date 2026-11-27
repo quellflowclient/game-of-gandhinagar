@@ -28,7 +28,6 @@ export function createWelcomeScene({host,button,renderer,lowEnd}){
  ring(MAHATMA.waterInner,MAHATMA.waterOuter,water,.1);
  ring(MAHATMA.waterOuter,MAHATMA.promenadeOuter,stone,.25);
  add(new THREE.ConeGeometry(MAHATMA.coneRadius,MAHATMA.coneHeight,96),stone,0,MAHATMA.coneHeight/2+.4,0);
- ring(101,101.3,gold,.35);
  const railPoints=[];
  for(let i=1;i<MAHATMA.bridge.length;i++){
   const [v0,h0]=MAHATMA.bridge[i-1],[v1,h1]=MAHATMA.bridge[i];

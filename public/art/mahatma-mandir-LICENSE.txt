@@ -1,14 +1,14 @@
-# Mahatma Mandir welcome photograph
+Mahatma Mandir cinematic photograph
 
-Source: https://commons.wikimedia.org/wiki/File:Mahatma_Mandir-Gandhinagar.jpg
 Photographer: 92saeedshaikh
+Source: https://commons.wikimedia.org/wiki/File:Mahatma_Mandir-Gandhinagar.jpg
+Original: https://upload.wikimedia.org/wikipedia/commons/a/ae/Mahatma_Mandir-Gandhinagar.jpg
 Photograph date: 13 December 2017
 License: Creative Commons Attribution-ShareAlike 4.0 International
 License URL: https://creativecommons.org/licenses/by-sa/4.0/
-Original: https://upload.wikimedia.org/wikipedia/commons/a/ae/Mahatma_Mandir-Gandhinagar.jpg
 
-The 640 pixel WebP file is a resized, compressed copy of the
-original photograph. The page uses a responsive display crop. No buildings or
-other scene details have been generated or added. These image derivatives remain
-available under CC BY-SA 4.0. This image license does not change the code license.
-The visible welcome footer links to the source and license and identifies changes.
+The 1920 pixel WebP image is resized and compressed from the original.
+The welcome uses a responsive crop, perspective, camera motion and a subtle
+animated water treatment. This image derivative remains under CC BY-SA 4.0.
+The image license does not change the code license. The welcome footer credits
+the photographer, links the source and license, and identifies the changes.

@@ -48,7 +48,7 @@ import {createCampusWeather} from './world/campus-weather.js';
 import {CONTENT,loadGameContent,installTextOverrides} from './systems/game-content.js';
 import {applyGameContent} from './systems/apply-game-content.js';
 import {withDeadline} from './systems/network.js';
-import {createWelcomeScene} from './ui/welcome-scene.js';
+import {createArrival} from './ui/arrival.js';
 
 const loading = document.getElementById("loading");
 const tourMode = new URLSearchParams(location.search).has('tour');
@@ -464,44 +464,14 @@ function updateTicker() {
 }
 
 // ---------- landing ----------
-const LEAF_SVG='<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19c8 0 14-5 14-14-7 0-13 4-13 11" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M5 19c2-5 5-8 9-10" stroke="#cdeee0" stroke-width="2" stroke-linecap="round"/></svg>';
-const brandMark=()=>{const m=h("span",{class:"brand-mark"});m.innerHTML=LEAF_SVG;return m;};
-const welcomeMusic=document.getElementById('music-mute');
-const welcomePlaces={gift:['GIFT City','Skyline walks in the financial district.'],swarnim:['Swarnim Park','Green promenades near Mahatma Mandir.'],dandi:['Mahatma Mandir','Museum grounds and waterside walks.'],swagat:['Swagat Holiday Mall','A neighbourhood stop in Sargasan.'],ldrp:['LDRP-ITR','Campus lanes, gardens and chai stops.']};
-const landSignIn=h("button",{type:"button",class:"land-signin",onclick:()=>{skipVisitorToast=true;enter();setTimeout(()=>prof.openSignIn(app),350);}},app.session?"My account":"Sign in");
-const landing = h("div", { id: "landing" },
-  h("div",{class:"land-scrim"}),
-  h("header", { class: "land-top" },
-    h("div", { class: "brand" }, brandMark(), h("b", {}, CONTENT.labels.gameName)),
-    h("div",{class:"land-top-r"},welcomeMusic,landSignIn)),
-  h("main", { class: "land-main" },
-    h('section',{class:'welcome-hero','aria-labelledby':'welcome-title'},
-      h('figure',{class:'welcome-art'},
-        h('div',{class:'welcome-stage'},
-          h('div',{class:'welcome-model',tabindex:'0',role:'img','aria-label':'Interactive 3D architectural study of Dandi Kutir and its bridge. Drag horizontally or use left and right arrow keys to rotate.'}),
-          h('div',{class:'model-heading'},h('span',{},'GANDHINAGAR / IN THREE DIMENSIONS'),h('button',{type:'button',class:'model-motion','aria-label':'Pause or play automatic 3D motion'},'Pause motion')),
-          h('div',{class:'model-hint'},h('span',{'aria-hidden':'true'},'↔'),'Drag to look around'),
-          h('div',{class:'welcome-photo'},h('img',{src:'/art/mahatma-mandir-640.webp',alt:'A real view of the bridge and water at Mahatma Mandir, Gandhinagar',width:640,height:480,decoding:'async'}),h('span',{},'A glimpse of the real city'))),
-        h('figcaption',{},h('span',{},'Dandi Kutir & the bridge',h('small',{},'Mahatma Mandir · Architectural impression')),h('span',{class:'art-caption-detail'},'A city you can step into.'))),
-      h('div',{class:'welcome-copy'},
-        h("p", { class: "eyebrow" },"GUJARAT, INDIA / YOUR CITY, ONLINE"),
-        h("h1", {id:'welcome-title'}, "Gandhinagar", h("span", { class: "gu",lang:'gu' }, "ગાંધીનગર")),
-        h('p',{class:'welcome-invitation'},'Take the familiar way home.'),
-        h("p", { class: "lede" }, "Open green spaces. A pause for chai. Explore a virtual Gandhinagar and meet the people who make it feel like home."),
-        h("div",{class:"land-actions"},
-          h("button", { type: "button", class: "cta", onclick: () => enter() }, h("span",{},"Explore the city"), h("span", { class: "arrow",'aria-hidden':'true' }, "→")),
-          !app.session?h("button",{type:"button",class:"cta-ghost",onclick:()=>{skipVisitorToast=true;enter();setTimeout(()=>prof.openSignIn(app),350);}},"Sign in with email"):null),
-        h('p',{class:'welcome-note'},'Walk in as a visitor. No account needed.'))),
-    h('section',{class:'welcome-places','aria-labelledby':'first-stop-title'},
-      h('div',{class:'welcome-places-heading'},h('div',{},h('p',{class:'places-kicker'},'FIVE PLACES. COUNTLESS CONVERSATIONS.'),h('h2',{id:'first-stop-title'},'Where shall we begin?')),h('p',{},'Explore each area on foot. Take the in-game metro between places.')),
-      h("div", { class: "land-dests" },hubs().map((p,index) => h("button", { type: "button", class: "dest-card", style: { "--pc": "#" + p.color.toString(16).padStart(6, "0") },
-        onclick: () => { enter(); setTimeout(() => travel(p.id), 300); } },h('span',{class:'dest-index','aria-hidden':'true'},String(index+1).padStart(2,'0')),h("span",{class:'dest-copy'},h("b",{},welcomePlaces[p.id]?.[0]||p.name),h("small",{},welcomePlaces[p.id]?.[1]||p.blurb||p.gu||"")),h('span',{class:'dest-arrow','aria-hidden':'true'},'↗'))))),
-    backend.mode === "demo" ? h("p", { class: "demo-line" }, "Demo mode: data stays in this browser.") : null),
-  h("footer", {}, h('div',{class:'welcome-footer-main'},h("span", {}, `© ${new Date().getFullYear()} ${CONTENT.labels.gameName}`),h('nav',{'aria-label':'Legal and support'},h("a", { href: "/terms.html" }, "Terms"), h("a", { href: "/privacy.html" }, "Privacy"),h('a',{href:'mailto:support@gamail.com'},'Contact'))),
-    h("a", {class:'map-attribution',href:'https://www.openstreetmap.org/copyright',target:'_blank',rel:'noopener noreferrer'}, "Map data © OpenStreetMap contributors"),
-    h('p',{class:'photo-credit'},'Photo: ',h('a',{href:'https://commons.wikimedia.org/wiki/File:Mahatma_Mandir-Gandhinagar.jpg',target:'_blank',rel:'noopener noreferrer'},'92saeedshaikh / Wikimedia Commons'),' · ',h('a',{href:'https://creativecommons.org/licenses/by-sa/4.0/',target:'_blank',rel:'noopener noreferrer'},'CC BY-SA 4.0'),' · Resized, WebP; display crop.')));
-document.body.append(landing);
-const welcomeMotion=tourMode?null:createWelcomeScene({host:landing.querySelector('.welcome-model'),button:landing.querySelector('.model-motion'),renderer,lowEnd});
+const arrival=createArrival({
+ gameName:CONTENT.labels.gameName,signedIn:!!app.session,places:hubs(),renderer,lowEnd,tourMode,
+ onExplore:()=>enter(),
+ onSignIn:()=>{skipVisitorToast=true;enter();setTimeout(()=>prof.openSignIn(app),350);},
+ onPlace:id=>{enter();setTimeout(()=>travel(id),300);},
+ demo:backend.mode==='demo'
+});
+const landing=arrival.root,welcomeMusic=arrival.music,welcomeMotion=arrival;
 document.body.classList.add("on-landing");
 updateTicker();
 

@@ -1,6 +1,7 @@
 import { placedPlaces, placePos } from "../data/places.js";
 import { MAHATMA, siteToWorld } from '../world/mahatma-layout.js';
 import {explorationCorners} from '../world/exploration-areas.js';
+import {VENUE_MARKERS} from '../world/entertainment-layout.js';
 
 // Round, heading-up mini-map: roads, water, places, people and you.
 export function createMinimap(canvas, map,spawns={}) {
@@ -79,6 +80,7 @@ export function createMinimap(canvas, map,spawns={}) {
       ctx.fillStyle = "#0c1f1a"; ctx.font = "700 18px Inter, sans-serif"; ctx.textAlign = "center";
       ctx.fillText(p.name, a, b - 14);
     }
+    for(const venue of VENUE_MARKERS)if(Math.hypot(venue.x-cx,venue.z-cz)<R){const [a,b]=P(venue.x,venue.z);ctx.fillStyle=venue.id==='city-club'?'#805cc4':'#bc8546';ctx.beginPath();ctx.arc(a,b,5,0,Math.PI*2);ctx.fill();ctx.font='600 11px Inter,sans-serif';ctx.textAlign='center';ctx.fillText(venue.name,a,b-9);}
     for (const d of dots) {
       const [a, b] = P(d.x, d.z);
       ctx.fillStyle = d.real ? "#7a5cd8" : "#2f9e74";

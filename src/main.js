@@ -48,7 +48,11 @@ import {createCampusWeather} from './world/campus-weather.js';
 import {CONTENT,loadGameContent,installTextOverrides} from './systems/game-content.js';
 import {applyGameContent} from './systems/apply-game-content.js';
 import {withDeadline} from './systems/network.js';
-import {createArrival} from './ui/arrival.js';
+import {createTitleScreen} from './ui/title-screen.js';
+import {buildEntertainment} from './world/entertainment.js';
+import {createEntertainment} from './systems/entertainment.js';
+import {CLUB,ARENA,entertainmentPoint,venueEntry} from './world/entertainment-layout.js';
+import {mapDestinations,safeMapArrival} from './systems/map-destinations.js';
 
 const loading = document.getElementById("loading");
 const tourMode = new URLSearchParams(location.search).has('tour');
@@ -77,6 +81,9 @@ setLoading("Building campuses, gardens, Swagat Mall and GIFT City…",22);
 await new Promise(resolve=>setTimeout(resolve,0));
 await parkedAssets;
 const world = buildLandmarks(scene, mapData);
+const entertainmentWorld=buildEntertainment(scene);world.entertainment=entertainmentWorld;
+world.navigation.zones.unshift(entertainmentWorld.zone);world.clearings.push(entertainmentWorld.zone.clearing);world.cameraObstacles.push(...entertainmentWorld.cameraObstacles);
+const updateLandmarks=world.update;world.update=(t,p)=>{updateLandmarks(t,p);entertainmentWorld.update(t,p);};
 await new Promise(resolve=>setTimeout(resolve,0));
 const metro = buildMetro(scene, mapData, { lowEnd });
 const metroOffRoad=roadClearance(mapData),inRoadMedian=roadMedian(mapData);
@@ -118,7 +125,7 @@ setInterval(() => clock.loadWeather().then(updateTicker), 15 * 60 * 1000);
 const backend=await backendReady;
 const visitorKey = "v-" + Math.random().toString(36).slice(2, 9);
 const app = {
-  backend, world, progress, sound, clock,camera,
+  backend, world, progress, sound, clock,camera,renderer,scene,lowEnd,
   session: await backend.getSession(),
   me: null,
   currentPlace: null,
@@ -167,6 +174,7 @@ const app = {
   },
   clearBadge(which) { unread[which] = 0; hud.setBadge(which, 0); },
   travel(placeId) { travel(placeId); },
+  travelTo(id){travelToDestination(id);},
   goNear(x, z) { player.teleport(x + 3, z + 3); },
   waveAt(target) { waveAt(target); },
   setFestival(id) { app.festival = id; festival.set(id, player.position); if (id) toast("Festival preview on. Open Utsav to stop it."); },
@@ -194,6 +202,7 @@ const people = createPeople({ scene, camera, labelsEl, spawns: world.spawns, nav
 app.voice=createVoice(app);
 app.voiceRoom=createVoiceRoom(app);
 app.people = people;
+app.entertainment=createEntertainment(app,{onMap:venue=>city.openMap(app,venue)});
 
 // Start at Infocity's welcome sign.
 const startSpawn = world.spawns.ldrp;
@@ -205,7 +214,7 @@ function openNamed(name) {
   const map = {
     profile: () => prof.openAccount(app), about: () => prof.openAbout(app), twin: () => prof.openTwin(app), card: () => prof.openResidentCard(app),
     find: () => social.openFind(app), online: () => social.openOnline(app), chats: () => social.openChats(app), world: () => social.openWorld(app),
-    plans: () => city.openPlans(app), utsav: () => city.openUtsav(app), travel: () => city.openTravel(app), map: () => city.openMap(app),
+    plans: () => city.openPlans(app), events:()=>app.entertainment.open(), utsav: () => city.openUtsav(app), travel: () => city.openTravel(app), map: () => city.openMap(app),
     time: () => city.openTime(app), sound: () => city.openSound(app),camera:()=>openCamera(app),controls:()=>openControlGuide(),fullscreen:()=>landscape.toggleFullscreen(),vehicles:()=>openVehicles(app,hud),campus:()=>app.campus?.inventory(), suggest: () => city.openSuggest(app), ads: () => city.openAds(app),
   };
   (map[name] || (() => toast("Coming soon")))();
@@ -256,24 +265,29 @@ async function waveAt(target) {
 // Metro transfers connect separate playable neighbourhoods, not continuous roads.
 const metroJourney=createMetroJourney(renderer,{lowEnd,onLock:()=>player.freeze(true),onUnlock:()=>syncInputLock()});
 function travel(placeId) {
+  return travelToDestination(placeId);
+}
+function travelToDestination(id){
+  if(app.entertainment?.attending)return toast('Leave your concert spot before taking the metro.');
+  if(app.entertainment?.joining)return toast('Your concert entry is being confirmed. Please wait.');
   if(metroJourney.active)return;
   if(player.sitting||player.carrying)return toast('Pehle table se utho ya carry ki hui table rakh do.');
+  if(player.crashed)return toast('Recover from the accident before travelling.');
   if(app.street?.service.meal?.item&&app.street.service.meal.phase!=='paid')return toast('Pehle apna khana aur pending bill complete karo.');
-  const p = placeById(placeId);
-  if (!p || p.pending || !isLivePlace(placeId)) return;
-  if(explorationAreaAt(player.position.x,player.position.z)===explorationAreaForPlace(p.id))return toast(p.id==='swarnim'||p.id==='dandi'?'Mahatma Mandir aur Swarnim Park ek hi area hain. Main promenade se paidal ja sakte ho.':'Aap isi area mein ho.');
-  const spawn=world.spawns[p.id];if(!spawn)return;
+  const target=mapDestinations(world).find(p=>p.id===id);if(!target)return;
+  let safe;try{safe=safeMapArrival(target,world);}catch(e){return toast(e.message,'bad');}
   endTourView();
-  metroJourney.start({from:explorationAreaLabel(player.areaId),to:explorationAreaLabel(explorationAreaForPlace(p.id)),night:clock.hour()<6||clock.hour()>18.5,onArrive:()=>{
+  const arrive=()=>{
     try{
-      const safe=world.navigation.safePoint(spawn.x,spawn.z);
-      if(explorationAreaAt(safe.x,safe.z,1)!==explorationAreaForPlace(p.id))throw new Error('Arrival is outside the destination');
-      player.teleport(safe.x,safe.z,spawn.yaw||0,safe.y);
+      player.teleport(safe.x,safe.z,target.yaw||0,safe.y);
       checkPlace();
       if(app.festival)festival.set(app.festival,player.position);
-      if(p.id!=='gift')sound.say(p.gu); // GIFT City has its supplied entry recording.
+      if(target.area!=='gift'&&target.gu)sound.say(target.gu);
+      toast(`Arrived at ${target.name}.`,'good');
     }catch(e){console.error('Metro arrival:',e);toast('Arrival could not complete. Please choose your destination again.','bad');}
-  }});
+  };
+  if(player.areaId===target.area){closePanel();arrive();return;}
+  metroJourney.start({from:explorationAreaLabel(player.areaId),to:target.name,night:clock.hour()<6||clock.hour()>18.5,onArrive:arrive});
 }
 
 // ---------- gigs ----------
@@ -334,7 +348,7 @@ function presenceState() {
   const me = app.me;
   return app.session && me?.name && me.visible !== false
     ? { key: app.session.userId, userId: app.session.userId, name: me.name, role: me.role, openTo: me.openTo, oneLiner: me.oneLiner,
-        look: me.look, skin: me.skin, x: Math.round(p.x*10)/10, y: p.y, z: Math.round(p.z*10)/10, heading:player.heading, vehicle:['bike','scooter'].includes(player.vehicle)?'cycle':player.vehicle, place: app.currentPlace?.id, placeName: app.currentPlace?.name }
+        look: me.look, skin: me.skin, x: Math.round(p.x*10)/10, y: p.y, z: Math.round(p.z*10)/10, heading:player.heading, vehicle:['bike','scooter'].includes(player.vehicle)?'cycle':player.vehicle, place: player.areaId||explorationAreaForPlace(app.currentPlace?.id), placeName: app.currentPlace?.name }
     : { key: visitorKey, x: null, z: null, place: app.currentPlace?.id };
 }
 // With hundreds online, only the nearest players get a full 3D avatar (phones
@@ -343,7 +357,7 @@ const MAX_RENDERED_PLAYERS = 40;
 let lastArrivalToast = 0;
 backend.onPresence((list) => {
   const self = player.position;
-  const members = list.filter((m) => m.userId && m.name && m.userId !== app.session?.userId && (m.x == null || !m.place || m.place === app.currentPlace?.id))
+  const members = list.filter((m) => m.userId && m.name && m.userId !== app.session?.userId && (m.x == null || !m.place || m.place === player.areaId))
     .map((m) => ({ ...m, id: m.userId, firstName: m.name.split(" ")[0], d: m.x == null ? Infinity : Math.hypot(m.x - self.x, m.z - self.z) }))
     .sort((a, b) => a.d - b.d).slice(0, MAX_RENDERED_PLAYERS);
   const before = new Set(people.all().filter((p) => !p.data.ai).map((p) => p.id));
@@ -464,14 +478,19 @@ function updateTicker() {
 }
 
 // ---------- landing ----------
-const arrival=createArrival({
- gameName:CONTENT.labels.gameName,signedIn:!!app.session,places:hubs(),renderer,lowEnd,tourMode,
- onExplore:()=>enter(),
- onSignIn:()=>{skipVisitorToast=true;enter();setTimeout(()=>prof.openSignIn(app),350);},
- onPlace:id=>{enter();setTimeout(()=>travel(id),300);},
- demo:backend.mode==='demo'
+function beginAt(placeId,signIn=false){
+ if(entered)return;
+ const spawn=world.spawns[placeId];
+ if(spawn){const safe=world.navigation.safePoint(spawn.x,spawn.z);player.teleport(safe.x,safe.z,spawn.yaw||0,safe.y);checkPlace();}
+ skipVisitorToast=signIn;
+ enter();
+ if(signIn)setTimeout(()=>prof.openSignIn(app),350);
+}
+const titleScreen=createTitleScreen({
+ signedIn:!!app.session,places:hubs(),renderer,scene,follow,world,cityObj,metro,lowEnd,tourMode,
+ onPlay:id=>beginAt(id),onSignIn:id=>beginAt(id,true),onCharacter:()=>prof.openCharacterPreview(app)
 });
-const landing=arrival.root,welcomeMusic=arrival.music,welcomeMotion=arrival;
+const landing=titleScreen.root,welcomeMusic=titleScreen.music,welcomeMotion=titleScreen;
 document.body.classList.add("on-landing");
 updateTicker();
 
@@ -573,9 +592,9 @@ function frame(stamp=performance.now()) {
   const realDt=Math.min(clockT.getDelta(),.05),dt=realDt*crashScene.timeScale;
   t += dt;
   controls.update();
-  const musicPosition=player.position;
-  window.gogMusic.update({entered,place:metroJourney.active?null:player.areaId,vehicle:player.crashed?'walk':player.vehicle,inside:entered&&!!world.campuses?.[0]?.zone.contains(musicPosition.x,musicPosition.z)});
-  if(!entered){welcomeMotion?.render(realDt);resetFrameBudget();return;}
+  app.entertainment.update(realDt,{running:entered,transit:metroJourney.active});
+  window.gogMusic.update({entered,place:metroJourney.active?null:player.areaId,vehicle:player.crashed?'walk':player.vehicle,inside:entered&&player.areaId===explorationAreaForPlace('ldrp')});
+  if(!entered){if(!pagePaused)welcomeMotion?.render(realDt);recordFrame(performance.now()-workStarted);return;}
   if(metroJourney.update(realDt)){recordFrame(performance.now()-workStarted);return;}
   // Account/menu pages do not need a running 3D simulation. Keep calls and
   // presence alive, without animating hidden crowds, traffic or campus effects.
@@ -712,6 +731,12 @@ if (new URLSearchParams(location.search).has("tour")) {
       const pose=poses[id],cp=f.toWorld(pose.camera[0],pose.camera[2]),tp=f.toWorld(pose.target[0],pose.target[2]);
       tourCamera={position:new THREE.Vector3(cp.x,pose.camera[1],cp.z),target:new THREE.Vector3(tp.x,pose.target[1],tp.z)};
     }
+  }
+  if(params.get('place')==='gift'&&['club','concert'].includes(params.get('view'))){
+    const isClub=params.get('view')==='club',spawn=venueEntry(isClub?CLUB.id:ARENA.id),p=isClub?entertainmentPoint(CLUB.u,CLUB.v+6):spawn;
+    player.teleport(p.x,p.z,0,.18);player.setView(5,.15);
+    const cp=entertainmentPoint(isClub?CLUB.u:ARENA.u+72,isClub?CLUB.v+26:128),tp=entertainmentPoint(isClub?CLUB.u:ARENA.u,isClub?CLUB.v-15:-30);
+    tourCamera={position:new THREE.Vector3(cp.x,isClub?4:36,cp.z),target:new THREE.Vector3(tp.x,isClub?2.5:8,tp.z)};
   }
   if(params.get('place')==='ldrp') {
     if(params.get('night')==='1')clock.setPreset('Night');else if(params.get('day')==='1')clock.setPreset('Day');

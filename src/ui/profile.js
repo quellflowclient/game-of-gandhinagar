@@ -3,6 +3,7 @@ import { h, openPanel, setPanelBody, toast, chips, closePanel } from "./dom.js";
 import { OPEN_TO, INTERESTS, REASONS, TIMES, CHARACTERS, SKIN_TONES } from "../data/content.js";
 import { HOME_DISTRICTS } from "../data/places.js";
 import { LIMITS } from "../config.js";
+import {createCharacterEditor} from './character-editor.js';
 import { askTwin } from "../systems/ai.js";
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -191,16 +192,22 @@ function tryTwin(app, answers) {
     h("button", { type: "button", class: "link", onclick: () => openTwin(app, answers) }, "◀ Back to settings")));
 }
 
+function characterDraft(){try{return JSON.parse(localStorage.getItem('gnr-character-v1'))||{};}catch{return {};}}
+export function openCharacterPreview(app){
+ if(app.session)return openProfile(app,5);
+ const draft={look:'casual',skin:0xa86b47,...characterDraft()},editor=createCharacterEditor(app,draft);
+ const save=h('button',{type:'button',class:'btn primary wide',onclick:()=>{localStorage.setItem('gnr-character-v1',JSON.stringify(draft));app.player.setLook(draft.look,draft.skin);closePanel();toast('Character saved in this browser. Sign in to save it to your account.','good');}},'Use this character');
+ openPanel('Your character',h('div',{},editor.node,save),{onClose:()=>editor.dispose()});editor.mount();
+}
 export function openQuickJoin(app){
-  if(!app.requireSignIn('join other players'))return;
-  let look=app.me?.look||'casual';
-  const name=h('input',{type:'text',maxlength:40,autocomplete:'nickname',placeholder:'Your name',value:app.me?.name||''});
-  const choices=h('div',{class:'row'}),message=h('p',{class:'muted small'});
-  const paint=()=>{choices.replaceChildren(...[['casual','Male'],['fcasual','Female']].map(([id,label])=>h('button',{class:`btn ${look===id?'primary':''}`,onclick:()=>{look=id;app.player.setLook(id,app.me?.skin);paint();}},label)));};paint();
-  const join=h('button',{class:'btn primary wide',onclick:async()=>{if(!name.value.trim())return toast('Apna naam likho.');join.disabled=true;
-    try{await app.backend.saveProfile({name:name.value.trim(),look,visible:true});await app.refreshMe();closePanel();toast('Welcome! You can now meet other signed-in players.','good');}catch(e){message.textContent=e.message;join.disabled=false;}
-  }},'Join the city');
-  openPanel('Your character',h('div',{},h('p',{},'Naam aur character choose karo. Baaki profile baad mein Menu se edit kar sakte ho.'),name,choices,message,join));
+ if(!app.requireSignIn('join other players'))return;
+ const draft={look:app.me?.look||'casual',skin:app.me?.skin??0xa86b47,...(!app.me?.name?characterDraft():{})};
+ const name=h('input',{type:'text',maxlength:40,autocomplete:'nickname',placeholder:'Your name','aria-label':'Your name',value:app.me?.name||''});
+ const message=h('p',{class:'muted small',role:'alert'}),editor=createCharacterEditor(app,draft);
+ const join=h('button',{type:'button',class:'btn primary wide',onclick:async()=>{if(!name.value.trim())return toast('Apna naam likho.');join.disabled=true;
+  try{await app.backend.saveProfile({name:name.value.trim(),look:draft.look,skin:draft.skin,visible:true});await app.refreshMe();closePanel();toast('Welcome! Your character is ready.','good');}catch(e){message.textContent=e.message;join.disabled=false;}
+ }},'Join the city');
+ openPanel('Create your character',h('div',{},h('p',{},'Choose your name, character and colours. You can change them later from Profile.'),name,editor.node,message,join),{onClose:()=>editor.dispose()});editor.mount();
 }
 
 // ---------- Optional detailed profile ----------
@@ -211,6 +218,7 @@ export async function openProfile(app, startStep = 0) {
   const twin = await app.backend.getTwin();
   let step = startStep;
   const STEPS = 8;
+  let appearanceEditor=null;
 
   const voiceBtn = (target, lang = "en-IN") => h("button", { type: "button", class: "btn voice", onclick: async () => {
     try { const said = await listen(lang); if (said) { target.value = said; target.dispatchEvent(new Event("input")); } } catch (e) { toast(e.message, "bad"); }
@@ -242,17 +250,8 @@ export async function openProfile(app, startStep = 0) {
         return h("div", {}, h("h3", {}, "HOW CAN PEOPLE REACH YOU?"), h("p", { class: "muted small" }, "Shown to signed-in people who open your profile. Never to people you block."), li, ig);
       }
       case 5: {
-        const grid = h("div", {});
-        const render = () => grid.replaceChildren(
-          ...["male", "female"].map((g) => h("div", {}, h("h3", {}, g.toUpperCase()),
-            h("div", { class: "chips" }, CHARACTERS[g].map((c) => h("button", { type: "button", class: "chip-btn look" + (p.look === c.id ? " on" : ""),
-              onclick: () => { p.look = c.id; render(); app.player.setLook(p.look, p.skin); } },
-              h("i", { class: "swatch", style: { background: "#" + c.top.toString(16).padStart(6, "0") } }), c.label))))),
-          h("h3", {}, "SKIN"),
-          h("div", { class: "chips" }, SKIN_TONES.map((s) => h("button", { type: "button", "aria-label": "Skin tone", class: "chip-btn tone" + (p.skin === s ? " on" : ""),
-            style: { background: "#" + s.toString(16).padStart(6, "0") }, onclick: () => { p.skin = s; render(); app.player.setLook(p.look, p.skin); } }))));
-        render();
-        return h("div", {}, h("h3", {}, "PICK YOUR CHARACTER"), grid);
+        appearanceEditor=createCharacterEditor(app,p);
+        return appearanceEditor.node;
       }
       case 6:
         return h("div", {}, h("h3", {}, "WHERE AND WHEN?"), h("h3", { class: "sub" }, "HOME DISTRICT"),
@@ -280,6 +279,7 @@ export async function openProfile(app, startStep = 0) {
   }
 
   function render() {
+    appearanceEditor?.dispose();appearanceEditor=null;
     setPanelBody(h("div", {},
       h("div",{class:"profile-step-title"},h("b",{},["Your identity","Your introduction","Your interests","Your plans","Your links","Your character","Your routine","Your privacy"][step]),h("span",{},`${step+1} / ${STEPS}`)),
       h("div", { class: "steps" }, Array.from({ length: STEPS }, (_, i) => h("i", { class: i === step ? "on" : i < step ? "done" : "" }))),
@@ -292,8 +292,9 @@ export async function openProfile(app, startStep = 0) {
         h("button", { type: "button", class: "btn primary", onclick: () => save(false) }, "SAVE"),
         step < STEPS - 1 ? h("button", { type: "button", class: "btn", onclick: () => { step++; render(); } }, "NEXT ▸") : null),
       h("button", { type: "button", class: "link", onclick: async () => { await app.backend.signOut(); closePanel(); app.onSignedOut(); } }, "Sign out")));
+    appearanceEditor?.mount();
   }
-  openPanel("👤 YOUR PROFILE", h("div", {}));
+  openPanel("👤 YOUR PROFILE", h("div", {}),{onClose:()=>appearanceEditor?.dispose()});
   render();
 }
 

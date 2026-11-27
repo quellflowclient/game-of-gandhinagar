@@ -74,8 +74,10 @@ export function createAvatar(lookId,skin=0xa86b47) {
     o.visible=shown.has(o.name);o.frustumCulled=false;o.castShadow=true;o.receiveShadow=true;
     o.material=o.material.clone();materials.push(o.material);meshes.push(o);
     o.material.metalness=0;
-    if(o.name==='Hair'){o.material.transparent=false;o.material.alphaTest=0.42;o.material.side=THREE.DoubleSide;o.material.roughness=0.87;}
+    if(o.name==='Hair'){o.material.transparent=false;o.material.alphaTest=0.42;o.material.side=THREE.DoubleSide;o.material.roughness=0.87;o.material.color.setHex(look.hair);}
     if(/^Top_/.test(o.name))o.material.color.setHex(look.top);
+    if(o.name==='Outfit_formal')o.material.color.setHex(look.top);
+    if(o.name==='Shoes')o.material.color.setHex(look.shoes??0x3a3b38);
     if(o.name==='Trousers')o.material.color.setHex(look.bottom);
     if(/^Body$|^Skin_/.test(o.name)){
       const tint=new THREE.Color(skin),base=new THREE.Color(0xc58c63);
@@ -95,7 +97,7 @@ export function createAvatar(lookId,skin=0xa86b47) {
   let activity=null,activityBlend=1,exitActivity=null,exitBlend=0;
   const boneList=Object.values(bones),seated=k=>['sit','eat','cash','sell','ground-sit'].includes(k);
   let bike=null,cycling=false,waveT=0,time=Math.random()*4,shadow=true,cyclePhase=0,gestureT=0,gestureKind='yes',hitT=0;
-  let fallen=null,motorcycle=false;
+  let fallen=null,motorcycle=false,emote=null,emoteClock=0;
   const floorBones=['Hips','Spine','Spine2','Head','LeftHand','RightHand','LeftFoot','RightFoot','LeftLeg','RightLeg'].map(n=>bones[`mixamorig${n}`]).filter(Boolean),floorPoint=new THREE.Vector3();
   function play(name){if(name===current)return;actions[current]?.fadeOut(0.22);actions[name].reset().fadeIn(0.22).play();current=name;}
   return {root,look,gender,get soleHeight(){return sole.minimum();},
@@ -109,6 +111,7 @@ export function createAvatar(lookId,skin=0xa86b47) {
     setCycling(on){cycling=on;if(on&&!bike){bike=bicycle();root.add(bike);}if(bike)bike.visible=on;},
     setMotorcycle(on){motorcycle=on;cycling=on;if(on&&!bike){bike=bicycle();root.add(bike);}if(bike)bike.visible=cycling&&!motorcycle;},
     wave(){waveT=actions.Wave.getClip().duration;play('Wave');},
+    setEmote(kind,phase=0){emote=['dance','cheer','clap'].includes(kind)?kind:null;emoteClock=Math.max(0,Number(phase)||0);},
     hit(){hitT=2.4;waveT=0;},
     setFall(tilt=null,height=0){fallen=tilt===null?null:{tilt,height};if(fallen){hitT=0;waveT=0;}},
     cloneCycle(){if(!bike)return null;const copy=bike.clone(true);copy.visible=true;return copy;},
@@ -140,6 +143,7 @@ export function createAvatar(lookId,skin=0xa86b47) {
         activityPose.apply(activity||exitActivity,time);
         if(base){for(let i=0;i<boneList.length;i++)boneList[i].quaternion.copy(base[i].slerp(boneList[i].quaternion,weight));model.position.lerp(basePosition,1-weight);model.rotation.x*=weight;root.updateWorldMatrix(true,true);}
       }
+      if(emote&&!activity&&!cycling&&!fallen&&speed<.12){emoteClock+=dt;if(emote!=='dance'&&emoteClock>4)emote=null;else activityPose.apply(emote,emoteClock);}
       if(hitT>0){hitT=Math.max(0,hitT-dt);const f=Math.min(1,hitT/1.2);model.rotation.x=.32*f;model.rotation.z=Math.sin((2.4-hitT)*8)*.12*f;}
       if(fallen){
         model.rotation.x=-fallen.tilt;model.rotation.z=Math.sin(fallen.tilt)*.1;

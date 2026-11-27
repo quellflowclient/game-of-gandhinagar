@@ -3,6 +3,7 @@ import { createAvatar } from "./avatar.js";
 import { placedPlaces, placePos } from "../data/places.js";
 import { residentsFor, OPEN_TO } from "../data/content.js";
 import {createVehicleModel} from './vehicle-models.js';
+import {standingSpot,venueAt,CLUB} from './entertainment-layout.js';
 
 // AI residents (spawned only around the place you are near, to keep the frame rate up),
 // other members' avatars from presence, and HTML name tags above everyone nearby.
@@ -11,6 +12,8 @@ const SPAWN_R = 380, DESPAWN_R = 520, PER_PLACE = 9, LABEL_R = 40, MAX_LABELS = 
 export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navigation,lowEnd=false,furniture=()=>[] }) {
   const active = new Map(); // id -> person
   const loadedPlaces = new Set();
+  let venueStates=new Map(),venueClock=0,venueStamp=0;
+  function setVenueStates(states,serverNow){venueStates=new Map(states);venueClock=serverNow;venueStamp=performance.now();}
 
   function addPerson(data, x, z, home) {
     const safe = navigation && data.ai ? navigation.safePoint(x, z, data.y || 0) : { x, y:data.y||0, z };
@@ -95,6 +98,7 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
       const p = active.get(m.id);
       if (!p) {const added=addPerson({ ...m, ai: false }, m.x, m.z, null);syncRide(added);}
       else {
+        if(p.data.look!==m.look||p.data.skin!==m.skin){const old=p.avatar,avatar=createAvatar(m.look,m.skin);avatar.root.position.copy(old.root.position);avatar.root.rotation.copy(old.root.rotation);scene.remove(old.root);old.dispose();scene.add(avatar.root);p.avatar=avatar;p.rideType=null;p.venueActionKey=null;}
         p.data = { ...p.data, ...m, ai: false };
         const safe = m;
         p.tx = safe.x; p.tz = safe.z;
@@ -113,7 +117,17 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
   const v = new THREE.Vector3();
   function update(dt, playerPos) {
     const tables=furniture();
+    const serverNow=venueClock+performance.now()-venueStamp;
     for (const p of active.values()) {
+      const state=!p.data.ai?venueStates.get(p.id):null;
+      const fresh=state&&Date.parse(state.updated_at)>serverNow-45000;
+      const spot=fresh&&state.event_id?standingSpot(state.tier,Number(state.position)):null;
+      if(spot){p.x=p.tx=spot.x;p.z=p.tz=spot.z;p.y=spot.y;p.venueLastSpot=spot;p.hideVenue=false;}
+      else if(p.venueLastSpot){p.hideVenue=Math.hypot(p.tx-p.venueLastSpot.x,p.tz-p.venueLastSpot.z)<1;if(!p.hideVenue)p.venueLastSpot=null;}
+      if(p.hideVenue){p.avatar.root.visible=false;p.el.style.display='none';continue;}
+      const action=fresh&&(spot||venueAt(p.x,p.z)===CLUB.id)?state.action:'idle';
+      const actionKey=`${action}:${state?.started_at||state?.updated_at||''}`;
+      if(!p.data.ai&&p.venueActionKey!==actionKey){p.venueActionKey=actionKey;p.avatar.setEmote(null);if(action==='wave'){if(serverNow-Date.parse(state.started_at||state.updated_at)<4500)p.avatar.wave();}else if(action!=='idle')p.avatar.setEmote(action,Math.max(0,(serverNow-Date.parse(state.started_at||state.updated_at))/1000));}
       if(p.fall){const f=p.fall;f.t+=dt;const rise=Math.max(0,Math.min(1,(f.t-3.2)/1.1));
         if(f.t<.9&&navigation)navigation.move(p,f.dx*dt*(1-f.t/.9),f.dz*dt*(1-f.t/.9),.38);
         p.avatar.setFall(Math.min(1,f.t/.65)*(1-rise)*Math.PI/2,Math.max(0,Math.sin(Math.min(1,f.t/.9)*Math.PI))*.8);
@@ -164,6 +178,7 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
       p.avatar.root.visible = near < 160 && !p.ride;
       if(p.ride){p.ride.position.set(p.x,p.y||0,p.z);p.ride.rotation.y=p.data.heading||0;p.ride.visible=near<200;}
       if(!p.data.ai&&p.data.heading!=null)p.avatar.root.rotation.y=p.data.heading;
+      if(spot)p.avatar.root.rotation.y=Math.PI;
       if(!p.data.ai){const sit=tables.find(s=>s.occupant===p.id),carry=tables.some(s=>s.carriedBy===p.id);p.avatar.setActivity(sit?'sit':carry?'carry':null);if(sit){p.avatar.root.position.set(sit.x,sit.y||.33,sit.z);p.avatar.root.rotation.y=sit.yaw;}}
       if (near < 70) p.avatar.update(dt, p.speed);
       if (p.bubbleT > 0) { p.bubbleT -= dt; if (p.bubbleT <= 0) { p.bubble = null; renderTag(p); } }
@@ -182,7 +197,7 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
     let shown = 0;
     for (const { p, d } of list) {
       const hide = () => { p.el.style.display = "none"; };
-      if (d > LABEL_R || shown >= MAX_LABELS) { hide(); continue; }
+      if (p.hideVenue||d > LABEL_R || shown >= MAX_LABELS) { hide(); continue; }
       v.set(p.x, (p.y || 0) + 2.35, p.z).project(camera);
       if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) { hide(); continue; }
       const sx = (v.x * 0.5 + 0.5) * w, sy = (-v.y * 0.5 + 0.5) * h;
@@ -211,7 +226,7 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
 
   function all() { return [...active.values()]; }
 
-  return { manage, syncMembers, update, nearest, all, say, get: (id) => active.get(id) };
+  return { manage, syncMembers, setVenueStates, update, nearest, all, say, get: (id) => active.get(id) };
 }
 
 export function esc(s) {

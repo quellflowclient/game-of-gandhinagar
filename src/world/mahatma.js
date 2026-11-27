@@ -118,6 +118,14 @@ export function buildMahatma(parent, { mat, signBoard }) {
     ring(D.courtOuter, D.bermOuter, 6.7, D.ground+0.25, palette.sand, start, arc, 48);
     roundWall(53, 6.7-D.ground, D.ground, palette.galleryGlass, start, arc);
     ring(52.75, 53.35, 6.75, 6.75, palette.trim, start, arc, 48);
+    // Close each wing beside the four pedestrian passages. The roof is a
+    // sloping volume, with no generic second building intersecting its surface.
+    for(const [angle,reverse]of [[start,false],[start+arc,true]]){
+      const at=(r,y)=>[Math.sin(angle)*r,y,Math.cos(angle)*r];
+      const pts=[at(D.courtOuter,D.ground),at(D.bermOuter,D.ground),at(D.bermOuter,D.ground+.25),at(D.courtOuter,6.7)],positions=[];
+      for(const i of reverse?[0,2,1,0,3,2]:[0,1,2,0,2,3])positions.push(...pts[i]);
+      const cap=new THREE.BufferGeometry();cap.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));cap.computeVertexNormals();emit(cap,palette.sand);
+    }
     for (let j = 1; j < 16; j++) {
       const a = start + arc*j/16;
       box(0.22, 6.7-D.ground, 0.3, palette.trim, Math.sin(a)*52.8, D.ground, Math.cos(a)*52.8, a);

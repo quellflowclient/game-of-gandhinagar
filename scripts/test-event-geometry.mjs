@@ -1,0 +1,25 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import * as THREE from 'three';
+import {buildEntertainment} from '../src/world/entertainment.js';
+import {createNavigation} from '../src/world/navigation.js';
+import {standingSpot,CONCERT_ZONES,EVENT_CAPACITY,entertainmentPoint,CLUB,ARENA} from '../src/world/entertainment-layout.js';
+import {pointInRing,insideWithMargin} from '../src/world/geographic-polygons.js';
+import geo from '../src/data/destination-geography.json' with {type:'json'};
+const noop=()=>{};
+globalThis.document={createElement(){const canvas={width:1,height:1};const ctx=new Proxy({canvas,measureText:t=>({width:String(t).length*8}),createLinearGradient:()=>({addColorStop:noop})},{get:(o,k)=>k in o?o[k]:noop});canvas.getContext=()=>ctx;return canvas;}};
+const scene=new THREE.Scene(),venue=buildEntertainment(scene),nav=createNavigation([venue.zone]);scene.updateMatrixWorld(true);
+let meshes=0;scene.traverse(o=>{if(!o.isMesh)return;meshes++;assert(o.matrixWorld.elements.every(Number.isFinite));for(const a of Object.values(o.geometry.attributes))assert([...a.array].every(Number.isFinite));});
+for(const z of CONCERT_ZONES)for(let i=0;i<EVENT_CAPACITY;i++){const spot=standingSpot(z.id,i);assert.equal(nav.surface(spot.x,spot.z,spot.y),spot.y,'Every allocated position has an unobstructed level floor');assert(venue.zone.forbidsVehicles(spot.x,spot.z));}
+const at=(u,v)=>({...entertainmentPoint(u,v),y:.18}),walk=at(CLUB.u,17);nav.move(walk,0,-20);assert(walk.z<entertainmentPoint(CLUB.u,0).z,'Club entrance allows a person to walk inside');
+const wall=at(CLUB.u-20,17);nav.move(wall,0,-20);assert(wall.z>entertainmentPoint(CLUB.u-20,10).z,'Club glazing blocks movement');
+const gate=at(ARENA.u,88);nav.move(gate,0,-25);assert(gate.z>entertainmentPoint(ARENA.u,80).z,'Arena entry requires an allocated spot');
+assert.equal(nav.surface(...[entertainmentPoint(ARENA.u,-28).x,entertainmentPoint(ARENA.u,-28).z,.18]),undefined,'Stage runway cannot overlap attendees');
+const parcel=[[-118,-108],[118,-108],[118,108],[-118,108]].map(([u,v])=>{const p=entertainmentPoint(u,v);return[p.x,p.z];});
+assert(parcel.every(p=>insideWithMargin(...p,geo.gift.outline,20)),'Venue remains inside real GIFT boundary');
+const edges=p=>p.map((a,i)=>[a,p[(i+1)%p.length]]);
+const cross=(a,b,c,d)=>{const side=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);return side(a,b,c)*side(a,b,d)<=0&&side(c,d,a)*side(c,d,b)<=0&&Math.max(Math.min(a[0],b[0]),Math.min(c[0],d[0]))<=Math.min(Math.max(a[0],b[0]),Math.max(c[0],d[0]))&&Math.max(Math.min(a[1],b[1]),Math.min(c[1],d[1]))<=Math.min(Math.max(a[1],b[1]),Math.max(c[1],d[1]));};
+const map=JSON.parse(fs.readFileSync(new URL('../public/data/gandhinagar-live.json',import.meta.url)));
+for(const b of [...map.buildings,...map.water])assert(!b.pts.some(p=>pointInRing(...p,parcel))&&!parcel.some(p=>pointInRing(...p,b.pts))&&!edges(b.pts).some(([a,b])=>edges(parcel).some(([c,d])=>cross(a,b,c,d))),'No mapped building or water overlaps the venue');
+for(const r of map.roads)for(let i=1;i<r.pts.length;i++)assert(!pointInRing(...r.pts[i],parcel)&&!edges(parcel).some(([c,d])=>cross(r.pts[i-1],r.pts[i],c,d)),'No existing road is covered');
+console.log(`Event geometry passed: ${meshes} finite meshes, all 576 standing positions navigable, club doorway open, walls/stage/gate block movement, real GIFT boundary respected and no mapped road/building/water overlap.`);

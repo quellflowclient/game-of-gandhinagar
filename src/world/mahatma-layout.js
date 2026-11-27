@@ -30,6 +30,14 @@ export const MAHATMA = {
     [-130.4,241.1],[-103.8,240.8],[-101.7,248.2],[-98,249.3],[-101,217.3],[-97.8,215.5]],
 };
 
+// These five mapped footprints are already reconstructed by the salt mound
+// and its four sloping gallery wings. Drawing the generic OSM boxes as well
+// intersects their roofs and blocks the authored pedestrian entrances.
+export const MAHATMA_AUTHORED_BUILDINGS=new Set([326048766,338769675,338769676,338769677,338769678,338769679]);
+export function mahatmaReplacesBuilding(origin,building){
+  return MAHATMA_AUTHORED_BUILDINGS.has(Number(building.id))||building.pts.every(([x,z])=>{const p=worldToSite(origin,x,z);return Math.hypot(p.u,p.v)<MAHATMA.coneRadius+2;});
+}
+
 export const CAMPUS_ROAD = {
   width: 22, y: 0.04,
   path: [[-190,178],[-155,177],[-128,175],[-103,169],[-77,161],[-49,151],
@@ -197,6 +205,7 @@ export function createMahatmaZone(origin) {
     forbidsVehicles(x,z,margin=0) { const {u,v}=worldToSite(origin,x,z);return insideCompound(u,v,margin); },
     roadHeight(x,z) { const {u,v}=worldToSite(origin,x,z);return onCampusRoad(u,v)?CAMPUS_ROAD.y:null; },
     clearing: {
+      replacesBuilding:building=>mahatmaReplacesBuilding(origin,building),
       roadBounds,
       contains(x, z) {
         const { u, v } = worldToSite(origin, x, z);

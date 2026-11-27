@@ -54,7 +54,18 @@ export const CHARACTERS = {
   ],
 };
 export const ALL_LOOKS = [...CHARACTERS.male, ...CHARACTERS.female];
-export const lookById = (id) => ALL_LOOKS.find((l) => l.id === id) || CHARACTERS.male[1];
+// Keep appearance in the existing public look field so every real player,
+// roster and saved profile uses the same human model without a schema change.
+export const lookById = (value) => {
+  const [id,...colors]=String(value||'').slice(0,80).split('~');
+  const base=ALL_LOOKS.find(l=>l.id===id)||CHARACTERS.male[1];
+  if(colors.length!==4||colors.some(c=>!/^([a-f0-9]{6})$/i.test(c)))return base;
+  const [top,bottom,hair,shoes]=colors.map(c=>parseInt(c,16));return {...base,top,bottom,hair,shoes};
+};
+export const encodeLook = (id,colors={}) => {
+  const base=lookById(id),hex=n=>Math.trunc(Math.max(0,Math.min(0xffffff,Number(n)||0))).toString(16).padStart(6,'0');
+  return [base.id,...['top','bottom','hair','shoes'].map(k=>hex(colors[k]??base[k]??0x292e30))].join('~');
+};
 
 export const SKIN_TONES = [0x8d5a3b, 0xa86b47, 0xc58c63, 0x6f442b, 0xd9a27a];
 

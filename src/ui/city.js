@@ -97,7 +97,7 @@ export async function openUtsav(app) {
 
 // ---------- Metro transfers between bounded neighbourhoods ----------
 export function openTravel(app) {
-  const here = explorationAreaForPlace(app.currentPlace?.id);
+  const here = app.player.areaId||explorationAreaForPlace(app.currentPlace?.id);
   const counts = app.countsByPlace();
   openPanel("Ⓜ METRO · મેટ્રો", h("div", {},
     h("div", {class:'metro-transfer-note'},h('b',{},'Your next neighbourhood'),h('span',{},'Mahatma Mandir aur poora Swarnim Park ek hi walkable area hain. Door ki locations ke liye metro chuno.'),h('small',{class:'muted',style:'display:block;margin-top:6px'},'Game transfers · destination names, not a real station or timetable guide.')),
@@ -113,107 +113,8 @@ export function openTravel(app) {
       h("div", { class: "nm" }, p.name, p.approx ? h("span", { class: "muted small" }, " (approx. spot)") : null), h("div", { class: "muted small" }, p.blurb)))));
 }
 
-// ---------- City map ----------
-export function openMap(app) {
-  const canvas = h("canvas", { class: "map-canvas" });
-  const filters = new Set(["people", "food", "shops", "events", "cafes"]);
-  let zoom = 0.18, cx = app.player.position.x, cz = app.player.position.z, full = false;
-  const map = app.world.map;
-  const major = map.roads.filter((r) => ["motorway", "trunk", "primary", "secondary", "tertiary"].includes(r.kind));
-  const markers = [];
-
-  function draw() {
-    const w = canvas.clientWidth, hh = canvas.clientHeight;
-    canvas.width = w * devicePixelRatio; canvas.height = hh * devicePixelRatio;
-    const c = canvas.getContext("2d");
-    c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    const X = (x) => w / 2 + (x - cx) * zoom, Y = (z) => hh / 2 + (z - cz) * zoom;
-    c.fillStyle = "#efe6d2"; c.fillRect(0, 0, w, hh);
-    c.fillStyle = "#c9dcb0";
-    for (const p of map.parks) { c.beginPath(); p.pts.forEach(([x, z], i) => (i ? c.lineTo(X(x), Y(z)) : c.moveTo(X(x), Y(z)))); c.fill(); }
-    c.fillStyle='#9aa8a6';for(const b of map.buildings){c.beginPath();for(const ring of [b.pts,...(b.holes||[])]){ring.forEach(([x,z],i)=>i?c.lineTo(X(x),Y(z)):c.moveTo(X(x),Y(z)));c.closePath();}c.fill('evenodd');}
-    c.strokeStyle = "#8cc4e0"; c.fillStyle = "#8cc4e0";
-    for (const wv of map.water) {
-      c.beginPath(); wv.pts.forEach(([x, z], i) => (i ? c.lineTo(X(x), Y(z)) : c.moveTo(X(x), Y(z))));
-      if (wv.closed) c.fill(); else { c.lineWidth = Math.max(3, 110 * zoom); c.stroke(); }
-    }
-    c.strokeStyle = "#ffffff"; c.lineCap = "round";
-    for (const r of major) {
-      c.lineWidth = r.kind === "tertiary" ? 2 : 3.5;
-      c.beginPath(); r.pts.forEach(([x, z], i) => (i ? c.lineTo(X(x), Y(z)) : c.moveTo(X(x), Y(z)))); c.stroke();
-    }
-    markers.length = 0;
-    c.strokeStyle='#ab793d';c.lineWidth=1.5;c.setLineDash([6,4]);for(const ring of explorationCorners()){c.beginPath();ring.forEach((p,i)=>i?c.lineTo(X(p.x),Y(p.z)):c.moveTo(X(p.x),Y(p.z)));c.closePath();c.stroke();}c.setLineDash([]);
-    // Places
-    for (const p of placedPlaces()) {
-      const { x, z } = app.world.spawns[p.id]||placePos(p);
-      const px = X(x), py = Y(z);
-      c.fillStyle = "#" + p.color.toString(16).padStart(6, "0");
-      c.beginPath(); c.arc(px, py, p.hub ? 7 : 5, 0, Math.PI * 2); c.fill();
-      c.font = "700 11px Inter, sans-serif"; c.fillStyle = "#14182b";
-      c.fillText(p.name.toUpperCase(), px + 9, py + 4);
-      markers.push({ x: px, y: py, place: p });
-    }
-    // Stalls (food, cafes, shops)
-    if (filters.has("food") || filters.has("cafes") || filters.has("shops")) {
-      for (const s of app.world.stalls) {
-        const isShop = /stall|bandhani|khadi|toys/i.test(s.name) && !/chai|bhel|dabeli|gola|juice|makai|food|canteen|coffee/i.test(s.name);
-        const isCafe = /chai|coffee/i.test(s.name);
-        if ((isShop && !filters.has("shops")) || (isCafe && !filters.has("cafes")) || (!isShop && !isCafe && !filters.has("food"))) continue;
-        c.font = "14px sans-serif"; c.fillText(s.emoji, X(s.x) - 7, Y(s.z) + 5);
-      }
-    }
-    if (filters.has("events") && app.world.stage) { c.font = "14px sans-serif"; c.fillText("🎤", X(app.world.stage.x) - 7, Y(app.world.stage.z) + 5); }
-    // People
-    if (filters.has("people")) {
-      c.fillStyle = "#7a5cd8";
-      for (const m of app.presenceMembers()) { c.beginPath(); c.arc(X(m.x), Y(m.z), 4, 0, Math.PI * 2); c.fill(); }
-      c.fillStyle = "#4fb6a8";
-      for (const p of app.people.all()) { c.beginPath(); c.arc(X(p.x), Y(p.z), 2.5, 0, Math.PI * 2); c.fill(); }
-    }
-    // You
-    const me = app.player.position;
-    c.save(); c.translate(X(me.x), Y(me.z)); c.rotate(-app.player.heading + Math.PI);
-    c.fillStyle = "#e0532f"; c.beginPath(); c.moveTo(0, -9); c.lineTo(6, 6); c.lineTo(-6, 6); c.closePath(); c.fill(); c.restore();
-    // Scale bar
-    const meters = zoom > 0.5 ? 100 : zoom > 0.12 ? 500 : 2000;
-    c.fillStyle = "#14182b"; c.fillRect(12, hh - 18, meters * zoom, 3);
-    c.font = "11px Inter, sans-serif"; c.fillText(meters >= 1000 ? `${meters / 1000} km` : `${meters} m`, 16 + meters * zoom, hh - 14);
-  }
-
-  // Drag to pan, tap a place to travel there.
-  let drag = null;
-  canvas.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, cx, cz, moved: 0 }; canvas.setPointerCapture(e.pointerId); });
-  canvas.addEventListener("pointermove", (e) => {
-    if (!drag) return;
-    drag.moved += Math.abs(e.movementX) + Math.abs(e.movementY);
-    cx = drag.cx - (e.clientX - drag.x) / zoom; cz = drag.cz - (e.clientY - drag.y) / zoom; draw();
-  });
-  canvas.addEventListener("pointerup", (e) => {
-    const wasTap = drag && drag.moved < 6;
-    drag = null;
-    if (!wasTap) return;
-    const b = canvas.getBoundingClientRect();
-    const hit = markers.find((m) => Math.hypot(m.x - (e.clientX - b.left), m.y - (e.clientY - b.top)) < 14);
-    if (hit) { closePanel(); app.travel(hit.place.id); }
-  });
-  canvas.addEventListener("wheel", (e) => { e.preventDefault(); zoom = Math.min(2, Math.max(0.03, zoom * (e.deltaY < 0 ? 1.2 : 0.83))); draw(); }, { passive: false });
-
-  const FILTERS = [["cafes", "☕ Cafes"], ["food", "🍲 Food"], ["shops", "🛍️ Shops"], ["events", "🎉 Events"], ["people", "👥 People"]];
-  const sheet = h("div", { class: "map-wrap" },
-    h("div", { class: "chips" }, FILTERS.map(([id, label]) => h("button", { type: "button", class: "chip-btn on", onclick: (e) => {
-      filters.has(id) ? filters.delete(id) : filters.add(id); e.target.classList.toggle("on"); draw(); } }, label))),
-    h("div", { class: "map-area" }, canvas,
-      h("div", { class: "map-ctrl" },
-        h("button", { type: "button", "aria-label": "Zoom in", onclick: () => { zoom = Math.min(2, zoom * 1.4); draw(); } }, "+"),
-        h("button", { type: "button", "aria-label": "Zoom out", onclick: () => { zoom = Math.max(0.03, zoom / 1.4); draw(); } }, "−"),
-        h("button", { type: "button", "aria-label": "Recentre on me", onclick: () => { cx = app.player.position.x; cz = app.player.position.z; draw(); } }, "◎"),
-        h("button", { type: "button", "aria-label": "Fullscreen", onclick: () => { full = !full; sheet.closest(".sheet").classList.toggle("full", full); setTimeout(draw, 50); } }, "⤢"))),
-    h("p", { class: "muted small" }, "Tap a distant area for Metro. Mahatma Mandir and Swarnim Park share one walking area. Dashed lines show exploration limits. Drag to move, scroll to zoom."),
-    h("p", { class: "muted small" }, "Map geometry: July 2026 · © OpenStreetMap contributors. Footprints keep their mapped positions and scale; building heights without measurements are approximate."));
-  openPanel("GANDHINAGAR MAP", sheet, { wide: true });
-  requestAnimationFrame(draw);
-}
+// The map shares safe arrival targets with Metro and local quick travel.
+export {openCityMap as openMap} from './city-map.js';
 
 // ---------- Time ----------
 export function openTime(app) {

@@ -4,6 +4,7 @@
 // Sign-in codes are shown on screen because no email is sent in demo mode.
 import { LIMITS, CONTACT_PATTERN } from "../config.js";
 import {emailAddress} from './email.js';
+import {demoEventRpc} from './events-demo.js';
 
 const DB_KEY = "gnr-db-v1";
 const SESSION_KEY = "gnr-session";
@@ -49,6 +50,15 @@ function isBlocked(db, a, b) {
 }
 
 export const local = {
+  entertainmentCatalog(){return demoEventRpc('entertainment_catalog');},
+  joinConcert(eid,zone){return demoEventRpc('join_concert',{eid,zone},requireUser());},
+  renewConcert(eid){return demoEventRpc('renew_concert',{eid},requireUser());},
+  eventReceipt(eid){return demoEventRpc('event_receipt',{eid},requireUser());},
+  leaveConcert(eid){return demoEventRpc('leave_concert',{eid},requireUser());},
+  venueAction(venue,kind){return demoEventRpc('venue_action',{venue,kind},requireUser());},
+  venuePeople(venue){return demoEventRpc('venue_people',{venue},requireUser());},
+  refreshNearby(){return Promise.resolve();},
+  watchVenue(){return()=>{};},
   mode: "demo",
 
   // ---------- auth ----------

@@ -79,7 +79,7 @@ async function fetchSnapshot(place,cx,cz) {
   return data;
 }
 async function pollPositions(epoch=generation) {
-  if (polling || legacy || !state?.userId || !['ldrp','dandi'].includes(state.place) || state.x==null || document.hidden) return;
+  if (polling || legacy || !state?.userId || !['ldrp','dandi','gift','swagat'].includes(state.place) || state.x==null || document.hidden) return;
   polling=true;
   try {
     const snap=await fetchSnapshot(state.place, Math.floor(state.x/CELL), Math.floor(state.z/CELL));
@@ -91,7 +91,7 @@ async function pollPositions(epoch=generation) {
   } finally { polling=false; }
 }
 async function sendPosition(force=false) {
-  if (!state?.userId || sendTask || !['ldrp','dandi'].includes(state.place) || state.x==null) return;
+  if (!state?.userId || sendTask || !['ldrp','dandi','gift','swagat'].includes(state.place) || state.x==null) return;
   const now=Date.now(), p={...state};
   const moved=!lastSent || Math.hypot(p.x-lastSent.x,p.z-lastSent.z)>.4 || Math.abs((p.heading||0)-lastSent.heading)>.25
     || p.vehicle!==lastSent.vehicle || p.place!==lastSent.place || Math.abs((p.y||0)-lastSent.y)>.5;
@@ -144,6 +144,16 @@ async function leavePresence() {
 }
 
 export const supabase = {
+  async entertainmentCatalog(){return ok(await sb.rpc('entertainment_catalog'));},
+  async joinConcert(eventId,tier){return ok(await sb.rpc('join_concert',{eid:eventId,zone:tier}));},
+  async renewConcert(eventId){return ok(await sb.rpc('renew_concert',{eid:eventId}));},
+  async eventReceipt(eventId){return ok(await sb.rpc('event_receipt',{eid:eventId}));},
+  async leaveConcert(eventId){return ok(await sb.rpc('leave_concert',{eid:eventId}));},
+  async venueAction(venue,kind){return ok(await sb.rpc('venue_action',{venue,kind}));},
+  async venuePeople(venue){return ok(await sb.rpc('venue_people',{venue}));},
+  refreshNearby(){return refreshRoster();},
+  watchVenue(venue,fn){const ch=sb.channel(`venue:${venue}:${Math.random().toString(36).slice(2)}`).on('postgres_changes',{event:'*',schema:'public',table:'venue_presence',filter:`venue_id=eq.${venue}`},fn).subscribe();return()=>sb.removeChannel(ch);},
+  watchEntertainment(fn){const ch=sb.channel('events:catalog').on('broadcast',{event:'update'},fn).subscribe();return()=>sb.removeChannel(ch);},
   async getGameContent(){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),3500);try{const {data,error}=await sb.from('game_content').select('config,revision').eq('id','published').maybeSingle().abortSignal(controller.signal);if(error)throw error;return data;}finally{clearTimeout(timer);}},
   mode: "live",
 

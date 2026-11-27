@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { ENV } from "../config.js";
 import { h } from "../ui/dom.js";
 import {createContentEditor} from './content-editor.js';
+import {createEventEditor} from './event-editor.js';
 
 // People of Gandhinagar · admin console.
 // Read-only views over admin_* RPCs (supabase/admin.sql). Only accounts listed in
@@ -13,7 +14,7 @@ const fmt = {
   n: (v) => (v ?? 0).toLocaleString("en-IN"),
   ago: (t) => { if (!t) return "—"; const s = (Date.now() - Date.parse(t)) / 1000; if (s < 60) return `${Math.max(1, s | 0)}s ago`; if (s < 3600) return `${(s / 60) | 0}m ago`; if (s < 86400) return `${(s / 3600) | 0}h ago`; return `${(s / 86400) | 0}d ago`; },
   date: (t) => t ? new Date(t).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—",
-  place: (p) => ({ ldrp: "LDRP campus", dandi: "Mahatma Mandir" })[p] || "—",
+  place: (p) => ({ ldrp: "LDRP campus", dandi: "Mahatma Mandir & Swarnim Park", gift:'GIFT City',swagat:'Swagat Holiday Mall' })[p] || "—",
 };
 // Dev-only sample data (npm run dev, /admin.html?mock) to review the console layout.
 const MOCK = import.meta.env?.DEV && new URLSearchParams(location.search).has("mock");
@@ -97,12 +98,13 @@ function notAdmin(email, why) {
 // ---------------- console ----------------
 function app(email) {
   // Clean URLs: /admin, /admin/live, /admin/users, /admin/connections
-  const ROUTES = { overview: "/admin", live: "/admin/live", locations: "/admin/locations", users: "/admin/users", connections: "/admin/connections", content:'/admin/content', settings:"/admin/settings" };
+  const ROUTES = { overview: "/admin", live: "/admin/live", locations: "/admin/locations", users: "/admin/users", connections: "/admin/connections", content:'/admin/content',events:'/admin/events', settings:"/admin/settings" };
   const viewFromPath = () => { const seg = location.pathname.replace(/\/+$/, "").split("/")[2] || "overview"; return ROUTES[seg] ? seg : "overview"; };
   const state = { view: viewFromPath(), overview: null, users: [], connections: [], live: [], locations: [], updated: 0, error: "", map: null, area: 0, query: "" };
-  const views = [["overview", "📊", "Overview"], ["live", "🛰", "Live map"], ["locations", "📍", "Real location"], ["users", "👤", "Users"], ["connections", "🔗", "Connections"], ['content','✏️','Game content'], ["settings", "⚙", "Settings"]];
+  const views = [["overview", "📊", "Overview"], ["live", "🛰", "Live map"], ["locations", "📍", "Real location"], ["users", "👤", "Users"], ["connections", "🔗", "Connections"], ['content','✏️','Game content'], ['events','♫','Club & concerts'], ["settings", "⚙", "Settings"]];
   let contentEditor=null;
   const editContent=()=>[contentEditor||(contentEditor=createContentEditor(sb,{mock:MOCK}))];
+  let eventEditor=null;const editEvents=()=>[eventEditor||(eventEditor=createEventEditor(sb,{mock:MOCK}))];
   const navs = {};
   const content = h("div", { class: "main" });
   const liveChip = h("span", { class: "live" }, h("i", { class: "dot" }), h("span", {}, "Connecting…"));
@@ -134,7 +136,7 @@ function app(email) {
   function render() {
     for (const [id, el] of Object.entries(navs)) el.classList.toggle("on", id === state.view);
     stamp();
-    const v = { overview, live, locations, users, connections, content:editContent, settings }[state.view];
+    const v = { overview, live, locations, users, connections, content:editContent,events:editEvents, settings }[state.view];
     document.title=`${state.view[0].toUpperCase()+state.view.slice(1)} · GOG Admin`;
     for(const [id,el] of Object.entries(navs))el.setAttribute("aria-current",id===state.view?"page":"false");
     content.replaceChildren(...v());

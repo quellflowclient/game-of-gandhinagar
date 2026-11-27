@@ -3,16 +3,19 @@
  const audio=document.getElementById('gog-theme'),dialog=document.getElementById('music-choice');
  const toggle=document.getElementById('music-mute'),retry=document.getElementById('music-enable');
  const files={general:'/audio/gog-theme.mp3',campus:'/audio/ldrp-campus.mp3',gift:'/audio/gift-city-entry.mp3'};
- const positions={general:0,campus:0,gift:0};
+ const positions={general:0,campus:0,gift:0,venue:0};
  let settings={welcomeVolume:1,walkingVolume:.25,vehicleVolume:1,campusVolume:1};
  const needsGain=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
  const sourceUrl=name=>files[name].startsWith('/audio/')?files[name]+'?v=20261126-volume2':files[name];
- let dialogueDucked=false;
+ let dialogueDucked=false,venue=null;
+ const venueTime=()=>venue?.clock?.()??Date.now();
+ const venueActive=()=>entered&&venue&&venue.url&&venueTime()>=venue.startAt&&venueTime()<venue.endAt;
+ const seekVenue=()=>{if(track!=='venue'||!venue)return;const elapsed=Math.max(0,(venueTime()-venue.startAt)/1000),duration=audio.duration;let at=elapsed;if(Number.isFinite(duration)&&duration>0)at=venue.loop?elapsed%duration:Math.min(elapsed,Math.max(0,duration-.03));if(Number.isFinite(at)&&Math.abs(audio.currentTime-at)>.7)try{audio.currentTime=at;}catch{}};
  let choice=null,muted=false,master=true,entered=false,inside=false,vehicle='walk',place=null,giftEntryPending=false;
  let track='general',desired='general',switchTimer=0,pending=false,ticket=0,blocked=false;
  let context=null,gain=null,source=null,lastVolume=-1,resolveReady;
  const ready=new Promise(resolve=>{resolveReady=resolve;});
- const baseVolume=()=>!master||muted||choice!==true?0:!entered||track==='gift'?settings.welcomeVolume:inside?settings.campusVolume:vehicle!=='walk'?settings.vehicleVolume:settings.walkingVolume;
+ const baseVolume=()=>!master||muted||choice!==true?0:track==='venue'?Math.max(0,Math.min(1,venue?.volume??.8)):!entered||track==='gift'?settings.welcomeVolume:inside?settings.campusVolume:vehicle!=='walk'?settings.vehicleVolume:settings.walkingVolume;
  const volume=()=>baseVolume()*(dialogueDucked?.2:1);
  function setVolume(value){
   if(value===lastVolume)return;lastVolume=value;
@@ -28,12 +31,12 @@
   }).finally(()=>{if(current===ticket)pending=false;});
  }
  function refresh(){
-  const next=entered&&place==='gift'&&giftEntryPending?'gift':entered&&inside?'campus':'general';
+  const next=venueActive()?'venue':entered&&place==='gift'&&giftEntryPending?'gift':entered&&inside?'campus':'general';
   if(next!==desired){desired=next;clearTimeout(switchTimer);switchTimer=0;}
   const enabled=choice===true&&!muted&&master;
   toggle.hidden=choice===null;toggle.textContent=enabled?(blocked?'♫ Resume':'♫ On'):'♫ Off';
   toggle.setAttribute('aria-label',enabled?(blocked?'Resume music':'Mute music'):'Play music');toggle.setAttribute('aria-pressed',String(enabled));
-  retry.textContent=desired==='gift'?'♪ Tap to hear GIFT City audio':'♪ Tap to resume music';
+  retry.textContent=desired==='venue'?'♪ Tap to hear event audio':desired==='gift'?'♪ Tap to hear GIFT City audio':'♪ Tap to resume music';
   if(!enabled||document.hidden){clearTimeout(switchTimer);switchTimer=0;audio.pause();retry.hidden=true;return;}
   if(track!==desired){
    if(!switchTimer){
@@ -42,12 +45,13 @@
      switchTimer=0;
      positions[track]=Number.isFinite(audio.currentTime)?audio.currentTime:0;
      audio.pause();ticket++;pending=false;blocked=false;track=desired;
-     audio.loop=track!=='gift';
+     audio.loop=track==='venue'?!!venue?.loop:track!=='gift';
      audio.src=sourceUrl(track);audio.load();lastVolume=-1;refresh();
     },220);
    }
    return;
   }
+  if(track==='venue'){if(audio.ended&&!venue?.loop)return;seekVenue();}
   setVolume(volume());if(blocked)retry.hidden=false;else if(audio.paused)play();
  }
  function unlock(event){
@@ -69,7 +73,7 @@
   if(on)unlock(event);else refresh();
   if(first){resolveReady();document.dispatchEvent(new Event('gog-music-choice'));}
  }
- audio.addEventListener('loadedmetadata',()=>{const saved=positions[track];if(saved>0&&saved<audio.duration)audio.currentTime=saved;});
+ audio.addEventListener('loadedmetadata',()=>{if(track==='venue'){seekVenue();return;}const saved=positions[track];if(saved>0&&saved<audio.duration)audio.currentTime=saved;});
  // The supplied recording plays once per visit, then the regular soundtrack resumes.
  audio.addEventListener('ended',()=>{if(track==='gift'){giftEntryPending=false;positions.gift=0;refresh();}});
  audio.addEventListener('playing',()=>{blocked=!!context&&context.state!=='running';retry.hidden=!blocked;});
@@ -91,6 +95,12 @@
    if(track==='gift')audio.currentTime=0;
   }else if(!nextEntered||nextPlace!=='gift')giftEntryPending=false;
   entered=nextEntered;inside=nextInside;vehicle=nextVehicle;place=nextPlace;refresh();
+ },setVenue(next){
+  const changed=(next?.key||null)!==(venue?.key||null)||(next?.url||null)!==(venue?.url||null);
+  venue=next&&next.url?next:null;
+  if(venue){files.venue=venue.url;positions.venue=0;}
+  if(changed&&track==='venue'){ticket++;pending=false;clearTimeout(switchTimer);switchTimer=0;audio.pause();blocked=false;track='';}
+  refresh();
  },setMaster(on){master=on;refresh();},get enabled(){return choice===true&&!muted&&master;}};
  refresh();
 })();

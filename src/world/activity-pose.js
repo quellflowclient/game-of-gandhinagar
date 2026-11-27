@@ -45,6 +45,9 @@ export function createActivityPose(root,model,bones) {
     if(kind==='phone'){left.set(.15,1.16,.24);right.set(-.07,1.15,.31);}
     if(kind==='selfie'){right.set(-.22,1.6,.65);left.set(.12,1.0,.1);}
     if(kind==='check-id'){left.set(.18,1.02,.28);right.set(-.11,1.1,.46);}
+    if(kind==='dance'){model.rotation.z=Math.sin(t*2.4)*.055;model.rotation.x=Math.sin(t*1.2)*.025;left.set(.34+.08*Math.sin(t*2.4),1.12+.13*Math.sin(t*3.1),.28);right.set(-.34+.08*Math.sin(t*2.4),1.12-.13*Math.sin(t*3.1),.28);}
+    if(kind==='cheer'){left.set(.28,1.63+.06*Math.sin(t*5),.25);right.set(-.28,1.63-.06*Math.sin(t*5),.25);}
+    if(kind==='clap'){const gap=.035+.14*(.5+.5*Math.sin(t*8));left.set(gap,1.2,.44);right.set(-gap,1.2,.44);}
     arm('Left',left);arm('Right',right);root.updateWorldMatrix(true,true);
   }};
 }

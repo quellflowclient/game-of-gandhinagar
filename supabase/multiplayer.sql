@@ -4,7 +4,7 @@ create table if not exists public.player_presence (
   x real not null, y real not null default 0, z real not null,
   heading real not null default 0,
   vehicle text not null default 'walk' check (vehicle in ('walk','cycle','car','auto')),
-  place text check (place in ('ldrp','dandi')),
+  place text check (place in ('ldrp','dandi','gift','swagat')),
   updated_at timestamptz not null default now()
 );
 alter table public.player_presence enable row level security;
@@ -21,7 +21,7 @@ begin
     then raise exception 'Verify your email to join multiplayer.'; end if;
   if not exists(select 1 from profiles where id=auth.uid() and visible and name <> '') then return; end if;
   if px is null or py is null or pz is null or ph is null or abs(px)>15000 or abs(pz)>15000 or abs(py)>100
-    or abs(ph)>100 or pv not in ('walk','cycle','car','auto') or pp not in ('ldrp','dandi') or pp is null
+    or abs(ph)>100 or pv not in ('walk','cycle','car','auto') or pp not in ('ldrp','dandi','gift','swagat') or pp is null
     then raise exception 'Invalid player position.'; end if;
   insert into player_presence(id,x,y,z,heading,vehicle,place) values(auth.uid(),px,py,pz,ph,pv,pp)
   on conflict(id) do update set x=excluded.x,y=excluded.y,z=excluded.z,heading=excluded.heading,

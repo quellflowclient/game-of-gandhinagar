@@ -19,7 +19,7 @@ function createPlayer(){
   load(){this.currentTime=0;this.error=null;this.loads.push(this.src);this.emit('loadedmetadata');}
   play(){if(this.rejectNext){this.rejectNext=false;return Promise.reject(new Error('Autoplay blocked'));}this.paused=false;this.emit('playing');return Promise.resolve();}
   pause(){this.paused=true;}
-  end(){this.currentTime=this.duration;this.paused=true;this.emit('ended');}
+  end(){this.currentTime=this.duration;this.paused=true;this.ended=true;this.emit('ended');}
  }
  const ids=['gog-theme','music-choice','music-mute','music-enable','music-title','music-description','music-yes','music-no'];
  const elements=Object.fromEntries(ids.map(id=>[id,id==='gog-theme'?new Audio():new Element()]));
@@ -76,3 +76,14 @@ blocked.audio.error={code:2};blocked.audio.paused=true;blocked.audio.emit('error
 blocked.elements['music-enable'].emit('click');await blocked.flush();assert(!blocked.audio.paused,'media errors can be retried');
 
 console.log('Music passed: GIFT entry once per visit, no background overlap, completion/exit restore, consent/mute/visibility, stale transition cancellation, autoplay/error recovery.');
+
+const eventPlayer=createPlayer();await eventPlayer.choose();eventPlayer.enter();await eventPlayer.flush();eventPlayer.audio.currentTime=16;
+let eventNow=127500;const program={key:'test-concert',url:'https://example.com/show.mp3',startAt:0,endAt:3600000,clock:()=>eventNow,loop:true,volume:.8};
+eventPlayer.music.setVenue(program);await eventPlayer.flush();assert.equal(eventPlayer.audio.src,program.url);assert.equal(eventPlayer.audio.currentTime,127.5);assert.equal(eventPlayer.audio.volume,.8);assert(eventPlayer.audio.loop);
+eventPlayer.audio.currentTime=0;eventNow=207500;eventPlayer.music.setVenue(program);assert.equal(eventPlayer.audio.currentTime,20.5,'late join and drift align to the same shared clock');
+eventPlayer.elements['music-mute'].emit('click');eventNow=217500;eventPlayer.music.setVenue(program);assert(eventPlayer.audio.paused,'event respects mute');eventPlayer.elements['music-mute'].emit('click');await eventPlayer.flush();assert.equal(eventPlayer.audio.currentTime,30.5,'unmute rejoins the current media position');
+eventPlayer.music.setVenue(null);await eventPlayer.flush();assert(isGift(eventPlayer.audio));assert.equal(eventPlayer.audio.currentTime,16,'event exit restores the interrupted GIFT recording');
+eventPlayer.music.setVenue({...program,key:'one-shot',loop:false});await eventPlayer.flush();eventPlayer.audio.end();eventPlayer.music.setVenue({...program,key:'one-shot',loop:false});assert(eventPlayer.audio.paused,'a completed non-looping concert track stays quiet');
+eventPlayer.music.setVenue(null);eventPlayer.audio.ended=false;await eventPlayer.flush();
+const quietEvent=createPlayer();await quietEvent.choose(false);quietEvent.enter();quietEvent.music.setVenue(program);await quietEvent.flush();assert(quietEvent.audio.paused);assert.equal(quietEvent.audio.loads.length,0,'event audio never bypasses consent');
+console.log('Venue music passed: one audible stream, exact shared-clock offset, drift correction, consent, mute/unmute resync, interrupted recording restore and non-loop completion.');

@@ -466,9 +466,8 @@ export function buildLandmarks(scene, map) {
     const r = CLEAR_R[p.id] ?? 0;
     if (p.id === "dandi") {
       const zone = createMahatmaZone({ x, z });
-      // Retain every other mapped building around the civic corridor. Only the
-      // convention footprint and Salt Mount itself are replaced by authored models.
-      zone.clearing.replacesBuilding=b=>b.id===326048766||b.pts.every(([a,c])=>{const p=worldToSite({x,z},a,c);return Math.hypot(p.u,p.v)<MAHATMA.coneRadius+2;});
+      // The zone owns the replacement list for the museum, four gallery wings
+      // and convention hall, shared by rendering and pedestrian obstacles.
       navigationZones.push(zone); clearings.push(zone.clearing);
     } else if (r) clearings.push({ x, z, r });
     spawns[p.id] = shore || { x, z: z + (p.id === "akshardham" ? 140 : p.id === "dandi" ? 72 : p.id === "gift" ? 60 : 50) };

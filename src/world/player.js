@@ -21,10 +21,11 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
   let heading = Math.PI;  // direction the character faces
   let cycling = false;
   let vehicle='walk',vehicleRoot=null,vehicleModel=null,driveSpeed=0,areaLocked=false,areaId=null,steeringNow=0,lastLookAt=0;
-  let helmetMesh=null,mountT=2,mountFrom=null,gesture=null,gestureTime=0,sittingGround=false;
+  let helmetMesh=null,mountT=2,mountFrom=null,gesture=null,gestureTime=0,sittingGround=false,eventSpot=null;
   const withinArea=(x,z)=>!playArea||!!playArea(x,z)&&(!areaId||playArea(x,z)===areaId);
   function removeVehicle(){if(vehicleRoot){scene.remove(vehicleRoot);vehicleRoot.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});}vehicleRoot=null;vehicleModel=null;driveSpeed=0;}
   function setVehicle(type){
+    if(eventSpot&&type!=='walk')return{error:'Leave your concert spot before choosing a vehicle.'};
     if(jumpHeight>0)return{error:'Pehle zameen par land hone do.'};
     if(crashed)return{error:'Accident ke baad pehle safe jagah recover karo.'};
     if(!(type in VEHICLES))return{error:'Unknown vehicle'};
@@ -140,7 +141,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
   const rayDirection = new THREE.Vector3();
 
   function jump(){
-    if(frozen||crashed||sitting||carrying||vehicle!=='walk'||jumpHeight>0||jumpVelocity>0)return false;
+    if(frozen||crashed||sitting||carrying||eventSpot||vehicle!=='walk'||jumpHeight>0||jumpVelocity>0)return false;
     jumpVelocity=4.2;jumpHeight=.001;return true;
   }
   function update(dt) {
@@ -167,7 +168,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
       ix += joy.x; iz += joy.y;
       if(vehicleRoot){ix += driveInput.steer; iz += driveInput.brake-driveInput.throttle;}
     }
-    if(sitting||payTime>0){ix=0;iz=0;speedNow=0;}
+    if(sitting||payTime>0||eventSpot){ix=0;iz=0;speedNow=0;}
     const len = Math.hypot(ix, iz);
     if (len > 1) { if(vehicleRoot){ix=THREE.MathUtils.clamp(ix,-1,1);iz=THREE.MathUtils.clamp(iz,-1,1);}else{ix /= len; iz /= len;} }
     const run = runToggle||Math.hypot(joy.x,joy.y)>0.88||keys.has("ShiftLeft") || keys.has("ShiftRight");
@@ -353,6 +354,14 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
       setVehicle(on?'cycle':'walk');return cycling;
     },
     wave() { avatar.wave(); },
+    setEmote(kind,phase=0){avatar.setEmote(kind,phase);},
+    setEventSpot(point){
+      if(!point){eventSpot=null;avatar.setEmote(null);return;}
+      jumpHeight=jumpVelocity=0;
+      if(!eventSpot){setVehicle('walk');this.teleport(point.x,point.z,point.heading||0,point.y);}
+      eventSpot={...point};pos.set(point.x,point.y,point.z);avatar.root.position.copy(pos);speedNow=actualSpeed=0;
+    },
+    get eventSpot(){return eventSpot;},
     setDriveInput(input) { Object.assign(driveInput,input); },
     resetInput(){keys.clear();joy.x=joy.y=0;joy.id=null;driveInput.steer=driveInput.throttle=driveInput.brake=0;steeringNow=0;if(joystickEl)joystickEl.querySelector(".knob").style.transform="";},
     freeze(on) { frozen = on; if (on) {keys.clear();joy.x=joy.y=0;driveInput.steer=driveInput.throttle=driveInput.brake=0;driveSpeed=0;if(joystickEl)joystickEl.querySelector(".knob").style.transform="";} },

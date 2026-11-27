@@ -67,7 +67,7 @@ export function createHud({ open, act }) {
   const MENU = [
     ["You", [["🙂","Profile","profile"],["🪪","Campus ID","campus"],["🪞","AI twin","twin"]]],
     ["People", [["🤝","Private chats","chats"],["🔍","Find people","find"],["👥","Online now","online"]]],
-    ["Explore", [["🗺","City map","map"],["🚗","Choose ride","vehicles"]]],
+    ["Explore", [["🗺","City map","map"],["♫","Concerts & club","events"],["🚗","Choose ride","vehicles"]]],
     ["Settings", [["✥","Controls","controls"],["◉","Camera","camera"],["🔊","Sound","sound"],["🕒","Time & weather","time"],["⛶","Fullscreen","fullscreen"]]],
   ];
   const moreBadges = {};

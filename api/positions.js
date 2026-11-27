@@ -8,7 +8,7 @@ export function createPositionsHandler(env=process.env){return async function ha
  const fail=(status,error)=>{res.setHeader('Cache-Control','no-store');return res.status(status).json({error});};
  if(req.method!=='GET')return fail(405,'Method not allowed');
  const place=String(req.query?.place||''),cx=Number(req.query?.cx),cz=Number(req.query?.cz);
- if(!['ldrp','dandi'].includes(place)||!Number.isInteger(cx)||!Number.isInteger(cz)||Math.abs(cx)>200||Math.abs(cz)>200)return fail(400,'Bad area');
+ if(!['ldrp','dandi','gift','swagat'].includes(place)||!Number.isInteger(cx)||!Number.isInteger(cz)||Math.abs(cx)>200||Math.abs(cz)>200)return fail(400,'Bad area');
  try{
   const url=env.SUPABASE_URL||env.VITE_SUPABASE_URL||PUBLIC_SUPABASE_PROJECT.url;
   const key=env.SUPABASE_PUBLISHABLE_KEY||env.VITE_SUPABASE_PUBLISHABLE_KEY||env.VITE_SUPABASE_ANON_KEY||PUBLIC_SUPABASE_PROJECT.publishableKey;

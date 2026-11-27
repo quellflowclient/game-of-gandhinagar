@@ -1,37 +1,67 @@
-/* Illustrated welcome and progress-driven world assembly. No extra WebGL. */
-#landing{background:#0a2228 url('/art/gog-city.svg') 65% 35%/cover no-repeat;overflow-y:auto;overflow-x:hidden;grid-template-rows:auto 1fr auto}
-#landing .land-scrim{background:linear-gradient(90deg,#071b23ef 0%,#071b23c9 34%,#071b2340 72%),linear-gradient(0deg,#071b23 0%,#071b2344 65%,#071b2320);pointer-events:none}
-#landing .land-top{padding:calc(24px + env(safe-area-inset-top)) clamp(22px,5vw,76px) 12px;gap:16px}
-#landing .brand{font-size:13px;letter-spacing:-.02em}#landing .brand-mark{background:#e7c58b;color:#183f36;box-shadow:none;border:1px solid #e7c58b88;border-radius:12px;width:36px;height:36px}
-#landing .brand-mark svg path{stroke:#204d3e}
-#landing .land-signin{background:#ffffff0b;border:1px solid #f2eed940;border-radius:10px;color:#f8f4df;backdrop-filter:none;min-height:42px;padding:10px 17px}
-#landing .land-main{align-self:center;padding:42px clamp(22px,6vw,88px);gap:20px;overflow:visible;max-height:none;width:min(740px,100%)}
-#landing .eyebrow{display:flex;align-items:center;gap:8px;font:700 9px/1.5 Inter,system-ui;letter-spacing:.19em;color:#cbd8b7}
-.welcome-live-dot{height:6px;width:6px;border-radius:50%;background:#dabe7d;box-shadow:0 0 0 4px #dabe7d19;flex:none}
-#landing h1{font-size:clamp(40px,7vw,88px);line-height:1.02;letter-spacing:-.06em;text-shadow:none;overflow-wrap:normal}
-#landing h1 .gu{display:block;margin:10px 0 0;color:#e8c58d;font-size:23px;letter-spacing:0;font-weight:600}
-#landing .lede{font-size:15px;line-height:1.75;color:#d1ddd7;max-width:37ch;text-wrap:pretty}
-#landing .land-actions{gap:10px;max-width:470px;margin-top:5px}
-#landing .cta{background:#e8c58c;color:#172d2c;min-height:57px;font-size:14px;border-radius:13px;box-shadow:0 8px 28px #06171b40;flex:1;min-width:230px;padding:10px 12px 10px 20px}
-#landing .cta:hover{background:#f0d7ab;box-shadow:0 10px 30px #06171b44}
-#landing .cta .arrow{background:#153c35;color:#ebd3a5;border-radius:9px;width:36px;height:36px}
-#landing .cta-ghost{background:#102e33a3;color:#edf1df;border:1px solid #d7e6cc35;font-size:12px;min-height:46px;border-radius:12px;backdrop-filter:none}
-#landing .land-dests{display:grid;grid-template-columns:1fr 1fr;gap:9px;max-width:470px;margin-top:6px}
-#landing .land-dests .dl{grid-column:1/-1;color:#b6c6bc;font:700 9px/1.6 Inter,system-ui;letter-spacing:.16em;margin-bottom:2px}
-#landing .dest-card{width:100%;padding:14px 12px;gap:10px;border-radius:12px;background:#13343be0;border:1px solid #e0e5c226;backdrop-filter:none;box-shadow:none}
-#landing .dest-card:hover{background:#20473f;border-color:#dec28b77}#landing .dest-card b{font-size:12px;color:#f4f1db}#landing .dest-card small{font-size:10px;line-height:1.4;color:#b0c5bc;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-#landing footer{padding:15px clamp(22px,5vw,76px) calc(20px + env(safe-area-inset-bottom));font-size:10px;color:#8fa99e;gap:7px 16px}#landing footer a{color:#becdc1}
-@media(orientation:portrait){
- #landing{background-position:64% 0;background-size:auto 100%;background-attachment:fixed}
- #landing .land-scrim{background:linear-gradient(0deg,#061a21 4%,#071d25f5 26%,#071d25ca 53%,#0a22283b 83%,#0a222844)}
- #landing .land-top{padding:calc(19px + env(safe-area-inset-top)) 20px 12px;gap:9px}#landing .brand{font-size:11px;gap:8px}#landing .brand-mark{width:30px;height:30px;border-radius:9px}#landing .land-signin{font-size:11px;min-height:38px;padding:8px 13px}
- #landing .land-main{align-self:end;padding:clamp(80px,18vh,170px) 22px 22px;gap:14px;width:100%;min-width:0}
- #landing h1{font-size:clamp(35px,10.5vw,58px)}#landing h1 .gu{font-size:18px;margin-top:7px}#landing .eyebrow{font-size:7px;letter-spacing:.14em}
- #landing .lede{font-size:12px;line-height:1.7;max-width:38ch}#landing .land-actions{display:grid;gap:8px;margin-top:4px}#landing .cta{width:100%;min-width:0;min-height:52px;font-size:13px}#landing .cta-ghost{min-height:41px;font-size:11px}#landing .land-dests{gap:8px;margin-top:5px}#landing .dest-card{padding:12px 10px;gap:8px;min-height:68px}#landing .dest-card b{font-size:10px}#landing .dest-card small{font-size:9px}
- #landing footer{padding:10px 20px calc(18px + env(safe-area-inset-bottom));font-size:8px}
+/* Light, scrollable welcome. The game HUD retains its own controls and palette. */
+#landing{--welcome-ink:#203e33;--welcome-muted:#63786c;position:fixed;inset:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:0;background:#f7f9f3;color:var(--welcome-ink);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;text-align:left}
+#landing .land-scrim{display:none}
+#landing>.land-top,#landing>.land-main,#landing>footer{flex:none}
+#landing .land-top{display:flex;align-items:center;justify-content:space-between;width:min(1180px,100%);margin:0 auto;padding:calc(24px + env(safe-area-inset-top)) 32px 16px;gap:18px;box-sizing:border-box}
+#landing .brand{display:flex;align-items:center;gap:10px;min-width:0;color:#254a39;font-size:13px;letter-spacing:-.025em}
+#landing .brand b{font-weight:700;line-height:1.25;max-width:180px;white-space:normal}
+#landing .brand-mark{display:grid;place-items:center;flex:none;width:36px;height:36px;border-radius:12px;border:1px solid #c8ddbf;background:#e4edd7;color:#31523d;box-shadow:none}
+#landing .brand-mark svg{width:23px;height:23px}#landing .brand-mark svg path{stroke:#426346}
+#landing .land-top-r{display:flex;align-items:center;gap:8px;flex:none}#landing .chip-live{display:none}
+#landing .land-signin{min-height:42px;padding:10px 17px;border:1px solid #d3dfcf;border-radius:12px;background:#fff;color:#315541;font:600 12px/1.3 Inter,system-ui;backdrop-filter:none}
+#landing #music-mute{position:static;inset:auto;z-index:auto;min-width:44px;min-height:42px;padding:9px;border:1px solid #d3dfcf;border-radius:12px;background:#fff;color:#315541;font:600 11px/1.3 Inter,system-ui;white-space:nowrap;box-shadow:none}
+#landing .land-main{display:grid;grid-template-columns:minmax(0,1fr);gap:46px;align-self:auto;width:min(1116px,calc(100% - 64px));max-width:none;max-height:none;min-width:0;margin:0 auto;padding:38px 0 48px;overflow:visible;box-sizing:border-box}
+#landing .welcome-hero{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);align-items:center;gap:52px}
+#landing .welcome-copy{min-width:0}
+#landing .eyebrow{display:flex;align-items:center;gap:8px;margin:0 0 18px;color:#647c55;font:700 9px/1.5 Inter,system-ui;letter-spacing:.15em}
+#landing .eyebrow>span{color:#9d8150;font-size:16px}
+#landing h1{display:block;margin:0;color:#234434;font:700 clamp(38px,5.2vw,68px)/1.06 Inter,system-ui;letter-spacing:-.065em;text-shadow:none;white-space:normal;overflow-wrap:normal}
+#landing h1 .gu{display:block;margin:12px 0 0;color:#829064;font:600 23px/1.4 'Baloo Bhai 2',system-ui;letter-spacing:0;white-space:normal}
+#landing .lede{max-width:40ch;margin:21px 0 0;color:#61766b;font:400 15px/1.8 Inter,system-ui;text-wrap:pretty}
+#landing .land-actions{display:flex;flex-wrap:wrap;gap:10px;max-width:none;margin:26px 0 0}
+#landing .cta{display:flex;align-items:center;justify-content:space-between;gap:20px;flex:none;min-width:212px;min-height:54px;padding:10px 12px 10px 20px;border:1px solid #2e5a42;border-radius:13px;background:#315d45;color:#f7faf1;box-shadow:0 5px 14px #234b3312;font:600 13px/1.4 Inter,system-ui}
+#landing .cta .arrow{display:grid;place-items:center;flex:none;width:31px;height:31px;border-radius:8px;background:#ffffff12;color:#e2efc9;font-size:19px}
+#landing .cta:hover{background:#244a35;box-shadow:0 6px 18px #234b3320}
+#landing .cta-ghost{min-height:54px;padding:12px 17px;border:1px solid #d2ddcc;border-radius:13px;background:#fff;color:#42624d;font:600 12px/1.4 Inter,system-ui;backdrop-filter:none}
+#landing .welcome-note{margin:13px 0 0;color:#87917e;font:400 10px/1.6 Inter,system-ui}
+#landing .welcome-art{position:relative;min-width:0;margin:0;overflow:hidden;border:1px solid #d7e2cd;border-radius:28px;background:#e7efdc;box-shadow:0 12px 40px #23462e08}
+#landing .welcome-art img{display:block;width:100%;height:350px;object-fit:cover;object-position:66% 45%}
+#landing .welcome-art figcaption{position:absolute;left:17px;right:17px;bottom:17px;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 15px;border:1px solid #fff9;border-radius:13px;background:#fafcf2ee;color:#425c43;font:600 11px/1.4 Inter,system-ui}
+#landing .art-caption-detail{font-size:9px;font-weight:400;color:#78836b;white-space:nowrap}
+#landing .welcome-places{min-width:0}
+#landing .welcome-places-heading{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:19px}
+#landing .places-kicker{margin:0 0 7px;color:#8a9275;font:700 8px/1.5 Inter,system-ui;letter-spacing:.17em}
+#landing .welcome-places h2{margin:0;color:#2a4a38;font:600 25px/1.2 Inter,system-ui;letter-spacing:-.045em}
+#landing .welcome-places-heading>p{margin:0 0 2px;color:#7b8875;font:400 11px/1.6 Inter,system-ui}
+#landing .land-dests{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-column:auto;grid-row:auto;gap:11px;max-width:none;margin:0}
+#landing .dest-card{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:18px;width:auto;min-width:0;min-height:166px;padding:17px;border:1px solid #dbe3d4;border-radius:17px;background:#fff;color:#2e4c39;text-align:left;box-shadow:0 3px 12px #254b3018;backdrop-filter:none;transition:background .15s,border-color .15s,transform .15s}
+#landing .dest-card:hover{background:#f1f6e9;border-color:#a0b69a;transform:translateY(-2px)}
+#landing .dest-index{display:grid;place-items:center;flex:none;width:32px;height:32px;border-radius:10px;background:#edf2e4;color:#71865a;font:600 10px/1 Inter,system-ui;font-variant-numeric:tabular-nums}
+#landing .dest-copy{display:block;min-width:0}
+#landing .dest-card b{display:block;margin:0;color:#31513b;font:600 13px/1.4 Inter,system-ui;white-space:normal}
+#landing .dest-card small{display:block;margin-top:6px;color:#7b8876;font:400 11px/1.55 Inter,system-ui;white-space:normal;overflow:visible;-webkit-line-clamp:unset}
+#landing .dest-arrow{position:absolute;top:20px;right:17px;color:#89967a;font:400 17px/1 Inter,system-ui}
+#landing footer{display:grid;gap:3px;width:min(1116px,calc(100% - 64px));margin:auto auto 0;padding:20px 0 calc(20px + env(safe-area-inset-bottom));border-top:1px solid #dde5d5;color:#85917d;font:400 10px/1.5 Inter,system-ui;box-sizing:border-box}
+#landing .welcome-footer-main{display:flex;align-items:center;justify-content:space-between;gap:8px 18px;flex-wrap:wrap}
+#landing footer nav{display:flex;align-items:center;gap:20px}#landing footer nav a{display:inline-flex;align-items:center;min-height:36px}
+#landing footer a{color:#5f795c;text-decoration:none}#landing footer a:hover{text-decoration:underline}#landing footer .map-attribution{font-size:9px;color:#8c9684;justify-self:start}
+#landing button:focus-visible,#landing a:focus-visible{outline:3px solid #6e9468;outline-offset:4px}
+#landing .demo-line{margin:0;color:#7b8876;font-size:11px}
+@media(max-width:900px){#landing .welcome-hero{gap:28px}#landing .cta{min-width:174px;gap:10px}#landing .cta-ghost{padding:11px}#landing .dest-card{padding:13px;min-height:178px}#landing .dest-card b{font-size:12px}#landing .dest-arrow{right:13px}}
+@media(max-width:700px){
+ #landing .land-top{padding:calc(18px + env(safe-area-inset-top)) 18px 12px;gap:8px}#landing .brand{font-size:11px;gap:8px}#landing .brand b{max-width:143px}#landing .brand-mark{width:31px;height:31px;border-radius:10px}#landing .land-signin{min-height:40px;padding:9px 12px;font-size:11px}#landing #music-mute{min-height:40px;min-width:42px;padding:8px 7px;font-size:10px}
+ #landing .land-main{width:calc(100% - 36px);gap:30px;padding:21px 0 31px}
+ #landing .welcome-hero{grid-template-columns:minmax(0,1fr);gap:23px}
+ #landing .eyebrow{font-size:8px;letter-spacing:.12em;margin-bottom:13px}#landing h1{font-size:clamp(33px,10vw,54px);line-height:1.07}#landing h1 .gu{font-size:20px;margin-top:8px}
+ #landing .lede{font-size:13px;line-height:1.85;max-width:40ch;margin-top:14px}
+ #landing .land-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin-top:21px}#landing .cta{width:100%;min-width:0;min-height:52px;padding:10px 12px 10px 18px;font-size:13px}#landing .cta-ghost{min-height:42px;font-size:12px}#landing .welcome-note{font-size:10px;margin-top:11px}
+ #landing .welcome-art{border-radius:21px}#landing .welcome-art img{height:170px;object-position:65% 40%}#landing .welcome-art figcaption{left:10px;right:10px;bottom:10px;padding:10px 12px;border-radius:10px;font-size:10px}#landing .art-caption-detail{font-size:8px}
+ #landing .welcome-places-heading{display:block;margin-bottom:15px}#landing .welcome-places h2{font-size:23px}#landing .welcome-places-heading>p{font-size:11px;margin-top:7px}
+ #landing .land-dests{grid-template-columns:minmax(0,1fr);gap:9px}
+ #landing .dest-card{display:grid;grid-template-columns:36px minmax(0,1fr) 18px;align-items:center;gap:12px;padding:14px;min-height:77px;border-radius:15px;box-shadow:0 2px 8px #254b3006}
+ #landing .dest-index{width:36px;height:36px;font-size:10px}#landing .dest-card b{font-size:13px}#landing .dest-card small{font-size:11px;margin-top:3px;line-height:1.5}#landing .dest-arrow{position:static;font-size:18px}
+ #landing footer{width:calc(100% - 36px);padding-top:13px;padding-bottom:calc(20px + env(safe-area-inset-bottom));gap:7px;font-size:9px}#landing .welcome-footer-main{display:block}#landing footer nav{gap:22px;margin-top:3px}#landing footer nav a{min-height:36px}#landing footer .map-attribution{font-size:8px}
 }
-@media(orientation:landscape) and (max-height:600px){
- #landing .land-top{padding:10px 22px 4px}#landing .land-main{align-self:center;grid-template-columns:minmax(0,1fr) minmax(165px,.65fr);width:100%;padding:14px 26px;gap:9px 28px}#landing h1{font-size:clamp(30px,5.5vw,49px)}#landing h1 .gu{font-size:14px;margin-top:4px}#landing .eyebrow{font-size:7px}#landing .lede{font-size:11px;line-height:1.5}#landing .land-dests{grid-column:2;grid-row:1/span 5;grid-template-columns:1fr;align-self:center;gap:8px}#landing .land-dests .dl{grid-column:1}#landing .land-actions{display:flex;gap:8px}#landing .cta{min-height:41px;min-width:0;font-size:11px;padding:7px 9px 7px 12px}#landing .cta .arrow{width:27px;height:27px}#landing .cta-ghost{min-height:41px;padding:7px 10px;font-size:10px}#landing footer{padding-top:4px;padding-bottom:8px;font-size:7px}
-
-}
-@media(prefers-reduced-motion:reduce){#landing .cta{transition:none}}
+@media(max-width:359px){#landing .land-top{padding-left:16px;padding-right:16px}#landing .brand{font-size:10px;gap:6px}#landing .brand b{max-width:119px}#landing .land-top-r{gap:5px}#landing .land-signin{padding:8px 10px;font-size:10px}#landing .land-main,#landing footer{width:calc(100% - 32px)}#landing .welcome-art figcaption{gap:8px}#landing .art-caption-detail{display:none}}
+@media(orientation:landscape) and (max-height:600px) and (min-width:701px){#landing .land-top{padding-top:13px;padding-bottom:5px}#landing .land-main{padding-top:18px;gap:28px;width:calc(100% - 48px)}#landing .welcome-hero{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}#landing h1{font-size:40px}#landing h1 .gu{font-size:17px}#landing .lede{font-size:12px;line-height:1.6;margin-top:12px}#landing .land-actions{margin-top:17px;gap:8px}#landing .cta{min-width:166px;min-height:46px;font-size:12px}#landing .cta-ghost{min-height:46px;font-size:11px}#landing .welcome-art img{height:245px}#landing .eyebrow{margin-bottom:11px;font-size:8px}#landing footer{width:calc(100% - 48px)}}
+@media(prefers-reduced-motion:reduce){#landing .cta,#landing .dest-card{transition:none}}

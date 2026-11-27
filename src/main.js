@@ -465,28 +465,32 @@ function updateTicker() {
 // ---------- landing ----------
 const LEAF_SVG='<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 19c8 0 14-5 14-14-7 0-13 4-13 11" stroke="#fff" stroke-width="2" stroke-linecap="round"/><path d="M5 19c2-5 5-8 9-10" stroke="#cdeee0" stroke-width="2" stroke-linecap="round"/></svg>';
 const brandMark=()=>{const m=h("span",{class:"brand-mark"});m.innerHTML=LEAF_SVG;return m;};
+const welcomeMusic=document.getElementById('music-mute');
+const welcomePlaces={gift:['GIFT City','Skyline walks in the financial district.'],swarnim:['Swarnim Park','Green promenades near Mahatma Mandir.'],dandi:['Mahatma Mandir','Museum grounds and waterside walks.'],swagat:['Swagat Holiday Mall','A neighbourhood stop in Sargasan.'],ldrp:['LDRP-ITR','Campus lanes, gardens and chai stops.']};
 const landSignIn=h("button",{type:"button",class:"land-signin",onclick:()=>{skipVisitorToast=true;enter();setTimeout(()=>prof.openSignIn(app),350);}},app.session?"My account":"Sign in");
 const landing = h("div", { id: "landing" },
   h("div",{class:"land-scrim"}),
   h("header", { class: "land-top" },
     h("div", { class: "brand" }, brandMark(), h("b", {}, CONTENT.labels.gameName)),
-    h("div",{class:"land-top-r"},
-      h("span", { class: "chip-live" }, h("i", { class: "pulse" }), h("span", { class: "ticker" }, "Gandhinagar · live")),
-      landSignIn)),
+    h("div",{class:"land-top-r"},welcomeMusic,landSignIn)),
   h("main", { class: "land-main" },
-    h("p", { class: "eyebrow" }, h("span",{class:"welcome-live-dot"}),"YOUR CITY. YOUR PEOPLE. YOUR GAME."),
-    h("h1", {}, "Gandhinagar", h("span", { class: "gu" }, "ગાંધીનગર")),
-    h("p", { class: "lede" }, "Campus roads. Chai with friends. A city that feels like home. Walk, ride and meet real people in Gandhinagar."),
-    h("div",{class:"land-actions"},
-      h("button", { type: "button", class: "cta", onclick: () => enter() }, h("span",{},"Let’s go, Gandhinagar"), h("span", { class: "arrow" }, "→")),
-      !app.session?h("button",{type:"button",class:"cta-ghost",onclick:()=>{skipVisitorToast=true;enter();setTimeout(()=>prof.openSignIn(app),350);}},"Sign in with email"):null),
-    h("div", { class: "land-dests" }, h("span", { class: "dl" }, "CHOOSE YOUR FIRST STOP"),
-      hubs().map((p) => h("button", { type: "button", class: "dest-card", style: { "--pc": "#" + p.color.toString(16).padStart(6, "0") },
-        onclick: () => { enter(); setTimeout(() => travel(p.id), 300); } }, h("i", {}), h("span",{},h("b",{},p.name),h("small",{},p.blurb||p.gu||""))))),
+    h('section',{class:'welcome-hero','aria-labelledby':'welcome-title'},
+      h('div',{class:'welcome-copy'},
+        h("p", { class: "eyebrow" },h('span',{'aria-hidden':'true'},'✦'),"YOUR CITY. A LITTLE CLOSER."),
+        h("h1", {id:'welcome-title'}, "Gandhinagar", h("span", { class: "gu",lang:'gu' }, "ગાંધીનગર")),
+        h("p", { class: "lede" }, "A familiar corner. A new conversation. Walk the city, stop for chai and meet the people who make it home."),
+        h("div",{class:"land-actions"},
+          h("button", { type: "button", class: "cta", onclick: () => enter() }, h("span",{},"Explore the city"), h("span", { class: "arrow",'aria-hidden':'true' }, "→")),
+          !app.session?h("button",{type:"button",class:"cta-ghost",onclick:()=>{skipVisitorToast=true;enter();setTimeout(()=>prof.openSignIn(app),350);}},"Sign in with email"):null),
+        h('p',{class:'welcome-note'},'Start exploring as a visitor. Join when you feel at home.')),
+      h('figure',{class:'welcome-art'},h('img',{src:'/art/gog-city-day.svg',alt:'',width:1600,height:1100,decoding:'async'}),h('figcaption',{},h('span',{},'A city of familiar corners.'),h('span',{class:'art-caption-detail'},'Walk · Meet · Explore')))),
+    h('section',{class:'welcome-places','aria-labelledby':'first-stop-title'},
+      h('div',{class:'welcome-places-heading'},h('div',{},h('p',{class:'places-kicker'},'FIND YOUR CORNER'),h('h2',{id:'first-stop-title'},'Where shall we begin?')),h('p',{},'Choose a place. Take the metro to the next.')),
+      h("div", { class: "land-dests" },hubs().map((p,index) => h("button", { type: "button", class: "dest-card", style: { "--pc": "#" + p.color.toString(16).padStart(6, "0") },
+        onclick: () => { enter(); setTimeout(() => travel(p.id), 300); } },h('span',{class:'dest-index','aria-hidden':'true'},String(index+1).padStart(2,'0')),h("span",{class:'dest-copy'},h("b",{},welcomePlaces[p.id]?.[0]||p.name),h("small",{},welcomePlaces[p.id]?.[1]||p.blurb||p.gu||"")),h('span',{class:'dest-arrow','aria-hidden':'true'},'↗'))))),
     backend.mode === "demo" ? h("p", { class: "demo-line" }, "Demo mode: data stays in this browser.") : null),
-  h("footer", {}, h("span", {}, `© ${CONTENT.labels.gameName}`),
-    h("a", { href: "/terms.html" }, "Terms"), h("a", { href: "/privacy.html" }, "Privacy"),
-    h("span", {}, "Map data © OpenStreetMap contributors")));
+  h("footer", {}, h('div',{class:'welcome-footer-main'},h("span", {}, `© ${new Date().getFullYear()} ${CONTENT.labels.gameName}`),h('nav',{'aria-label':'Legal and support'},h("a", { href: "/terms.html" }, "Terms"), h("a", { href: "/privacy.html" }, "Privacy"),h('a',{href:'mailto:support@gamail.com'},'Contact'))),
+    h("a", {class:'map-attribution',href:'https://www.openstreetmap.org/copyright',target:'_blank',rel:'noopener noreferrer'}, "Map data © OpenStreetMap contributors")));
 document.body.append(landing);
 document.body.classList.add("on-landing");
 updateTicker();
@@ -503,6 +507,7 @@ async function enter() {
   entered = true;
   document.body.classList.remove("on-landing");
   document.body.classList.add("game-started");
+  if(welcomeMusic)document.body.append(welcomeMusic);
   landing.classList.add("gone");
   setTimeout(() => landing.remove(), 600);
   sound.start();

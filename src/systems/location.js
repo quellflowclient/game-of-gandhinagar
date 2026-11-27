@@ -66,7 +66,8 @@ export function createLocationSharing({ backend, isSignedIn, toast }) {
       h("div", { class: "loc-card" },
         h("div", { class: "loc-icon", "aria-hidden": "true" }, "📍"),
         h("h2", { id: "loc-ask-title" }, "Share your location?"),
-        h("p", {}, "The game admins will be able to see your exact live location while you play. This helps keep the campus safe. You can skip this now."),
+        h("p", {}, "Your precise device location may be shared with gameofgandhinagar while you play. It is not shown to other players. Sharing is optional: keep playing without it, or turn it off later in your browser settings."),
+        h('a',{class:'loc-privacy',href:'/privacy.html#location',target:'_blank',rel:'noopener noreferrer'},'How location is used'),
         h("div", { class: "loc-actions" }, later, allow)));
     document.body.append(dialog);
     later.focus({ preventScroll: true });
@@ -97,6 +98,7 @@ function injectStyle() {
   s.textContent = `.loc-ask{position:fixed;inset:auto 0 0 0;display:flex;justify-content:center;padding:16px;z-index:9000;pointer-events:none}
 .loc-card{pointer-events:auto;width:min(420px,100%);background:#0f2a22;color:#f3efe2;border:1px solid rgba(214,180,92,.45);border-radius:16px;padding:18px 18px 14px;box-shadow:0 18px 40px rgba(0,0,0,.45);font:14px/1.45 Inter,system-ui,sans-serif;animation:loc-in .25s ease-out}
 .loc-card h2{margin:4px 0 6px;font-size:18px;color:#f6d98a}.loc-card p{margin:0 0 14px;color:#d9d4c3}.loc-icon{font-size:24px}
+.loc-privacy{display:inline-block;margin:0 0 15px;color:#e4d6a9;font-size:12px;text-underline-offset:3px}
 .game-panel-open .loc-ask,.game-menu-open .loc-ask,.metro-in-transit .loc-ask{visibility:hidden}
 .loc-actions{display:flex;gap:10px;justify-content:flex-end}.loc-btn{min-height:44px;padding:0 18px;border-radius:10px;border:1px solid rgba(243,239,226,.35);background:transparent;color:#f3efe2;font:600 14px Inter,system-ui,sans-serif;cursor:pointer}
 .loc-btn.primary{background:#d6b45c;border-color:#d6b45c;color:#13231d}.loc-btn:focus-visible{outline:2px solid #f6d98a;outline-offset:2px}

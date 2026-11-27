@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="/src/premium.css" />
     <link rel="stylesheet" href="/src/game-shell.css" />
     <style>
-      #loading{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:24px;background:#0b2027;color:#edf2e7;font-family:Inter,system-ui;transition:opacity .35s}
+      #loading{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:24px;background:#f7f9f3;color:#294b37;font-family:Inter,system-ui;transition:opacity .35s}
       #loading.done{opacity:0;pointer-events:none}
       #loading .ld{width:min(320px,86vw);text-align:center}
       #loading h1{font-size:22px;font-weight:600;letter-spacing:-.04em;margin:8px 0 30px}
@@ -30,23 +30,23 @@
       .metro-train{position:absolute;bottom:12px;left:0;display:flex;gap:3px;animation:metro-pass 2.7s linear infinite;will-change:transform}
       .metro-car{position:relative;display:flex;gap:4px;align-items:flex-start;padding:7px 7px 10px;width:60px;height:29px;background:#dce5db;border-top:4px solid #dfbd7a;border-radius:4px 4px 2px 2px;box-sizing:border-box}
       .metro-car:first-child{border-radius:13px 4px 2px 2px}.metro-car:last-child{border-radius:4px 13px 2px 2px}.metro-car:after{content:'';position:absolute;left:9px;right:9px;bottom:-4px;height:6px;border-left:7px solid #8aa198;border-right:7px solid #8aa198}.metro-car i{width:10px;height:8px;background:#2f585b;border-radius:1px}
-      #loading .bar{height:3px;background:#ffffff14;border-radius:3px;overflow:hidden}#loading .bar i{display:block;height:100%;width:4%;background:#b9d5b8;transition:width .25s}
-      #loading .meta{display:flex;justify-content:space-between;gap:12px;margin-top:12px;color:#93afa1;font-size:10px;line-height:1.5;text-align:left}#loading .meta p{margin:0}#loading .meta b{font-weight:500;color:#cbdcc9;white-space:nowrap}
-      #loading .ld>p{font:14px/1.6 Inter,system-ui;color:#cbdcc9}.startup-retry{margin-top:18px;min-height:46px;padding:12px 22px;border:0;border-radius:12px;background:#e8c98e;color:#183b40;font:600 14px Inter,system-ui;cursor:pointer}
+      #loading .bar{height:3px;background:#dce5d4;border-radius:3px;overflow:hidden}#loading .bar i{display:block;height:100%;width:4%;background:#6d8f60;transition:width .25s}
+      #loading .meta{display:flex;justify-content:space-between;gap:12px;margin-top:12px;color:#829177;font-size:10px;line-height:1.5;text-align:left}#loading .meta p{margin:0}#loading .meta b{font-weight:500;color:#385a3b;white-space:nowrap}
+      #loading .ld>p{font:14px/1.6 Inter,system-ui;color:#66795e}.startup-retry{margin-top:18px;min-height:46px;padding:12px 22px;border:0;border-radius:12px;background:#315d45;color:#f7f9f3;font:600 14px Inter,system-ui;cursor:pointer}
       @keyframes metro-pass{from{transform:translateX(-190px)}to{transform:translateX(330px)}}
       @media(prefers-reduced-motion:reduce){.metro-train{animation:none;left:50%;transform:translateX(-50%)}#loading .bar i{transition:none}}
     </style>
     <link rel="stylesheet" href="/src/welcome.css" />
-    <link rel="preload" href="/art/gog-city.svg" as="image" />
+    <link rel="preload" href="/art/gog-city-day.svg" as="image" />
     <script type="module" src="/src/ui/landscape.js"></script>
   </head>
   <body>
     <audio id="gog-theme" src="/audio/gog-theme.mp3" preload="none" loop playsinline crossorigin="anonymous"></audio>
     <style>
-      #music-choice{width:min(370px,calc(100vw - 36px));max-height:calc(100dvh - 32px);overflow:auto;padding:26px;border:1px solid #91b9a666;border-radius:20px;background:#102e33;color:#edf2e7;font:14px/1.6 Inter,system-ui;box-shadow:0 20px 70px #0006}
-      #music-choice::backdrop{background:#06171be0}#music-choice h2{font-size:22px;line-height:1.3;margin:0 0 10px}#music-choice p{color:#b8cdc5;margin:0 0 22px}
-      #music-choice .music-actions{display:flex;gap:10px}#music-choice button{flex:1;min-height:46px;padding:10px;border:1px solid #bed3c84d;border-radius:12px;font:600 14px Inter,system-ui;background:#1b4344;color:#edf2e7;cursor:pointer}
-      #music-choice #music-yes{background:#e8c98e;color:#183b40}#music-choice button:focus-visible{outline:3px solid #fff;outline-offset:3px}
+      #music-choice{width:min(370px,calc(100vw - 36px));max-height:calc(100dvh - 32px);overflow:auto;padding:26px;border:1px solid #ccdcbc;border-radius:20px;background:#f8faf3;color:#284b36;font:14px/1.6 Inter,system-ui;box-shadow:0 20px 70px #0006}
+      #music-choice::backdrop{background:#20362277}#music-choice h2{font-size:22px;line-height:1.3;margin:0 0 10px}#music-choice p{color:#6c7b61;margin:0 0 22px}
+      #music-choice .music-actions{display:flex;gap:10px}#music-choice button{flex:1;min-height:46px;padding:10px;border:1px solid #d1dec6;border-radius:12px;font:600 14px Inter,system-ui;background:#fff;color:#426044;cursor:pointer}
+      #music-choice #music-yes{background:#315d45;color:#f7f9f3}#music-choice button:focus-visible{outline:3px solid #7b9c6e;outline-offset:3px}
       #music-mute,#music-enable{position:fixed;z-index:125;right:max(16px,env(safe-area-inset-right));min-height:40px;padding:9px 13px;border:1px solid #b5f2cd66;border-radius:12px;background:#142e28ed;color:#e9fff1;font:600 12px system-ui;cursor:pointer}#music-mute{top:76px}#music-enable{bottom:100px}
     </style>
     <dialog id="music-choice" aria-labelledby="music-title" aria-describedby="music-description">

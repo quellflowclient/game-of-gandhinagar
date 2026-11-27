@@ -13,13 +13,13 @@
 #hud .hud-tl{max-width:calc(100vw - 88px)}#hud .place-card{max-width:calc(100vw - 88px)}
 .game-menu-open .city-quick-actions,.game-menu-open .quick-rides,.game-menu-open .play-area-label,.game-menu-open .area-boundary-hint,.game-menu-open .player-greeting{visibility:hidden}
 .on-landing .city-quick-actions,.portrait-page-mode .city-quick-actions{visibility:hidden}
-.game-menu-open #music-mute,.game-menu-open #music-enable{visibility:hidden}
+.game-menu-open #music-mute,.game-menu-open #music-enable,.game-panel-open #music-mute,.game-panel-open #music-enable{visibility:hidden}
 
 /* One icon opens a small, organised city toolkit. */
 #hud .city-menu{position:absolute;top:calc(70px + env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));left:auto;bottom:auto;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;width:min(600px,calc(100vw - 24px));max-height:calc(100vh - 86px);max-height:calc(100dvh - 86px - env(safe-area-inset-top) - env(safe-area-inset-bottom));padding:18px;box-sizing:border-box;overflow:auto;overscroll-behavior:contain;transform:none;border-radius:22px;animation:city-menu-in .16s ease-out}
 @keyframes city-menu-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 #hud .city-menu{scrollbar-width:thin;scrollbar-color:#5c7b6b transparent}#hud .city-menu::-webkit-scrollbar{width:4px}#hud .city-menu::-webkit-scrollbar-thumb{background:#5c7b6b;border-radius:6px}#hud .city-menu::-webkit-scrollbar-track{background:transparent}
-#hud .city-menu .more-head{grid-column:1/-1;display:flex;justify-content:space-between;align-items:flex-start;padding:0 0 14px;border-bottom:1px solid #c8ded422;gap:16px}
+#hud .city-menu .more-head{position:sticky;top:0;z-index:3;background:#142d33;grid-column:1/-1;display:flex;justify-content:space-between;align-items:flex-start;padding:0 0 14px;border-bottom:1px solid #c8ded422;gap:16px}
 #hud .city-menu .menu-kicker{display:block;font:600 8px/1.4 Inter,system-ui;letter-spacing:.17em;color:#a6bcb0;margin-bottom:5px}
 #hud .city-menu .more-head b{display:block;font-size:24px;font-weight:600;letter-spacing:-.04em;line-height:1.2}
 #hud .city-menu .menu-description{margin:6px 0 0;color:#afc4ba;font:11px/1.5 Inter,system-ui}

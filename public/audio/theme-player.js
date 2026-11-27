@@ -31,8 +31,8 @@
   const next=entered&&place==='gift'&&giftEntryPending?'gift':entered&&inside?'campus':'general';
   if(next!==desired){desired=next;clearTimeout(switchTimer);switchTimer=0;}
   const enabled=choice===true&&!muted&&master;
-  toggle.hidden=choice===null;toggle.textContent=enabled?(blocked?'♫ Resume':'♫ Off'):'♫ On';
-  toggle.setAttribute('aria-label',enabled?(blocked?'Resume music':'Mute music'):'Play music');toggle.setAttribute('aria-pressed',String(!enabled));
+  toggle.hidden=choice===null;toggle.textContent=enabled?(blocked?'♫ Resume':'♫ On'):'♫ Off';
+  toggle.setAttribute('aria-label',enabled?(blocked?'Resume music':'Mute music'):'Play music');toggle.setAttribute('aria-pressed',String(enabled));
   retry.textContent=desired==='gift'?'♪ Tap to hear GIFT City audio':'♪ Tap to resume music';
   if(!enabled||document.hidden){clearTimeout(switchTimer);switchTimer=0;audio.pause();retry.hidden=true;return;}
   if(track!==desired){

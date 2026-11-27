@@ -29,11 +29,11 @@ function load(key=KEY) {
   try { return { ...fresh(), ...JSON.parse(localStorage.getItem(key)) }; } catch { return fresh(); }
 }
 
-export function createProgress(key=KEY) {
+export function createProgress(key=KEY,{missionsEnabled=false}={}) {
   let s = load(key);
   if(s.activeStory&&!STORIES.some(st=>st.id===s.activeStory))s.activeStory=null;
   const subs = [];
-  const toast = (msg, kind = "info") => subs.forEach((f) => f({ toast: msg, kind }));
+  const toast = (msg, kind = "info") => {if(missionsEnabled)subs.forEach((f) => f({ toast: msg, kind }));};
   const save = () => {
     try { localStorage.setItem(key, JSON.stringify(s)); } catch { /* storage blocked */ }
     subs.forEach((f) => f({ changed: true }));
@@ -67,6 +67,7 @@ export function createProgress(key=KEY) {
     if (s.earned >= 500) award("paisa");
   };
   const first = (id) => {
+    if(!missionsEnabled)return;
     if (!s.firsts.includes(id)) {
       s.firsts.push(id);
       toast(`✨ First: ${FIRSTS.find((f) => f.id === id)?.label}`, "good");
@@ -95,7 +96,7 @@ export function createProgress(key=KEY) {
   function track(ev, payload = {}) {
     // Chapter missions (only the current one counts).
     const ci = currentIndex();
-    if (ci >= 0) {
+    if (missionsEnabled && ci >= 0) {
       const def = CHAPTER.missions[ci];
       if (bump(def.goals, s.chapter[ci].counts, ev, payload)) {
         s.chapter[ci].done = true;
@@ -106,7 +107,7 @@ export function createProgress(key=KEY) {
       }
     }
     // Active story mission.
-    if (s.activeStory && ev === "checkpoint" && payload.story === s.activeStory) {
+    if (missionsEnabled && s.activeStory && ev === "checkpoint" && payload.story === s.activeStory) {
       const def = STORIES.find((x) => x.id === s.activeStory);
       if(!def)return;
       const st = (s.stories[def.id] ||= { found: [], done: false });
@@ -122,7 +123,7 @@ export function createProgress(key=KEY) {
       }
     }
     // Real-people missions.
-    for (const r of REAL_MISSIONS) if (r.type === ev && !s.real[r.id]) { s.real[r.id] = true; toast(`✅ ${r.title}`, "good"); }
+    if(missionsEnabled)for (const r of REAL_MISSIONS) if (r.type === ev && !s.real[r.id]) { s.real[r.id] = true; toast(`✅ ${r.title}`, "good"); }
     // Day one, firsts and stamps.
     if (ev === "visit") {
       const hub = hubs().find((h) => h.id === payload.place);
@@ -146,16 +147,19 @@ export function createProgress(key=KEY) {
   }
 
   return {
+    missionsEnabled,
     get state() { return s; },
     track,
     subscribe(fn) { subs.push(fn); },
     current() {
+      if(!missionsEnabled)return null;
       const i = currentIndex();
       return i < 0 ? null : { index: i, def: CHAPTER.missions[i], counts: s.chapter[i].counts };
     },
-    startStory(id) { s.activeStory = id; save(); toast(`${STORIES.find((x) => x.id === id).emoji} Story started. Look for the glowing markers.`); },
-    gigUnlocked(g) { const i = CHAPTER.missions.findIndex((m) => m.id === g.unlockAfter); return s.chapter[i]?.done; },
+    startStory(id) { if(!missionsEnabled)return;s.activeStory = id; save(); toast(`${STORIES.find((x) => x.id === id).emoji} Story started. Look for the glowing markers.`); },
+    gigUnlocked(g) { if(!missionsEnabled)return false;const i = CHAPTER.missions.findIndex((m) => m.id === g.unlockAfter); return s.chapter[i]?.done; },
     finishGig(g, secondsLeft) {
+      if(!missionsEnabled)return 0;
       const bonus = Math.round((secondsLeft / g.seconds) * 40);
       addCoins(g.reward + bonus, `${g.title}${bonus ? " + tip" : ""}`);
       s.gigsDone[g.id] = Math.max(s.gigsDone[g.id] || 0, g.reward + bonus);

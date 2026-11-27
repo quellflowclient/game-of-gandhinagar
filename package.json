@@ -21,6 +21,7 @@
     "test:mobile": "node scripts/test-mobile.mjs",
     "test:touch": "node scripts/test-touch-controls.mjs",
     "test:location": "node scripts/test-location-prompt.mjs",
+    "test:explore": "node scripts/test-free-explore.mjs",
     "test:live": "node scripts/test-live-release.mjs",
     "test:grounding": "node scripts/test-grounding.mjs",
     "test:sidewalks": "node scripts/test-sidewalks.mjs",

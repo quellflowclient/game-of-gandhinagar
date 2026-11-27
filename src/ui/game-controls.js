@@ -30,7 +30,7 @@ export function openControlGuide(){
     row('✥','Walk & run','Left thumb joystick se aage, peeche aur sideways chalo. Outer ring tak push karo to run. Running button se bhi toggle kar sakte ho.'),
     row('◉','Look around','Screen ke empty area par drag karke camera ghumao. Pinch to zoom. Camera button se first-person, follow aur wide views choose karo.'),
     row('⇄','Drive your ride','Left / right hold karke steer karo. Race se aage chalo. Brake / Reverse se pehle ruko; hold rakho to rukne ke baad dheere peeche chalo. Dono pedals saath dabane par gaadi rukti hai. Space sirf brake hai.'),
-    row('⌨','Keyboard','WASD / arrows: movement or driving. Shift: run. Space: jump on foot / brake in vehicle. C: choose ride. E: interact. Esc: close panel.'),
+    row('⌨','Keyboard','WASD / arrows: movement or driving. Shift: run. Space: jump on foot / brake in vehicle. Q: wave and say hi. M: metro. T: city chat. C: choose ride. E: interact. Esc: close panel.'),
     row('↑','Jump','Jump button ya Space dabao. Sirf paidal mode mein jump hota hai; zameen par aane ke baad phir jump kar sakte ho.'),
     row('⛶','Portrait or landscape','Seedhe phone par game khelo. Landscape chahiye to phone khud rotate karo. Game orientation lock nahi karta.')));
 }

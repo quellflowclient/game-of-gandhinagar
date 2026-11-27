@@ -169,7 +169,7 @@ const app = {
   goNear(x, z) { player.teleport(x + 3, z + 3); },
   waveAt(target) { waveAt(target); },
   setFestival(id) { app.festival = id; festival.set(id, player.position); if (id) toast("Festival preview on. Open Utsav to stop it."); },
-  showCheckpoints(storyId) { for (const c of world.checkpoints) c.mesh.visible = c.story === storyId; },
+  showCheckpoints(storyId) { for (const c of world.checkpoints) c.mesh.visible = progress.missionsEnabled && c.story === storyId; },
   startGig(g) { startGig(g); },
   missionHint(def) {
     const visit = def.goals.find((g) => g.type === "visit" || g.type === "night_at");
@@ -206,8 +206,6 @@ function openNamed(name) {
     find: () => social.openFind(app), online: () => social.openOnline(app), chats: () => social.openChats(app), world: () => social.openWorld(app),
     plans: () => city.openPlans(app), utsav: () => city.openUtsav(app), travel: () => city.openTravel(app), map: () => city.openMap(app),
     time: () => city.openTime(app), sound: () => city.openSound(app),camera:()=>openCamera(app),controls:()=>openControlGuide(),fullscreen:()=>landscape.toggleFullscreen(),vehicles:()=>openVehicles(app,hud),campus:()=>app.campus?.inventory(), suggest: () => city.openSuggest(app), ads: () => city.openAds(app),
-    mission: () => game.openMissionBrief(app), missions: () => game.openMissions(app), passport: () => game.openPassport(app),
-    dayone: () => game.openDayOne(app), scores: () => game.openScores(app),
   };
   (map[name] || (() => toast("Coming soon")))();
 }
@@ -222,7 +220,7 @@ function act(name) {
     openVehicles(app,hud);
   } else if (name === "wave") {
     const p = people.nearest(player.position, 10);
-    if (p) waveAt(p); else { player.wave(); toast("👋 Nobody close enough. Walk up to someone first."); }
+    if (p) waveAt(p); else greet();
   } else if (name === "nearest") {
     const p = people.nearest(player.position, 12);
     if (p) social.openCard(app, p);
@@ -232,15 +230,21 @@ function act(name) {
   }
 }
 
+let nextWaveAt=0;
+function greet(){
+  const now=performance.now();if(now<nextWaveAt)return false;nextWaveAt=now+1800;
+  if(panelOpen())closePanel();
+  player.wave();hud.showGreeting();sound.say('Hi!','en-IN',{interrupt:false});return true;
+}
 async function waveAt(target) {
-  player.wave();
+  if(!greet())return;
   if (target.data.ai) {
-    people.say(target, "Kem cho! 👋", 3);
+    people.say(target, "Hi! 👋", 3);
     progress.track("wave", { ai: true, place: target.data.place });
     toast(`👋 You waved at ${target.data.name}`, "info", 2500, { label: "Chat", fn: () => social.openAiChat(app, target) });
     return;
   }
-  if (!app.requireSignIn("wave at members")) return;
+  if (!app.session) return;
   try {
     await backend.wave(target.data.id);
     progress.track("wave", { ai: false });
@@ -282,6 +286,7 @@ function marker(color) {
   return m;
 }
 function startGig(g) {
+  if(!progress.missionsEnabled)return;
   if (gig) endGig(false, "Previous gig cancelled.");
   travel(g.place);
   setTimeout(() => {
@@ -383,16 +388,7 @@ backend.onAuth?.(async session => {
   catch(e){toast(e.message,'bad');}
 });
 
-progress.subscribe((e) => { if (e.toast) toast(e.toast, e.kind); refreshMissionLine(); });
-function refreshMissionLine() {
-  const cur = progress.current();
-  const done = progress.state.chapter.filter((m) => m.done).length;
-  hud.setMission(cur ? cur.index + 1 : 6, cur ? `${cur.def.emoji} ${cur.def.title}` : "🏅 Chapter done!", done, 6, progress.state.showCurrent);
-  const d = progress.dayOne();
-  hud.setMoreBadge("dayone", `${d.filter((t) => t.done).length}/${d.length}`);
-  hud.setMoreBadge("missions", `${done}/6`);
-}
-refreshMissionLine();
+progress.subscribe((e) => { if (e.toast) toast(e.toast, e.kind); });
 
 // ---------- keyboard ----------
 window.addEventListener("keydown", (e) => {
@@ -404,7 +400,8 @@ window.addEventListener("keydown", (e) => {
   if (e.code === "KeyC") act("cycle");
   if (e.code === "KeyE" || e.code === "Enter") act(nearStall || nearStage ? "interact" : "nearest");
   if (e.code === "KeyL") openNamed("map");
-  if (e.code === "KeyM") openNamed("missions");
+  if (e.code === "KeyM") openNamed("travel");
+  if (e.code === "KeyT") openNamed("world");
 });
 // Freeze walking while a panel is open so typing does not move you.
 const controls=createGameControls({player,hud});
@@ -449,7 +446,7 @@ function proximity() {
   const n = people.nearest(p, 6);
   hud.setNearest(nearStall || nearStage ? null : n);
   // Story checkpoints.
-  const active = progress.state.activeStory;
+  const active = progress.missionsEnabled && progress.state.activeStory;
   if (active) for (const c of world.checkpoints) {
     if (c.story === active && c.mesh.visible && Math.hypot(p.x - c.x, p.z - c.z) < 3.5) {
       c.mesh.visible = false;
@@ -513,17 +510,13 @@ async function enter() {
   if(!tourMode)locationSharing.begin();
   if (app.session) await app.refreshMe();
   backend.joinPresence(presenceState());
-  if (!app.session && !skipVisitorToast) toast("You are walking as a visitor. Sign in to wave, chat and be seen.", "info", 6000, { label: "Sign in", fn: () => prof.openSignIn(app) });
+  if (!app.session && !skipVisitorToast) toast("You are exploring as a visitor. Sign in for private chats and to be seen by other players.", "info", 6000, { label: "Sign in", fn: () => prof.openSignIn(app) });
   else if (!app.me?.name) prof.openQuickJoin(app);
-  if (!tourMode) setTimeout(function offerIntroMission(){
-    if(progress.current()?.index!==0)return;
-    if(document.hidden||metroJourney.active||panelOpen()||hud.menuOpen||document.querySelector('.loc-ask')){setTimeout(offerIntroMission,1000);return;}
-    game.openMissionBrief(app);
-  },2500);
 }
 
 // ---------- loop ----------
 const clockT = new THREE.Clock();
+const greetingPoint=new THREE.Vector3();
 const impactEffects=createImpactEffects(scene,camera);
 let recoveryUntil=0;
 const recoveryRoad=createDrivingSurface(mapData.roads.filter(r=>!r.campus),[]);
@@ -636,6 +629,11 @@ function frame(stamp=performance.now()) {
     camera.position.copy(tourCamera.position);
     camera.lookAt(tourCamera.target);
     follow(tourCamera.target);
+  }
+  if(hud.greetingActive){
+    camera.updateMatrixWorld();greetingPoint.copy(player.position);greetingPoint.y+=2.65;greetingPoint.project(camera);
+    const firstPerson=player.cameraMode==='eyes';
+    hud.positionGreeting(firstPerson?innerWidth/2:(greetingPoint.x*.5+.5)*innerWidth,firstPerson?innerHeight*.45:(-.5*greetingPoint.y+.5)*innerHeight,firstPerson||greetingPoint.z<1&&Math.abs(greetingPoint.x)<1.2);
   }
 
   if (t - lastPlaceCheck > 0.5) { lastPlaceCheck = t; checkPlace(); proximity(); }

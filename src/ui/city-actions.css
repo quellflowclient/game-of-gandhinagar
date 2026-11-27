@@ -1,0 +1,50 @@
+/* Everyday actions stay within thumb reach, clear of walking and driving. */
+#hud .city-quick-actions{position:absolute;top:calc(136px + env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));display:grid;gap:8px;pointer-events:auto;z-index:14}
+#hud .city-action{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:58px;min-height:56px;padding:8px 4px;border:1px solid #d6ede34a;border-radius:16px;background:#132c32ed;color:#e8f7ee;box-shadow:0 4px 14px #07111724;cursor:pointer;touch-action:manipulation}
+#hud .city-action-icon{display:grid;place-items:center;width:24px;height:24px}.city-action-icon svg{width:24px;height:24px}
+#hud .city-action-label{font:600 10px/1.1 Inter,system-ui;letter-spacing:.025em}
+#hud .city-action-wave{background:#264a3feF;border-color:#92c9ad70;color:#e2f5e5}
+#hud .city-action-metro{background:#e7c88feF;border-color:#f4dba9;color:#263e39}
+#hud .city-action-chat{background:#173944ed;color:#d5edf0}
+#hud .city-action:hover{filter:brightness(1.1)}#hud .city-action:focus-visible{outline:3px solid #f5d291;outline-offset:3px}
+#hud .hub-toggle{width:46px;height:46px;min-height:46px;padding:0;border-radius:15px}#hud .hub-toggle .i{display:grid;place-items:center}#hud .hub-toggle svg{width:23px;height:23px}
+#hud .quick-chat-badge{top:-5px;right:-5px;min-width:19px;height:19px;font-size:10px}
+#hud .city-quick-actions[hidden],#hud .player-greeting[hidden],#hud .city-menu[hidden],#hud .badge[hidden],#hud .mini-badge[hidden]{display:none!important}
+#hud .hud-tl{max-width:calc(100vw - 88px)}#hud .place-card{max-width:calc(100vw - 88px)}
+.game-menu-open .city-quick-actions,.game-menu-open .quick-rides,.game-menu-open .play-area-label,.game-menu-open .area-boundary-hint,.game-menu-open .player-greeting{visibility:hidden}
+.on-landing .city-quick-actions,.portrait-page-mode .city-quick-actions{visibility:hidden}
+.game-menu-open #music-mute,.game-menu-open #music-enable{visibility:hidden}
+
+/* One icon opens a small, organised city toolkit. */
+#hud .city-menu{position:absolute;top:calc(70px + env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));left:auto;bottom:auto;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;width:min(600px,calc(100vw - 24px));max-height:calc(100vh - 86px);max-height:calc(100dvh - 86px - env(safe-area-inset-top) - env(safe-area-inset-bottom));padding:18px;box-sizing:border-box;overflow:auto;overscroll-behavior:contain;transform:none;border-radius:22px;animation:city-menu-in .16s ease-out}
+@keyframes city-menu-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+#hud .city-menu{scrollbar-width:thin;scrollbar-color:#5c7b6b transparent}#hud .city-menu::-webkit-scrollbar{width:4px}#hud .city-menu::-webkit-scrollbar-thumb{background:#5c7b6b;border-radius:6px}#hud .city-menu::-webkit-scrollbar-track{background:transparent}
+#hud .city-menu .more-head{grid-column:1/-1;display:flex;justify-content:space-between;align-items:flex-start;padding:0 0 14px;border-bottom:1px solid #c8ded422;gap:16px}
+#hud .city-menu .menu-kicker{display:block;font:600 8px/1.4 Inter,system-ui;letter-spacing:.17em;color:#a6bcb0;margin-bottom:5px}
+#hud .city-menu .more-head b{display:block;font-size:24px;font-weight:600;letter-spacing:-.04em;line-height:1.2}
+#hud .city-menu .menu-description{margin:6px 0 0;color:#afc4ba;font:11px/1.5 Inter,system-ui}
+#hud .city-menu .more-head .x{width:36px;height:36px;flex:none}
+#hud .city-menu .more-sec{padding:0;margin:0;border:0;min-width:0}#hud .city-menu .more-sec h4{margin:0 0 8px;font:600 9px/1.4 Inter,system-ui;letter-spacing:.14em;color:#a6c3b4}
+#hud .city-menu .more-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+#hud .city-menu .more-grid button{position:relative;display:flex;align-items:center;justify-content:flex-start;gap:8px;min-width:0;min-height:52px;padding:9px;border:1px solid #ffffff12;border-radius:12px;background:#ffffff06;color:#e4f1e9;text-align:left;cursor:pointer}
+#hud .city-menu .more-grid button:hover{background:#88d7b315;border-color:#a5e5c348}
+#hud .city-menu .more-grid .i,#hud .city-menu .me-av{display:grid;place-items:center;flex:none;width:28px;height:28px;border:1px solid #ffffff10;border-radius:9px;background:#ffffff08;font-size:17px}
+#hud .city-menu .me-av{font-size:11px}#hud .city-menu .more-grid .l{font:500 11px/1.35 Inter,system-ui;text-align:left;overflow-wrap:anywhere}
+#hud .city-menu .mini-badge{margin-left:auto;font-size:9px;flex:none}
+
+/* The greeting follows the character's head in the 3D view. */
+#hud .player-greeting{position:fixed;display:flex;align-items:center;gap:7px;transform:translate(-50%,-100%);padding:10px 15px;border:1px solid #d9eadc;border-radius:16px 16px 16px 5px;background:#f1f7e9;color:#244d3f;box-shadow:0 5px 22px #102c3c30;pointer-events:none;z-index:18;animation:greeting-pop .18s ease-out}
+#hud .player-greeting svg{width:20px;height:20px;display:block}#hud .player-greeting strong{font:600 18px/1 Inter,system-ui;letter-spacing:-.03em}
+#hud .player-greeting:after{content:'';position:absolute;left:50%;bottom:-5px;width:8px;height:8px;background:#f1f7e9;border-bottom:1px solid #d9eadc;border-right:1px solid #d9eadc;transform:rotate(45deg)}
+@keyframes greeting-pop{from{opacity:0;transform:translate(-50%,-100%) scale(.88)}to{opacity:1;transform:translate(-50%,-100%) scale(1)}}
+.chat-channels{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:4px;border:1px solid #dbe5de;border-radius:13px;background:#edf2ed;margin-bottom:12px}
+.chat-channels button{min-height:42px;padding:9px;border:0;border-radius:9px;background:transparent;color:#567365;font:600 12px/1.3 Inter,system-ui;cursor:pointer}.chat-channels button.on{background:#224b3d;color:#f2f7ee;box-shadow:0 2px 7px #16372b20}
+@media(orientation:portrait){#hud .play-area-label,#hud .area-boundary-hint{max-width:calc(100vw - 104px)}}
+@media(min-width:700px){#hud .city-menu{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(orientation:landscape) and (max-height:600px){
+ #hud .city-quick-actions{top:calc(70px + env(safe-area-inset-top));right:calc(88px + env(safe-area-inset-right));grid-template-columns:repeat(3,48px);gap:6px}
+ #hud .city-action{width:48px;min-height:50px;padding:6px 3px;gap:3px;border-radius:13px}#hud .city-action-icon,#hud .city-action-icon svg{width:22px;height:22px}#hud .city-action-label{font-size:9px}
+ #hud .city-menu{grid-template-columns:repeat(2,minmax(0,1fr));padding:15px;gap:12px 16px}#hud .city-menu .more-head{padding-bottom:10px}#hud .city-menu .more-head b{font-size:21px}
+}
+@media(orientation:landscape) and (max-width:700px){#hud .quick-rides .ride-shortcut{min-width:40px;padding:6px}#hud .quick-rides .ride-shortcut .l{display:none}}
+@media(prefers-reduced-motion:reduce){#hud .player-greeting,#hud .city-menu{animation:none}}

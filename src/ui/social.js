@@ -222,6 +222,7 @@ export async function openChats(app, tab = "chats") {
   const render = () => {
     const rows = data[tab];
     body.replaceChildren(
+      h('div',{class:'chat-channels'},h('button',{type:'button',class:'on','aria-current':'page'},'Private chats'),h('button',{type:'button',onclick:()=>openWorld(app)},'City chat')),
       h("div", { class: "tabs" }, ["chats", "requests", "sent"].map((t) => h("button", { type: "button", class: t === tab ? "on" : "", onclick: () => { tab = t; render(); } },
         `${t.toUpperCase()}${data[t].length ? " " + data[t].length : ""}`))),
       rows.length ? rows.map((r) => h("div", { class: "person-row static" }, avatarDot(r.other.name),
@@ -288,7 +289,8 @@ export async function openWorld(app) {
     try { await app.backend.postWorld(input.value); input.value = ""; render(); } catch (e) { toast(e.message, "bad"); }
   }
   input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
-  openPanel("🌍 WORLD CHAT", h("div", { class: "chat" },
+  openPanel("Chat", h("div", { class: "chat" },
+    h('div',{class:'chat-channels'},h('button',{type:'button',class:'on','aria-current':'page'},'City chat'),h('button',{type:'button',onclick:()=>openChats(app)},'Private chats')),
     h("p", { class: "muted small" }, "Everyone in the city can read this. Be kind. No numbers, emails or links."),
     log, emo,
     h("div", { class: "composer" }, h("button", { type: "button", class: "btn", "aria-label": "Emoji", onclick: () => { emo.hidden = !emo.hidden; } }, "😊"),

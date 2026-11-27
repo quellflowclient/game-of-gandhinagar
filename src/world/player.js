@@ -20,9 +20,9 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
   let pitch = 0.32;       // camera pitch
   let heading = Math.PI;  // direction the character faces
   let cycling = false;
-  let vehicle='walk',vehicleRoot=null,vehicleModel=null,driveSpeed=0,areaLocked=false,steeringNow=0,lastLookAt=0;
+  let vehicle='walk',vehicleRoot=null,vehicleModel=null,driveSpeed=0,areaLocked=false,areaId=null,steeringNow=0,lastLookAt=0;
   let helmetMesh=null,mountT=2,mountFrom=null,gesture=null,gestureTime=0,sittingGround=false;
-  const withinArea=(x,z)=>!areaLocked||playArea(x,z);
+  const withinArea=(x,z)=>!playArea||!!playArea(x,z)&&(!areaId||playArea(x,z)===areaId);
   function removeVehicle(){if(vehicleRoot){scene.remove(vehicleRoot);vehicleRoot.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});}vehicleRoot=null;vehicleModel=null;driveSpeed=0;}
   function setVehicle(type){
     if(jumpHeight>0)return{error:'Pehle zameen par land hone do.'};
@@ -324,8 +324,10 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
     // faceYaw 0 = camera south of the player looking north, toward the landmark.
     teleport(x, z, faceYaw = 0, height = 0) {
       if(sitting||carrying)return false;
-      jumpHeight=jumpVelocity=0;crashed=false;fall=null;avatar.setFall();clearFallenBike();removeVehicle();vehicle='walk';cycling=false;avatar.setCycling(false);avatar.root.visible=true;areaLocked=!!playArea?.(x,z);
       const safe = navigation ? navigation.safePoint(x, z, height) : { x, y: 0, z };
+      const destinationArea=playArea?.(safe.x,safe.z);if(playArea&&!destinationArea)return false;
+      areaId=destinationArea;
+      jumpHeight=jumpVelocity=0;crashed=false;fall=null;avatar.setFall();clearFallenBike();removeVehicle();vehicle='walk';cycling=false;avatar.setCycling(false);avatar.root.visible=true;areaLocked=!!playArea?.(x,z);
       pos.set(safe.x, safe.y, safe.z);
       speedNow = actualSpeed = 0;
       avatar.root.position.copy(pos);
@@ -354,6 +356,7 @@ export function createPlayer({ scene, camera, dom, joystickEl, bounds, navigatio
     setDriveInput(input) { Object.assign(driveInput,input); },
     resetInput(){keys.clear();joy.x=joy.y=0;joy.id=null;driveInput.steer=driveInput.throttle=driveInput.brake=0;steeringNow=0;if(joystickEl)joystickEl.querySelector(".knob").style.transform="";},
     freeze(on) { frozen = on; if (on) {keys.clear();joy.x=joy.y=0;driveInput.steer=driveInput.throttle=driveInput.brake=0;driveSpeed=0;if(joystickEl)joystickEl.querySelector(".knob").style.transform="";} },
+    withinArea,get areaId(){return areaId;},
     keys,
   };
 }

@@ -3,16 +3,18 @@ import { placedPlaces, placePos } from "../data/places.js";
 import { STALLS, STORIES } from "../data/live-content.js";
 import * as T from "./textures.js";
 import { buildMahatma } from "./mahatma.js";
-import { MAHATMA, createMahatmaZone, siteToWorld, bridgeHeight } from "./mahatma-layout.js";
+import { MAHATMA, createMahatmaZone, siteToWorld,worldToSite, bridgeHeight } from "./mahatma-layout.js";
 import { createNavigation } from "./navigation.js";
 import { buildLdrp } from "./sites/ldrp.js";
 import { buildGift } from "./sites/gift.js";
 import { buildSwagat } from "./sites/swagat.js";
+import { buildSwarnim } from "./sites/swarnim.js";
 import { buildIndroda } from "./sites/indroda.js";
 import { allSiteMaterials } from "./sites/kit.js";
+import {explorationAreaAt} from './exploration-areas.js';
 
 // Real-life sites with their own layout, builder and navigation zone.
-const SITES = { ldrp: buildLdrp, gift: buildGift, swagat: buildSwagat, indroda: buildIndroda };
+const SITES = { ldrp: buildLdrp, gift: buildGift, swagat: buildSwagat, swarnim:buildSwarnim, indroda: buildIndroda };
 
 // Landmark models based on photos of the real places, so each area is recognisable:
 // Akshardham's pink sandstone monument, the GIFT One/Two glass towers, Dandi Kutir's
@@ -433,6 +435,9 @@ export function buildLandmarks(scene, map) {
     g.position.set(x, 0, z);
     if (SITES[p.id]) {
       const site = SITES[p.id](scene, map, { x, z });
+      site.zone.placeId=p.id;
+      if(site.setNight)detailedLandmarks.push(site);
+      site.group?.traverse(o=>{if(o.isMesh&&o.userData.cameraSolid)cameraObstacles.push(o);});
       navigationZones.push(site.zone); clearings.push(site.zone.clearing);
       for(const zone of site.extraZones||[]){navigationZones.push(zone);clearings.push(zone.clearing);}
       if(site.market){markets.push(site.market);stalls.push(...site.market.shops);}
@@ -461,6 +466,9 @@ export function buildLandmarks(scene, map) {
     const r = CLEAR_R[p.id] ?? 0;
     if (p.id === "dandi") {
       const zone = createMahatmaZone({ x, z });
+      // Retain every other mapped building around the civic corridor. Only the
+      // convention footprint and Salt Mount itself are replaced by authored models.
+      zone.clearing.replacesBuilding=b=>b.id===326048766||b.pts.every(([a,c])=>{const p=worldToSite({x,z},a,c);return Math.hypot(p.u,p.v)<MAHATMA.coneRadius+2;});
       navigationZones.push(zone); clearings.push(zone.clearing);
     } else if (r) clearings.push({ x, z, r });
     spawns[p.id] = shore || { x, z: z + (p.id === "akshardham" ? 140 : p.id === "dandi" ? 72 : p.id === "gift" ? 60 : 50) };
@@ -492,7 +500,8 @@ export function buildLandmarks(scene, map) {
     }
   }
 
-  const navigation = createNavigation(navigationZones,{roads:map.roads,parks:map.parks});
+  const mappedObstacles=map.buildings.filter(b=>!clearings.some(c=>c.replacesBuilding?c.replacesBuilding(b):b.pts.some(([x,z])=>c.contains?.(x,z))));
+  const navigation = createNavigation(navigationZones,{roads:map.roads,parks:map.parks,buildings:mappedObstacles,playArea:(x,z,r)=>!!explorationAreaAt(x,z,r)});
   for (const s of STORIES) {
     const p = placedPlaces().find((q) => q.id === s.place);
     if (!p) continue;

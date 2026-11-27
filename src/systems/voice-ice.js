@@ -1,3 +1,4 @@
+import {timeoutSignal} from './network.js';
 // Shared short-lived ICE configuration for direct calls and table voice.
 const fallback=[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']}];
 // Cache per backend session owner and deduplicate concurrent call setup requests.
@@ -11,7 +12,7 @@ export async function voiceIce(backend){
   try{
    const token=await backend.accessToken?.();if(!token)return fallback;
    const endpoint=import.meta.env?.VITE_TURN_ENDPOINT||'/api/turn';
-   const response=await fetch(endpoint,{headers:{Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(6000)});
+   const response=await fetch(endpoint,{headers:{Authorization:`Bearer ${token}`},signal:timeoutSignal(6000)});
    if(response.ok){const data=await response.json();if(Array.isArray(data.iceServers)&&data.iceServers.length){state.servers=data.iceServers;state.expires=Date.now()+Math.min(600,Number(data.ttl)||600)*1000;return state.servers;}}
    // An unavailable relay must not produce another request for every peer.
    state.retryAt=Date.now()+60000;

@@ -1,142 +1,86 @@
-import * as THREE from "three";
-import * as K from "./kit.js";
-import * as T from "../textures.js";
-import { toLocal } from "../../data/places.js";
+import * as THREE from 'three';
+import * as K from './kit.js';
+import * as T from '../textures.js';
+import {districtFrame,districtRing} from '../exploration-areas.js';
+import {districtGround} from './district-ground.js';
+import geography from '../../data/destination-geography.json' with {type:'json'};
 
-// GIFT City (Gujarat International Finance Tec-City).
-// Sources: Google Maps satellite + Street View on Road No. 1C (Aug 2022), recent drone
-// photographs, and OSM footprints: GIFT One 386478178, GIFT Two 386478179 (29 floors,
-// ~122 m), Pragya Phase 1 922160515 (24 fl), Hiranandani Signature 922160513 (16 fl),
-// Brigade Financial Centre 922160514 (14 fl), WTC Tower-A 922077107. Savvy Marina,
-// Grand Mercure and the GIFT City Club / Central Park are placed from Google Maps pins
-// (footprint sizes estimated from satellite). Local frame = world axes at GIFT One.
-const OSM_TOWERS = [
-  { id: 386478178, name: "GIFT ONE", h: 122, style: "gift", crown: 1 },
-  { id: 386478179, name: "GIFT TWO", h: 122, style: "gift", crown: -1 },
-  { id: 922160515, name: "PRAGYA", h: 98, style: "teal" },
-  { id: 922160513, name: "HIRANANDANI SIGNATURE", h: 68, style: "white" },
-  { id: 922160514, name: "BRIGADE IFC", h: 62, style: "dark" },
-  { id: 922077107, name: "WTC GIFT CITY", h: 26, style: "dark" },
+// Actual OSM footprints. GIFT One / Two height: IL&FS GIFT Two specification,
+// 122 m / G+28. Other heights retain mapped estimates. Landscape is interpreted.
+const TOWERS=[
+  {id:386478178,name:'GIFT ONE',height:122,style:'gift',crown:1},
+  {id:386478179,name:'GIFT TWO',height:122,style:'gift',crown:-1},
+  {id:922160513,name:'HIRANANDANI SIGNATURE',style:'white'},
+  {id:922160514,name:'BRIGADE IFC',style:'dark'},
+  {id:922160515,name:'PRAGYA',style:'teal'},
 ];
-const PINS = {
-  savvyMarina: { lat: 23.1594466, lon: 72.6816351 },
-  grandMercure: { lat: 23.1636048, lon: 72.6853533 },
-  centralPark: { lat: 23.1611658, lon: 72.6898059 },
-};
-
-function rectRing(cu, cv, w, d, yaw = 0) {
-  const c = Math.cos(yaw), s = Math.sin(yaw);
-  return [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]].map(([x, z]) => [cu + x * c + z * s, cv - x * s + z * c]);
-}
-
-export function buildGift(scene, map, origin) {
-  const f = K.frame(origin, 0);
-  const g = new THREE.Group(); g.position.set(origin.x, 0, origin.z); scene.add(g);
-  const solids = [], footprints = [], vehicleFree = [], animated = [];
-  const pin = (p) => { const w = toLocal(p.lat, p.lon); const l = f.toLocal(w.x, w.z); return [l.u, l.v]; };
-  const pavers = K.mat(K.greyPavers(), { roughness: 0.85 });
-  // Satellite: most of GIFT City's open plots are dusty, levelled construction land,
-  // not lawn. Lay that ground across the district (roads and lawns draw above it).
-  K.slab(g, [[-900, -700], [1100, -700], [1100, 900], [-900, 900]], 0.02, K.mat(K.dryGround(), { roughness: 1 }), 0, 10);
-  // Tower cranes on the active construction plots seen in Street View.
-  for (const [cu, cv] of [[180, 240], [-260, 180], [430, 60]]) {
-    K.box(g, 1.6, 70, 1.6, 0xf2b82a, cu, 0, cv);
-    K.box(g, 48, 1.2, 1.2, 0xf2b82a, cu + 14, 70, cv);
-    K.box(g, 3, 3, 3, 0xd9d9d9, cu - 8, 68, cv);
-  }
-
-  const styles = {
-    gift: { bay: 20, floor: 30, tex: T.giftGlass(1, 1), rough: 0.15, metal: 0.45 },
-    teal: K.glassFins("#2d5f66", "#d7e0e2"),
-    white: K.glassFins("#3d5a74", "#f3f2ee"),
-    dark: K.glassFins("#22313f", "#9aa5ae"),
-  };
-
-  // ---------- OSM towers ----------
-  for (const t of OSM_TOWERS) {
-    const fp = K.osmFootprint(map, t.id, f); if (!fp) continue;
-    const [cu, cv] = K.centroid(fp.ring);
-    // Paved forecourt around each tower.
-    const apron = fp.ring.map(([u, v]) => { const dx = u - cu, dv = v - cv, l = Math.hypot(dx, dv) || 1; return [u + (dx / l) * 9, v + (dv / l) * 9]; });
-    K.slab(g, apron, 0.08, pavers, 0, 3);
-    // Podium (3 floors, darker glass) then the tower shaft.
-    K.building(g, fp.ring, 13, K.glassFins("#26394b", "#c9d2da"), { roof: 0x9aa3ab, parapet: 0 });
-    const shaft = fp.ring.map(([u, v]) => [cu + (u - cu) * 0.9, cv + (v - cv) * 0.9]);
-    K.building(g, shaft, t.h, styles[t.style], { roof: 0xa7b0b7, parapet: 1.4, base: 13, parapetColor: 0xdfe7ee });
-    if (t.crown) { // GIFT One / Two: slanted crown fin
-      const fin = K.box(g, 3, 14, 18, K.mat(0xdfe7ee, { roughness: 0.3, metalness: 0.6 }), cu, t.h, cv);
-      fin.rotation.z = 0.25 * t.crown;
+export function buildGift(scene,map,origin){
+  const f=districtFrame('gift'),g=new THREE.Group();g.name='GIFT City · Full mapped city';g.position.set(origin.x,0,origin.z);scene.add(g);
+  const area=districtRing('gift'),solids=[],aprons=[],footprints=[],roadY=districtGround(map,f);
+  const pavers=K.mat(K.greyPavers(),{roughness:.84});
+  const styles={gift:{bay:20,floor:30,tex:T.giftGlass(1,1),rough:.18,metal:.48},teal:K.glassFins('#2d5f66','#d7e0e2'),white:K.glassFins('#3d5a74','#f3f2ee'),dark:K.glassFins('#22313f','#9aa5ae')};
+  const ids=new Set(geography.gift.buildingIds),inventory=[];
+  const towers=geography.gift.buildingIds.map(id=>{const b=map.buildings.find(b=>b.id===id);if(!b)throw Error(`Missing mapped GIFT building ${id}`);return {...b,...TOWERS.find(t=>t.id===id),style:TOWERS.find(t=>t.id===id)?.style||(b.kind==='apartments'?'white':b.kind==='commercial'?'dark':'mapped')};});
+  styles.mapped=K.residentialFacade('#d4d0c5','#536777');
+  for(const t of towers){
+    const fp=K.osmFootprint(map,t.id,f);if(!fp)throw new Error(`Missing mapped GIFT tower ${t.id}`);
+    const ring=fp.ring,[u,v]=K.centroid(ring),h=t.height||fp.h;
+    inventory.push({id:t.id,pts:fp.pts,holes:t.holes||[],height:h,heightSource:t.height?'published-height':t.heightSource});
+    const apron=ring.map(([a,b])=>{const l=Math.hypot(a-u,b-v)||1;return [a+(a-u)*6/l,b+(b-v)*6/l];});
+    footprints.push(ring);solids.push({poly:ring,holes:fp.holes});
+    // Mapped low-rise/service buildings and courtyards retain their whole shape.
+    if(!TOWERS.some(k=>k.id===t.id)){
+      const facade=t.colour?K.residentialFacade(t.colour,'#536777'):styles[t.style];
+      K.building(g,ring,h,facade,{roof:0xb9b7ad,parapet:.35,holes:fp.holes});
+      if(t.name)K.textPlane(g,[t.name],{bg:'#192e3c',fg:'#f3f1e3',w:1024,h:128,font:'700 60px Inter, sans-serif'},Math.min(16,Math.max(3,h*.5)),Math.min(1.7,h*.15),u,h-2,Math.max(...ring.map(p=>p[1]))+.08);
+      continue;
     }
-    K.textPlane(g, [t.name], { bg: "rgba(0,0,0,0)", fg: "#ffffff", h: 160, font: "800 110px Inter, sans-serif" }, 14, 2.2, cu, t.h - 6, cv + (K.osmFootprint(map, t.id, f).ring.reduce((m, p) => Math.max(m, p[1] - cv), 0)) * 0.9 + 0.3);
-    // Entrance canopy on the south face with palms either side.
-    const southV = cv + fp.ring.reduce((m, p) => Math.max(m, p[1] - cv), 0);
-    K.box(g, 12, 0.4, 6, K.mat(0xd9dfe4, { roughness: 0.3, metalness: 0.6 }), cu, 5, southV + 3);
-    for (const s of [-1, 1]) { K.cyl(g, 0.25, 0.25, 5, 0x9aa3ab, cu + s * 5.5, 0, southV + 5.5, 10); solids.push({ circle: [cu + s * 5.5, southV + 5.5, 0.3] }); }
-    for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { const pu = cu + s * (10 + k * 7), pv = southV + 7; K.palm(g, pu, pv); solids.push({ circle: [pu, pv, 0.3] }); }
-    footprints.push(fp.ring); solids.push({ poly: fp.ring }); vehicleFree.push(apron);
-  }
-
-  // ---------- Savvy Marina: residential tower (estimated 32 floors) ----------
-  {
-    const [u, v] = pin(PINS.savvyMarina);
-    for (const [du, dv] of [[-14, 0], [14, 0]]) {
-      const ring = rectRing(u + du, v + dv, 22, 26);
-      K.building(g, ring, 102, K.towerResidential(), { roof: 0xb7aea0, parapet: 1.2 });
-      K.box(g, 3, 6, 3, 0xd8cbb5, u + du, 102, v + dv); // lift machine room
-      footprints.push(ring); solids.push({ poly: ring });
+    K.slab(g,apron,.08,pavers,0,3);aprons.push(apron);
+    K.building(g,ring,10,K.glassFins('#26394b','#c9d2da'),{roof:0x9aa3ab,parapet:0,holes:fp.holes});
+    K.building(g,ring,h,styles[t.style],{roof:0xa7b0b7,base:10,parapet:1,parapetColor:0xdfe7ee,holes:fp.holes});
+    if(t.crown){
+      const positions=[];
+      for(let i=0;i<ring.length;i++){
+        const a=ring[i],b=ring[(i+1)%ring.length],ha=h+1.2+(a[0]-u)*.055*t.crown,hb=h+1.2+(b[0]-u)*.055*t.crown;
+        positions.push(a[0],h-1,a[1],b[0],h-1,b[1],a[0],ha,a[1],a[0],ha,a[1],b[0],h-1,b[1],b[0],hb,b[1]);
+      }
+      const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.computeVertexNormals();g.add(new THREE.Mesh(geo,K.mat(0xcbd8df,{metalness:.5,roughness:.35})));
     }
-    K.textPlane(g, ["SAVVY MARINA"], { bg: "#1b2a3a", fg: "#e8d8b0", h: 120, font: "800 80px Inter, sans-serif" }, 12, 1.6, u, 4.5, v + 13.2);
+    // Entrance follows the southern edge of the real rotated footprint.
+    const edges=ring.map((a,i)=>({a,b:ring[(i+1)%ring.length]})).sort((a,b)=>(b.a[1]+b.b[1])-(a.a[1]+a.b[1]));
+    const {a,b}=edges[0],mx=(a[0]+b[0])/2,mv=(a[1]+b[1])/2,dx=b[0]-a[0],dv=b[1]-a[1],len=Math.hypot(dx,dv);
+    let nx=-dv/len,nv=dx/len;if(nx*(mx-u)+nv*(mv-v)<0){nx=-nx;nv=-nv;}
+    const yaw=Math.atan2(nx,nv),cu=mx+nx*2.5,cv=mv+nv*2.5;
+    K.box(g,12,.35,5,K.mat(0xdde2e4,{metalness:.45,roughness:.3}),cu,5,cv,yaw);
+    for(const s of [-1,1]){
+      const pu=cu+Math.cos(yaw)*s*5.2+nx*1.8,pv=cv-Math.sin(yaw)*s*5.2+nv*1.8;
+      if(roadY(pu,pv)<.2){K.cyl(g,.14,.14,5,0xc0c9ce,pu,.08,pv,12);solids.push({circle:[pu,pv,.17]});}
+    }
+    K.textPlane(g,[t.name],{bg:'#192e3c',fg:'#f3f1e3',w:1024,h:128,font:'700 68px Inter, sans-serif'},Math.min(18,len*.7),2,mx+nx*.2,h-5,mv+nv*.2,yaw);
+    for(const s of [-1,1]){
+      const pu=mx+dx/len*s*(len/2+3)+nx*5,pv=mv+dv/len*s*(len/2+3)+nv*5;
+      if(roadY(pu,pv)<.2){K.palm(g,pu,pv,.9);solids.push({circle:[pu,pv,.3]});}
+    }
   }
-
-  // ---------- Grand Mercure: stone hotel, porte-cochère, planted island ----------
-  {
-    const [u, v] = pin(PINS.grandMercure);
-    const ring = rectRing(u, v - 8, 64, 20);
-    K.building(g, ring, 30, K.stoneHotel(), { roof: 0xb6a890, parapet: 1 });
-    footprints.push(ring); solids.push({ poly: ring });
-    K.box(g, 14, 0.6, 9, 0x6b5a46, u, 5.2, v + 6.5);                 // porte-cochère roof
-    for (const s of [-1, 1]) { K.box(g, 0.8, 5.2, 0.8, 0xd8c7a6, u + s * 6, 0, v + 10.5); solids.push({ circle: [u + s * 6, v + 10.5, 0.6] }); }
-    K.textPlane(g, ["GRAND MERCURE"], { bg: "rgba(0,0,0,0)", fg: "#f6efe2", h: 120, font: "700 86px Georgia, serif" }, 16, 2, u, 26, v + 2.1);
-    // Curved driveway around a round planting island edged with yellow/black curbs.
-    const island = Array.from({ length: 33 }, (_, i) => [u + Math.cos((i / 32) * 6.283) * 6, v + 22 + Math.sin((i / 32) * 6.283) * 6]);
-    K.strip(g, island, 0.3, 0, K.mat(K.curbTex()), { height: 0.25, tile: 0.6 });
-    K.slab(g, island, 0.25, K.mat(K.lawnTex()), 0, 3);
-    K.tree(g, u, v + 22, 1.1); solids.push({ circle: [u, v + 22, 6] });
-    K.slab(g, rectRing(u, v + 18, 34, 20), 0.07, K.mat(0x55585c, { roughness: 0.9 }), 0, 4);
-    K.parkedCar(g, u + 9, v + 14, 0.3, 0xf2f2f2); solids.push({ rect: [u + 9, v + 14, 2, 4.4, 0.3] });
+  // Retained map buildings must also block walking.
+  for(const b of map.buildings)if(!ids.has(b.id)){
+    const ring=b.pts.map(p=>{const l=f.toLocal(...p);return [l.u,l.v];});
+    if(ring.some(p=>K.pointInPolygon(...p,area)))solids.push({poly:ring});
   }
-
-  // ---------- Central Park + GIFT City Club ----------
-  {
-    const [u, v] = pin(PINS.centralPark);
-    const circle = (r, n = 64) => Array.from({ length: n + 1 }, (_, i) => [u + Math.cos((i / n) * 6.283) * r, v + Math.sin((i / n) * 6.283) * r]);
-    K.slab(g, circle(95), 0.06, K.mat(K.lawnTex(), { roughness: 1 }), 0, 5);
-    K.strip(g, circle(88), 4, 0.1, pavers, { tile: 3 });                 // jogging loop
-    K.strip(g, circle(95), 0.3, 0, K.mat(K.curbTex()), { height: 0.25, tile: 0.6 });
-    for (let i = 0; i < 36; i++) { const a = (i / 36) * 6.283, tu = u + Math.cos(a) * 82, tv = v + Math.sin(a) * 82; K.tree(g, tu, tv, 1 + (i % 3) * 0.15); solids.push({ circle: [tu, tv, 0.35] }); }
-    for (let i = 0; i < 12; i++) { const a = (i / 12) * 6.283 + 0.13; K.bench(g, u + Math.cos(a) * 85, v + Math.sin(a) * 85, -a + Math.PI / 2); solids.push({ circle: [u + Math.cos(a) * 85, v + Math.sin(a) * 85, 0.9] }); }
-    // Club: round 3-storey glass drum with a white roof ring.
-    K.cyl(g, 26, 26, 14, K.mat(0x547a96, { roughness: 0.12, metalness: 0.5 }), u, 0, v, 48);
-    K.cyl(g, 28, 28, 1.2, 0xf1f0ea, u, 14, v, 48);
-    for (let i = 0; i < 24; i++) { const a = (i / 24) * 6.283; K.box(g, 0.5, 14, 0.5, 0xf1f0ea, u + Math.cos(a) * 26.3, 0, v + Math.sin(a) * 26.3); }
-    K.textPlane(g, ["GIFT CITY CLUB"], { bg: "rgba(0,0,0,0)", fg: "#ffffff", h: 120, font: "800 80px Inter, sans-serif" }, 16, 2, u, 11, v + 26.4);
-    const club = circle(27, 32); footprints.push(club); solids.push({ circle: [u, v, 27] });
-    vehicleFree.push(circle(95));
+  const free=(u,v,r=2)=>K.pointInPolygon(u,v,area)&&roadY(u,v)<.2&&!solids.some(s=>s.poly&&K.nearPolygon(u,v,s.poly,r));
+  for(let v=-110;v<360;v+=32)for(const u of [-220,275])if(free(u,v,5)){
+    K.tree(g,u,v,.95);solids.push({circle:[u,v,.4]});
+    if(free(u+4,v,2)){K.streetLight(g,u+4,v,Math.PI/2,{h:6});solids.push({circle:[u+4,v,.15]});}
   }
-
+  for(const [u,v] of [[-83,48],[4,54],[154,148],[-203,193],[119,250]])if(free(u,v,5)&&free(u+3,v,2)){
+    K.slab(g,[[u-5,v-3],[u+5,v-3],[u+5,v+3],[u-5,v+3]],.08,pavers,0,3);
+    K.bench(g,u,v,Math.PI);solids.push({rect:[u,v,2.1,.8]});
+    K.cyl(g,.6,.6,.55,0xafa697,u+3,.08,v,16);K.sphere(g,.8,0x466346,u+3,.85,v);solids.push({circle:[u+3,v,.85]});
+    aprons.push([[u-5,v-3],[u+5,v-3],[u+5,v+3],[u-5,v+3]]);
+  }
   K.mergeStatic(g);
-  // Everywhere in the GIFT core is walkable except buildings, columns, trees, benches.
-  const allPts = footprints.flat();
-  const area = rectRing((Math.min(...allPts.map((p) => p[0])) + Math.max(...allPts.map((p) => p[0]))) / 2,
-    (Math.min(...allPts.map((p) => p[1])) + Math.max(...allPts.map((p) => p[1]))) / 2,
-    Math.max(...allPts.map((p) => p[0])) - Math.min(...allPts.map((p) => p[0])) + 200,
-    Math.max(...allPts.map((p) => p[1])) - Math.min(...allPts.map((p) => p[1])) + 200);
-  const zone = K.createSiteZone({ id: "gift-city", f, area, solids, vehicleFree });
-  // Only remove OSM buildings that this site rebuilds (other GIFT plots keep theirs).
-  zone.clearing = { contains(x, z) { const { u, v } = f.toLocal(x, z); return footprints.some((p) => K.nearPolygon(u, v, p, 4)) || vehicleFree.some((p) => K.pointInPolygon(u, v, p)); } };
-
-  const residents = [[0, 45], [20, 50], [-25, 40], [60, 60], ...[[0, 0]].map(() => pin(PINS.centralPark)).map(([u, v]) => [u, v + 70]), [-10, 60]]
-    .map(([u, v]) => ({ ...f.toWorld(u, v), r: 8 }));
-  const spawn = { ...f.toWorld(0, 62), yaw: 0, residents };
-  return { zone, spawn, frame: f, update() {} };
+  const zone=K.createSiteZone({id:'gift-city',f,area,solids,vehicleFree:footprints,groundY:(u,v)=>Math.max(roadY(u,v),aprons.some(p=>K.pointInPolygon(u,v,p))?.088:.008)});
+  zone.clearing={replacesBuilding:b=>ids.has(b.id),contains(x,z){const {u,v}=f.toLocal(x,z);return footprints.some(p=>K.nearPolygon(u,v,p,.5));}};
+  const residents=[[-77,50],[-20,54],[14,57],[58,65],[-102,116],[13,170],[144,234]].map(([u,v])=>({...f.toWorld(u,v),r:3}));
+  return {group:g,zone,frame:f,inventory,spawn:{...f.toWorld(-31,27),yaw:0,residents},update(){}};
 }

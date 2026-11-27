@@ -88,7 +88,7 @@ export function openDayOne(app) {
     h("p", {}, "Your first-day missions. Do all three to feel at home."),
     tasks.map((t) => h("div", { class: "task" + (t.done ? " done" : "") }, t.done ? "✅ " : "⬜ ", h("b", {}, t.label), h("span", { class: "muted small" }, ` ${t.have}/${t.n} · ${t.hint}`))),
     h("div", { class: "row" },
-      h("button", { type: "button", class: "btn", onclick: () => app.open("travel") }, "🚌 BRTS"),
+      h("button", { type: "button", class: "btn", onclick: () => app.open("travel") }, "Ⓜ Metro"),
       h("button", { type: "button", class: "btn", onclick: () => app.open("plans") }, "🎬 Plans"))));
 }
 

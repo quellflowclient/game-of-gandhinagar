@@ -1,8 +1,9 @@
 import { placedPlaces, placePos } from "../data/places.js";
 import { MAHATMA, siteToWorld } from '../world/mahatma-layout.js';
+import {explorationCorners} from '../world/exploration-areas.js';
 
 // Round, heading-up mini-map: roads, water, places, people and you.
-export function createMinimap(canvas, map) {
+export function createMinimap(canvas, map,spawns={}) {
   const ctx = canvas.getContext("2d");
   const R = 320; // metres shown from centre to edge
   const withBox = (pts) => {
@@ -13,8 +14,10 @@ export function createMinimap(canvas, map) {
   const roads = map.roads.filter((r) => !["footway", "path", "service"].includes(r.kind)).map((r) => ({ ...withBox(r.pts), major: ["motorway", "trunk", "primary", "secondary"].includes(r.kind) }));
   const water = map.water.map((w) => ({ ...withBox(w.pts), closed: w.closed }));
   const parks = map.parks.map((p) => withBox(p.pts));
-  const places = placedPlaces().map((p) => ({ p, ...placePos(p) }));
-  const campus = places.find(({ p }) => p.id === 'dandi');
+  const buildings=map.buildings.map(b=>({...withBox(b.pts),holes:b.holes||[]}));
+  const boundaries=explorationCorners().map(r=>r.map(p=>[p.x,p.z]));
+  const places = placedPlaces().map((p) => ({ p, ...(spawns[p.id]||placePos(p)) }));
+  const campus = placePos(placedPlaces().find(p=>p.id==='dandi'));
   const campusPath = points => points.map(([u,v]) => { const p = siteToWorld(campus,u,v); return [p.x,p.z]; });
   const convention = campusPath(MAHATMA.convention);
   const bridge = campusPath(MAHATMA.bridge.map(([v]) => [0,v]));
@@ -38,10 +41,12 @@ export function createMinimap(canvas, map) {
     ctx.fillStyle = "#e9e2cf"; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = "#bcd89f";
     for (const p of parks) if (near(p)) { path(p.pts); ctx.fill(); }
+    ctx.fillStyle='#8c9b9b';for(const b of buildings)if(near(b)){ctx.beginPath();for(const ring of [b.pts,...b.holes]){ring.forEach(([x,z],i)=>{const p=P(x,z);i?ctx.lineTo(...p):ctx.moveTo(...p);});ctx.closePath();}ctx.fill('evenodd');}
     ctx.fillStyle = "#7cc0e0"; ctx.strokeStyle = "#7cc0e0";
     for (const w of water) if (near(w)) { path(w.pts); if (w.closed) ctx.fill(); else { ctx.lineWidth = 110 * s; ctx.stroke(); } }
     ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "#ffffff";
     for (const r of roads) if (near(r)) { ctx.lineWidth = r.major ? 7 : 3.5; path(r.pts); ctx.stroke(); }
+    ctx.strokeStyle='#aa7435';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);for(const ring of boundaries){path(ring);ctx.closePath();ctx.stroke();}ctx.setLineDash([]);
     if (Math.hypot(campus.x-cx,campus.z-cz) < 900) {
       ctx.fillStyle='#bdc8ad';
       for(const plot of [MAHATMA.museumPlot,MAHATMA.conventionPlot]){path(campusPath(plot));ctx.closePath();ctx.fill();}

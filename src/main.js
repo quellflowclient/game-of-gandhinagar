@@ -14,6 +14,7 @@ import { preloadAvatarAssets,createAvatar } from './world/avatar.js';
 import { MAHATMA, siteToWorld, bridgeHeight } from "./world/mahatma-layout.js";
 import { placedPlaces, placePos, placeById, hubs,isLivePlace } from "./data/places.js";
 import { createProgress } from "./systems/progress.js";
+import { createLocationSharing } from "./systems/location.js";
 import { createSound } from "./systems/sound.js";
 import { createClock, fmtHour, lightingSchedule } from "./systems/clock.js";
 import { createFestival } from "./systems/festival.js";
@@ -31,9 +32,10 @@ import {marketPoint,MARKET,MARKET_SHOPS,shopPoint} from './world/sites/ldrp-mark
 import {openCamera} from './ui/camera.js';
 import {preloadParkedModels,updateParkedVehicles} from './world/parked-models.js';
 import {createDrivingSurface,VEHICLES} from './world/driving.js';
-import {inLdrpArea} from './world/sites/ldrp-market-layout.js';
 import {openVehicles,chooseRide} from './ui/vehicles.js';
 import {buildMetroGarden} from './world/metro-garden.js';
+import {createMetroJourney} from './world/metro-journey.js';
+import {explorationAreaAt,explorationAreaForPlace,explorationAreaLabel,explorationBoundaryDistance,localPlaceAt} from './world/exploration-areas.js';
 import {createLiveMap} from './world/live-map.js';
 import {alignMetroRoads,roadClearance,roadMedian} from './world/metro-road-clearance.js';
 import {createCollisionSystem} from './world/collision.js';
@@ -45,6 +47,7 @@ import {createCampusLife} from './systems/campus.js';
 import {createCampusWeather} from './world/campus-weather.js';
 import {CONTENT,loadGameContent,installTextOverrides} from './systems/game-content.js';
 import {applyGameContent} from './systems/apply-game-content.js';
+import {withDeadline} from './systems/network.js';
 
 const loading = document.getElementById("loading");
 const tourMode = new URLSearchParams(location.search).has('tour');
@@ -60,13 +63,16 @@ window.gogMusic.configure(CONTENT.music);
 await window.gogMusic.ready;
 
 // ---------- core ----------
-const { renderer, scene, camera, setHour, follow, lowEnd } = createScene(document.getElementById("app"));
+const { renderer, scene, camera, setHour, follow, lowEnd,recordFrame,resetFrameBudget } = createScene(document.getElementById("app"));
 let humanProgress=0,waitingHumans=false;
-const humanAssets=preloadAvatarAssets(f=>{humanProgress=f;setLoading(waitingHumans?'Bringing people to the streets…':null,waitingHumans?70+f*28:null);});
-const parkedAssets=preloadParkedModels(renderer);
+const humanAssets=withDeadline(()=>preloadAvatarAssets(f=>{humanProgress=f;setLoading(waitingHumans?'Bringing people to the streets…':null,waitingHumans?70+f*28:null);}),90000);
+// These downloads run while the world builds; handle an early rejection until awaited.
+void humanAssets.catch(()=>{});
+const parkedAssets=withDeadline(()=>preloadParkedModels(renderer),60000);
+void parkedAssets.catch(()=>{});
 setLoading("Loading the map of Gandhinagar…",10);
 const mapData = alignMetroRoads(createLiveMap(await loadMap()));
-setLoading("Building LDRP campus and Mahatma Mandir…",22);
+setLoading("Building campuses, gardens, Swagat Mall and GIFT City…",22);
 await new Promise(resolve=>setTimeout(resolve,0));
 await parkedAssets;
 const world = buildLandmarks(scene, mapData);
@@ -78,6 +84,7 @@ world.navigation.zones.push(metroGarden.zone);world.clearings.push(metroGarden.z
 world.navigation.addObstacles(metroGarden.obstacles);
 setLoading("Laying roads and planting trees…",45);
 const cityObj = await buildCity(scene, world.clearings, mapData, { lowEnd });
+world.cameraObstacles.push(...cityObj.cameraObstacles);
 setLoading("Lighting the city…",66);
 world.map = cityObj.map;
 const traffic = createTraffic(scene, mapData, { count: lowEnd ? 12 : 30, zones:world.navigation.zones });
@@ -136,6 +143,7 @@ const app = {
     app.session = await backend.getSession();
     await app.refreshMe();
     backend.joinPresence(presenceState());
+    locationSharing.signedIn();
     toast(app.me?.name?"Welcome! You are now visible in the city.":"Email verified. Choose your name and character.", "good");
     if (!app.me?.name) prof.openQuickJoin(app);
   },
@@ -151,6 +159,8 @@ const app = {
   countsByPlace() {
     const out = {};
     for (const p of hubs()) out[p.id] = 0;
+    const server = backend.placeCounts?.();
+    if (server && Object.keys(server).length) { for (const [k, v] of Object.entries(server)) out[k] = v; return out; }
     for (const m of backend.presenceList()) if (m.place) out[m.place] = (out[m.place] || 0) + 1;
     return out;
   },
@@ -173,9 +183,8 @@ const app = {
 
 // ---------- world objects ----------
 const hud = createHud({ open: (n) => openNamed(n), act: (n) => act(n) });
-const ldrpOrigin=placePos(placeById('ldrp'));
-const areaContains=(x,z)=>inLdrpArea(ldrpOrigin,x,z,1.5);
-const player = createPlayer({ scene, camera, dom: renderer.domElement, joystickEl: hud.joystick, bounds, navigation: world.navigation, cameraObstacles: world.cameraObstacles,playArea:areaContains,driving:createDrivingSurface(mapData.roads,world.navigation.zones,(x,z)=>!player.areaLocked||areaContains(x,z)) });
+const areaContains=(x,z)=>explorationAreaAt(x,z,1.5);
+const player = createPlayer({ scene, camera, dom: renderer.domElement, joystickEl: hud.joystick, bounds, navigation: world.navigation, cameraObstacles: world.cameraObstacles,playArea:areaContains,driving:createDrivingSurface(mapData.roads,world.navigation.zones,(x,z)=>player.withinArea(x,z)) });
 app.player = player;
 app.street=world.markets?.[0]?createStreetLife(app,world.markets[0]):null;
 app.campus=world.campuses?.[0]?createCampusLife(app,world.campuses[0],{scene,renderer,lowEnd}):null;
@@ -191,6 +200,7 @@ player.teleport(startSpawn.x, startSpawn.z);
 
 // ---------- panels by name ----------
 function openNamed(name) {
+  if(metroJourney.active)return;
   const map = {
     profile: () => prof.openAccount(app), about: () => prof.openAbout(app), twin: () => prof.openTwin(app), card: () => prof.openResidentCard(app),
     find: () => social.openFind(app), online: () => social.openOnline(app), chats: () => social.openChats(app), world: () => social.openWorld(app),
@@ -238,24 +248,27 @@ async function waveAt(target) {
   } catch (e) { toast(e.message, "bad"); }
 }
 
-// BRTS travel with a short transition.
-const fade = h("div", { id: "fade" }, h("div", {}, h("b", {}, "🚌 BRTS"), h("span", {})));
-document.body.append(fade);
+// Metro transfers connect separate playable neighbourhoods, not continuous roads.
+const metroJourney=createMetroJourney(renderer,{lowEnd,onLock:()=>player.freeze(true),onUnlock:()=>syncInputLock()});
 function travel(placeId) {
+  if(metroJourney.active)return;
   if(player.sitting||player.carrying)return toast('Pehle table se utho ya carry ki hui table rakh do.');
   if(app.street?.service.meal?.item&&app.street.service.meal.phase!=='paid')return toast('Pehle apna khana aur pending bill complete karo.');
   const p = placeById(placeId);
   if (!p || p.pending || !isLivePlace(placeId)) return;
-  const spawn = world.spawns[p.id] || { x: placePos(p).x, z: placePos(p).z + 40 };
-  fade.querySelector("span").textContent = `Jaiye chhiye ${p.name}…`;
-  fade.classList.add("on");
-  player.freeze(true);
-  setTimeout(() => {
-    player.teleport(spawn.x, spawn.z, spawn.yaw || 0);
-    if (app.festival) festival.set(app.festival, player.position);
-    sound.say(p.gu);
-    setTimeout(() => { fade.classList.remove("on"); syncInputLock(); }, 500);
-  }, 700);
+  if(explorationAreaAt(player.position.x,player.position.z)===explorationAreaForPlace(p.id))return toast(p.id==='swarnim'||p.id==='dandi'?'Mahatma Mandir aur Swarnim Park ek hi area hain. Main promenade se paidal ja sakte ho.':'Aap isi area mein ho.');
+  const spawn=world.spawns[p.id];if(!spawn)return;
+  endTourView();
+  metroJourney.start({from:explorationAreaLabel(player.areaId),to:explorationAreaLabel(explorationAreaForPlace(p.id)),night:clock.hour()<6||clock.hour()>18.5,onArrive:()=>{
+    try{
+      const safe=world.navigation.safePoint(spawn.x,spawn.z);
+      if(explorationAreaAt(safe.x,safe.z,1)!==explorationAreaForPlace(p.id))throw new Error('Arrival is outside the destination');
+      player.teleport(safe.x,safe.z,spawn.yaw||0,safe.y);
+      checkPlace();
+      if(app.festival)festival.set(app.festival,player.position);
+      if(p.id!=='gift')sound.say(p.gu); // GIFT City has its supplied entry recording.
+    }catch(e){console.error('Metro arrival:',e);toast('Arrival could not complete. Please choose your destination again.','bad');}
+  }});
 }
 
 // ---------- gigs ----------
@@ -318,19 +331,30 @@ function presenceState() {
         look: me.look, skin: me.skin, x: Math.round(p.x*10)/10, y: p.y, z: Math.round(p.z*10)/10, heading:player.heading, vehicle:['bike','scooter'].includes(player.vehicle)?'cycle':player.vehicle, place: app.currentPlace?.id, placeName: app.currentPlace?.name }
     : { key: visitorKey, x: null, z: null, place: app.currentPlace?.id };
 }
+// With hundreds online, only the nearest players get a full 3D avatar (phones
+// cannot animate 500 skinned characters). Everyone stays in lists and counts.
+const MAX_RENDERED_PLAYERS = 40;
+let lastArrivalToast = 0;
 backend.onPresence((list) => {
-  const members = list.filter((m) => m.userId && m.name).map((m) => ({ ...m, id: m.userId, firstName: m.name.split(" ")[0] }));
+  const self = player.position;
+  const members = list.filter((m) => m.userId && m.name && m.userId !== app.session?.userId && (m.x == null || !m.place || m.place === app.currentPlace?.id))
+    .map((m) => ({ ...m, id: m.userId, firstName: m.name.split(" ")[0], d: m.x == null ? Infinity : Math.hypot(m.x - self.x, m.z - self.z) }))
+    .sort((a, b) => a.d - b.d).slice(0, MAX_RENDERED_PLAYERS);
   const before = new Set(people.all().filter((p) => !p.data.ai).map((p) => p.id));
   people.syncMembers(members, app.session?.userId);
   for (const m of members) {
     if (m.id !== app.session?.userId && !before.has(m.id) && !seenArrivals.has(m.id)) {
       seenArrivals.add(m.id);
+      if (Date.now() - lastArrivalToast < 20000) continue; // no toast storm when many join
+      lastArrivalToast = Date.now();
       hud.activity(`${m.name} just moved to Digital Gandhinagar`, { label: "👋 Say hi", fn: () => social.openCard(app, m) });
     }
   }
-  hud.setOnline(app.presenceMembers().length);
+  const total = Object.values(backend.placeCounts?.() || {}).reduce((a, b) => a + b, 0);
+  hud.setOnline(Math.max(app.presenceMembers().length, total - (app.me?.name ? 1 : 0)));
 });
 const seenArrivals = new Set();
+const locationSharing = createLocationSharing({ backend, isSignedIn: () => !!app.session, toast });
 const unread = { chats: 0, world: 0 };
 backend.onMessage?.((m) => {
   if (!app.session || m.from === app.session.userId) return;
@@ -352,7 +376,8 @@ backend.onWave?.((w) => {
 backend.onPlans?.(() => {});
 backend.onAuth?.(async session => {
   if(session?.userId === app.session?.userId) return;
-  if(!session){app.voice?.end();app.voiceRoom?.leave(true);}
+  if(!session){app.voice?.end();app.voiceRoom?.leave(true);locationSharing.signedOut();}
+  else locationSharing.signedIn();
   app.session=session;
   try {await app.refreshMe();await backend.joinPresence(presenceState());}
   catch(e){toast(e.message,'bad');}
@@ -371,6 +396,7 @@ refreshMissionLine();
 
 // ---------- keyboard ----------
 window.addEventListener("keydown", (e) => {
+  if(metroJourney.active)return;
   if (isTyping(e)) return;
   if (e.key === "Escape") { if (panelOpen()) closePanel(); else hud.toggleMore(false); return; }
   if (panelOpen()) return;
@@ -382,7 +408,7 @@ window.addEventListener("keydown", (e) => {
 });
 // Freeze walking while a panel is open so typing does not move you.
 const controls=createGameControls({player,hud});
-const syncInputLock=()=>player.freeze(panelOpen()||hud.menuOpen||controls.rotationRequired||document.body.classList.contains("portrait-page-mode")||document.body.classList.contains("accident-active")||document.body.classList.contains("on-landing"));
+const syncInputLock=()=>player.freeze(metroJourney.active||panelOpen()||hud.menuOpen||controls.rotationRequired||document.body.classList.contains("portrait-page-mode")||document.body.classList.contains("accident-active")||document.body.classList.contains("on-landing"));
 const panelObserver = new MutationObserver(syncInputLock);
 panelObserver.observe(document.body, { childList: true,attributes:true,attributeFilter:["class"] });
 syncInputLock();
@@ -393,7 +419,7 @@ function checkPlace() {
   const p = player.position;
   let best = null, bd = Infinity;
   for (const pl of placedPlaces()) {
-    if ((pl.id === 'dandi' && world.navigation.zones.some(zone => zone.id === 'mahatma-mandir' && zone.contains(p.x,p.z))) || (pl.id==='ldrp'&&player.areaLocked)) {
+    if (localPlaceAt(p.x,p.z)===pl.id) {
       best = pl; break;
     }
     const { x, z } = placePos(pl);
@@ -484,11 +510,16 @@ async function enter() {
   setTimeout(() => landing.remove(), 600);
   sound.start();
   sound.say(CONTENT.dialogues.guide.welcome);
+  if(!tourMode)locationSharing.begin();
   if (app.session) await app.refreshMe();
   backend.joinPresence(presenceState());
   if (!app.session && !skipVisitorToast) toast("You are walking as a visitor. Sign in to wave, chat and be seen.", "info", 6000, { label: "Sign in", fn: () => prof.openSignIn(app) });
   else if (!app.me?.name) prof.openQuickJoin(app);
-  if (!location.search.includes("tour")) setTimeout(() => { if (!panelOpen() && progress.current()?.index === 0) game.openMissionBrief(app); }, 2500);
+  if (!tourMode) setTimeout(function offerIntroMission(){
+    if(progress.current()?.index!==0)return;
+    if(document.hidden||metroJourney.active||panelOpen()||hud.menuOpen||document.querySelector('.loc-ask')){setTimeout(offerIntroMission,1000);return;}
+    game.openMissionBrief(app);
+  },2500);
 }
 
 // ---------- loop ----------
@@ -500,13 +531,14 @@ function recoverPlayer(){
  const p=player.position;let safe=null,best=Infinity;
  for(let r=3;r<=25;r+=2)for(let i=0;i<24;i++){
   const a=i*Math.PI/12,x=p.x+Math.cos(a)*r,z=p.z+Math.sin(a)*r;
-  if(player.areaLocked&&!areaContains(x,z))continue;
+  if(player.areaLocked&&!player.withinArea(x,z))continue;
   const y=world.navigation.surface(x,z,p.y,.38,.65);if(y===undefined)continue;
   if([[0,0],[.8,0],[-.8,0],[0,.8],[0,-.8]].some(([dx,dz])=>recoveryRoad.roadHeight(x+dx,z+dz)!==null))continue;
   if(traffic.vehicles.some(v=>v.pose&&Math.hypot(v.pose.x-x,v.pose.z-z)<v.length/2+3))continue;
   const score=r+(y<.25?6:0);if(score<best){safe={x,y,z};best=score;}
  }
  if(!safe){try{safe=world.navigation.safePoint(p.x,p.z,p.y,.38,8);}catch{safe={x:p.x,y:p.y,z:p.z};}}
+ if(!player.withinArea(safe.x,safe.z)){const home=world.spawns[localPlaceAt(p.x,p.z)]||world.spawns[player.areaId];safe=world.navigation.safePoint(home.x,home.z);}
  player.recoverAt(safe);recoveryUntil=performance.now()+12000;toast('Sab theek hai. Safe jagah se aaraam se continue karo.','good');
 }
 const crashScene=createCrashScene({scene,camera,traffic,player,navigation:world.navigation,roads:mapData.roads,look:()=>app.me||{},say:text=>sound.say(text,'hi-IN'),onRecover:recoverPlayer});
@@ -553,20 +585,23 @@ function nearPlayerChip(){
 let t = 0,honkAt=0,lastFrameAt=0,lastPeopleManage=-1,lastBusinessMinute=-1;
 function frame(stamp=performance.now()) {
   requestAnimationFrame(frame);
-  if(document.hidden){clockT.getDelta();return;}
+  if(document.hidden){clockT.getDelta();resetFrameBudget();return;}
   const pagePaused=panelOpen()||hud.menuOpen||landscape.required||document.body.classList.contains('portrait-page-mode');
   const fps=pagePaused?5:!entered?12:lowEnd?24:30,interval=1000/fps;
   if(stamp-lastFrameAt<interval)return;
   lastFrameAt=stamp-(stamp-lastFrameAt)%interval;
+  const workStarted=performance.now();
   const realDt=Math.min(clockT.getDelta(),.05),dt=realDt*crashScene.timeScale;
   t += dt;
   controls.update();
   const musicPosition=player.position;
-  window.gogMusic.update({entered,vehicle:player.crashed?'walk':player.vehicle,inside:entered&&!!world.campuses?.[0]?.zone.contains(musicPosition.x,musicPosition.z)});
-  if(!entered)return; // Welcome artwork needs no 3D simulation or rendering.
+  window.gogMusic.update({entered,place:metroJourney.active?null:player.areaId,vehicle:player.crashed?'walk':player.vehicle,inside:entered&&!!world.campuses?.[0]?.zone.contains(musicPosition.x,musicPosition.z)});
+  if(!entered){resetFrameBudget();return;} // Welcome artwork needs no 3D simulation or rendering.
+  if(metroJourney.update(realDt)){recordFrame(performance.now()-workStarted);return;}
   // Account/menu pages do not need a running 3D simulation. Keep calls and
   // presence alive, without animating hidden crowds, traffic or campus effects.
   if(pagePaused){
+    resetFrameBudget();
     app.voice?.updateDistance?.();
     if(t-lastPresence>1&&app.session&&app.me?.name){lastPresence=t;backend.updatePresence(presenceState());}
     return;
@@ -607,7 +642,8 @@ function frame(stamp=performance.now()) {
   if (t - lastMini > 0.2) {
     lastMini = t;
     updateParkedVehicles(scene,player.position,{lowEnd});
-    hud.setVehicle(player.vehicle);hud.setDrive(player.vehicle,player.speedKmh,player.areaLocked,player.driveDirection);
+    hud.setVehicle(player.vehicle);hud.setDrive(player.vehicle,player.speedKmh,player.areaLocked,player.driveDirection,explorationAreaLabel(player.areaId));
+    hud.setBoundary(player.areaId&&explorationBoundaryDistance(player.position.x,player.position.z,player.areaId)<8);
     const dots = people.all().map((p) => ({ x: p.x, z: p.z, real: !p.data.ai }));
     minimap.draw(player.position, player.heading, dots);
     if (tourMode) {
@@ -647,12 +683,13 @@ function frame(stamp=performance.now()) {
   nearPlayerChip();
   crashScene.camera();
   if(!pagePaused)renderer.render(scene, camera);
+  recordFrame(performance.now()-workStarted);
 }
 let cycAcc = 0;
 let lastMini = 0;
 let wasNight = null;
 const showcase = placePos(placeById("ldrp"));
-const minimap = createMinimap(hud.miniCanvas, cityObj.map);
+const minimap = createMinimap(hud.miniCanvas, cityObj.map,world.spawns);
 // Hour tracking every second would spam saves; throttle "hour" events to place changes and minutes.
 const origTrack = progress.track;
 let lastHourSaved = -1;
@@ -681,6 +718,17 @@ if (new URLSearchParams(location.search).has("tour")) {
   };
   // Reproducible reference views for visual QA. Any key/drag returns to walking.
   const params = new URLSearchParams(location.search);
+  if(['swarnim','swagat','gift'].includes(params.get('place'))){
+    const id=params.get('place'),spawn=world.spawns[id];
+    clock.setPreset(params.get('night')==='1'?'Night':'Day');
+    player.teleport(spawn.x,spawn.z,spawn.yaw||0);player.setView(8,.22);
+    if(params.get('view')!=='walk'){
+      const {districtFrame}=await import('./world/exploration-areas.js'),f=districtFrame(id);
+      const poses={swarnim:{camera:[-350,310,-1370],target:[0,0,-1150]},swagat:{camera:[-72,42,-100],target:[0,9,3]},gift:{camera:[-520,360,780],target:[360,45,150]}};
+      const pose=poses[id],cp=f.toWorld(pose.camera[0],pose.camera[2]),tp=f.toWorld(pose.target[0],pose.target[2]);
+      tourCamera={position:new THREE.Vector3(cp.x,pose.camera[1],cp.z),target:new THREE.Vector3(tp.x,pose.target[1],tp.z)};
+    }
+  }
   if(params.get('place')==='ldrp') {
     if(params.get('night')==='1')clock.setPreset('Night');else if(params.get('day')==='1')clock.setPreset('Day');
     const at=placePos(placeById('ldrp')),spawn=world.spawns.ldrp;

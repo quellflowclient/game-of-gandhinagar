@@ -12,10 +12,7 @@
     <meta property="og:locale" content="en_IN" />
     <meta name="twitter:card" content="summary_large_image" />
     <!-- Start the heavy downloads before any script runs. -->
-    <link rel="preload" href="/data/gandhinagar-live.json" as="fetch" crossorigin="anonymous" />
-    <script>
-      for(const gender of ['male','female']){const link=document.createElement('link');link.rel='preload';link.as='fetch';link.crossOrigin='anonymous';link.href='/models/humans/'+gender+'.glb'+('DecompressionStream' in window?'.gz':'');document.head.append(link);}
-    </script>
+    <link rel="preload" href="/data/gandhinagar-live.json?v=20261126-districts2" as="fetch" crossorigin="anonymous" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Baloo+Bhai+2:wght@600;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -35,6 +32,7 @@
       .metro-car:first-child{border-radius:13px 4px 2px 2px}.metro-car:last-child{border-radius:4px 13px 2px 2px}.metro-car:after{content:'';position:absolute;left:9px;right:9px;bottom:-4px;height:6px;border-left:7px solid #8aa198;border-right:7px solid #8aa198}.metro-car i{width:10px;height:8px;background:#2f585b;border-radius:1px}
       #loading .bar{height:3px;background:#ffffff14;border-radius:3px;overflow:hidden}#loading .bar i{display:block;height:100%;width:4%;background:#b9d5b8;transition:width .25s}
       #loading .meta{display:flex;justify-content:space-between;gap:12px;margin-top:12px;color:#93afa1;font-size:10px;line-height:1.5;text-align:left}#loading .meta p{margin:0}#loading .meta b{font-weight:500;color:#cbdcc9;white-space:nowrap}
+      #loading .ld>p{font:14px/1.6 Inter,system-ui;color:#cbdcc9}.startup-retry{margin-top:18px;min-height:46px;padding:12px 22px;border:0;border-radius:12px;background:#e8c98e;color:#183b40;font:600 14px Inter,system-ui;cursor:pointer}
       @keyframes metro-pass{from{transform:translateX(-190px)}to{transform:translateX(330px)}}
       @media(prefers-reduced-motion:reduce){.metro-train{animation:none;left:50%;transform:translateX(-50%)}#loading .bar i{transition:none}}
     </style>
@@ -70,6 +68,6 @@
       </div>
     </div>
     <noscript>People of Gandhinagar needs JavaScript and WebGL to run.</noscript>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/startup.js"></script>
   </body>
 </html>

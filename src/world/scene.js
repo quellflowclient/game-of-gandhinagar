@@ -2,15 +2,17 @@ import {CONTENT} from '../systems/game-content.js';
 import {lightingSchedule} from '../systems/clock.js';
 import * as THREE from "three";
 import { Sky } from "three/examples/jsm/objects/Sky.js";
-import {hdPixelRatio} from './render-quality.js';
+import {hdPixelRatio,createAdaptiveQuality} from './render-quality.js';
 
 // Realistic rendering: physically based sky with a sun that follows the real path over
 // Gujarat, image-based lighting from that sky, soft shadows that follow the player,
 // ACES filmic tone mapping, stars at night.
 export function createScene(container) {
   const lowEnd = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)||matchMedia('(pointer:coarse)').matches||window.innerWidth<700;
+  const quality=createAdaptiveQuality(lowEnd);
+  const pixelRatio=()=>Math.max(.5,hdPixelRatio(window.innerWidth,window.innerHeight,window.devicePixelRatio,lowEnd)*quality.scale);
   const renderer = new THREE.WebGLRenderer({ antialias: !lowEnd, powerPreference: "low-power" });
-  renderer.setPixelRatio(hdPixelRatio(window.innerWidth,window.innerHeight,window.devicePixelRatio,lowEnd));
+  renderer.setPixelRatio(pixelRatio());
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -160,11 +162,11 @@ export function createScene(container) {
   }
 
   window.addEventListener("resize", () => {
-    renderer.setPixelRatio(hdPixelRatio(window.innerWidth,window.innerHeight,window.devicePixelRatio,lowEnd));
+    quality.reset();renderer.setPixelRatio(pixelRatio());
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  return { renderer, scene, camera, setHour, follow, lowEnd };
+  return { renderer, scene, camera, setHour, follow, lowEnd,resetFrameBudget:()=>quality.reset(),recordFrame(ms){if(quality.sample(ms)!==null)renderer.setPixelRatio(pixelRatio());} };
 }

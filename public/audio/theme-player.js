@@ -2,17 +2,17 @@
 (() => {
  const audio=document.getElementById('gog-theme'),dialog=document.getElementById('music-choice');
  const toggle=document.getElementById('music-mute'),retry=document.getElementById('music-enable');
- const files={general:'/audio/gog-theme.mp3',campus:'/audio/ldrp-campus.mp3'};
- const positions={general:0,campus:0};
+ const files={general:'/audio/gog-theme.mp3',campus:'/audio/ldrp-campus.mp3',gift:'/audio/gift-city-entry.mp3'};
+ const positions={general:0,campus:0,gift:0};
  let settings={welcomeVolume:1,walkingVolume:.25,vehicleVolume:1,campusVolume:1};
  const needsGain=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
  const sourceUrl=name=>files[name].startsWith('/audio/')?files[name]+'?v=20261126-volume2':files[name];
  let dialogueDucked=false;
- let choice=null,muted=false,master=true,entered=false,inside=false,vehicle='walk';
+ let choice=null,muted=false,master=true,entered=false,inside=false,vehicle='walk',place=null,giftEntryPending=false;
  let track='general',desired='general',switchTimer=0,pending=false,ticket=0,blocked=false;
  let context=null,gain=null,source=null,lastVolume=-1,resolveReady;
  const ready=new Promise(resolve=>{resolveReady=resolve;});
- const baseVolume=()=>!master||muted||choice!==true?0:!entered?settings.welcomeVolume:inside?settings.campusVolume:vehicle!=='walk'?settings.vehicleVolume:settings.walkingVolume;
+ const baseVolume=()=>!master||muted||choice!==true?0:!entered||track==='gift'?settings.welcomeVolume:inside?settings.campusVolume:vehicle!=='walk'?settings.vehicleVolume:settings.walkingVolume;
  const volume=()=>baseVolume()*(dialogueDucked?.2:1);
  function setVolume(value){
   if(value===lastVolume)return;lastVolume=value;
@@ -28,23 +28,26 @@
   }).finally(()=>{if(current===ticket)pending=false;});
  }
  function refresh(){
+  const next=entered&&place==='gift'&&giftEntryPending?'gift':entered&&inside?'campus':'general';
+  if(next!==desired){desired=next;clearTimeout(switchTimer);switchTimer=0;}
   const enabled=choice===true&&!muted&&master;
   toggle.hidden=choice===null;toggle.textContent=enabled?(blocked?'♫ Resume':'♫ Off'):'♫ On';
   toggle.setAttribute('aria-label',enabled?(blocked?'Resume music':'Mute music'):'Play music');toggle.setAttribute('aria-pressed',String(!enabled));
-  if(!enabled||document.hidden){audio.pause();retry.hidden=true;return;}
-  const next=entered&&inside?'campus':'general';
-  if(next!==desired){
-   desired=next;clearTimeout(switchTimer);
-   if(track!==desired){
+  retry.textContent=desired==='gift'?'♪ Tap to hear GIFT City audio':'♪ Tap to resume music';
+  if(!enabled||document.hidden){clearTimeout(switchTimer);switchTimer=0;audio.pause();retry.hidden=true;return;}
+  if(track!==desired){
+   if(!switchTimer){
     setVolume(0);
     switchTimer=setTimeout(()=>{
+     switchTimer=0;
      positions[track]=Number.isFinite(audio.currentTime)?audio.currentTime:0;
      audio.pause();ticket++;pending=false;blocked=false;track=desired;
+     audio.loop=track!=='gift';
      audio.src=sourceUrl(track);audio.load();lastVolume=-1;refresh();
     },220);
    }
+   return;
   }
-  if(track!==desired)return;
   setVolume(volume());if(blocked)retry.hidden=false;else if(audio.paused)play();
  }
  function unlock(event){
@@ -67,8 +70,10 @@
   if(first){resolveReady();document.dispatchEvent(new Event('gog-music-choice'));}
  }
  audio.addEventListener('loadedmetadata',()=>{const saved=positions[track];if(saved>0&&saved<audio.duration)audio.currentTime=saved;});
+ // The supplied recording plays once per visit, then the regular soundtrack resumes.
+ audio.addEventListener('ended',()=>{if(track==='gift'){giftEntryPending=false;positions.gift=0;refresh();}});
  audio.addEventListener('playing',()=>{blocked=!!context&&context.state!=='running';retry.hidden=!blocked;});
- audio.addEventListener('error',()=>{retry.hidden=choice!==true||muted||!master;});
+ audio.addEventListener('error',()=>{blocked=true;refresh();});
  document.getElementById('music-yes').addEventListener('click',event=>choose(true,event));
  document.getElementById('music-no').addEventListener('click',event=>choose(false,event));
  dialog.addEventListener('cancel',event=>{event.preventDefault();choose(false,event);});
@@ -78,6 +83,14 @@
  document.addEventListener('visibilitychange',()=>{if(document.hidden){ticket++;pending=false;}else if(!context){blocked=false;}else if(context.state!=='running'){blocked=true;}refresh();});
  window.addEventListener('focus',()=>{if(!context&&!audio.error)blocked=false;refresh();});
  window.addEventListener('pagehide',()=>audio.pause());window.addEventListener('pageshow',refresh);
- window.gogMusic={ready,duck(on){if(dialogueDucked===on)return;dialogueDucked=on;refresh();},configure(config){settings={...settings,...config};files.general=config.general;files.campus=config.campus;audio.src=sourceUrl('general');document.getElementById('music-title').textContent=config.prompt;document.getElementById('music-description').textContent=config.description;document.getElementById('music-yes').textContent=config.yes;document.getElementById('music-no').textContent=config.no;if(choice===null&&!dialog.open)dialog.showModal();},update(state){const nextEntered=!!state.entered,nextInside=!!state.inside,nextVehicle=state.vehicle||'walk';if(entered===nextEntered&&inside===nextInside&&vehicle===nextVehicle)return;entered=nextEntered;inside=nextInside;vehicle=nextVehicle;refresh();},setMaster(on){master=on;refresh();},get enabled(){return choice===true&&!muted&&master;}};
+ window.gogMusic={ready,duck(on){if(dialogueDucked===on)return;dialogueDucked=on;refresh();},configure(config){settings={...settings,...config};files.general=config.general;files.campus=config.campus;audio.src=sourceUrl('general');document.getElementById('music-title').textContent=config.prompt;document.getElementById('music-description').textContent=config.description;document.getElementById('music-yes').textContent=config.yes;document.getElementById('music-no').textContent=config.no;if(choice===null&&!dialog.open)dialog.showModal();},update(state){
+  const nextEntered=!!state.entered,nextInside=!!state.inside,nextVehicle=state.vehicle||'walk',nextPlace=state.place||null;
+  if(entered===nextEntered&&inside===nextInside&&vehicle===nextVehicle&&place===nextPlace)return;
+  if(nextEntered&&nextPlace==='gift'&&(!entered||place!=='gift')){
+   giftEntryPending=true;positions.gift=0;
+   if(track==='gift')audio.currentTime=0;
+  }else if(!nextEntered||nextPlace!=='gift')giftEntryPending=false;
+  entered=nextEntered;inside=nextInside;vehicle=nextVehicle;place=nextPlace;refresh();
+ },setMaster(on){master=on;refresh();},get enabled(){return choice===true&&!muted&&master;}};
  refresh();
 })();

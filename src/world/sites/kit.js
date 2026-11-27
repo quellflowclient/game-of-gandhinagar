@@ -45,7 +45,8 @@ export function osmFootprint(map, id, f) {
   const b = map.buildings.find((x) => x.id === id);
   if (!b) return null;
   const ring = b.pts.slice(0, -1).map(([x, z]) => { const l = f.toLocal(x, z); return [l.u, l.v]; });
-  return { ...b, ring };
+  const holes=(b.holes||[]).map(hole=>hole.slice(0,-1).map(([x,z])=>{const l=f.toLocal(x,z);return [l.u,l.v];}));
+  return { ...b, ring,holes };
 }
 
 // ---------- materials ----------
@@ -83,8 +84,9 @@ export const cyl = (g, rt, rb, h, m, x, y, z, seg = 12) => put(g, new THREE.Cyli
 export const sphere = (g, r, m, x, y, z, seg = 10) => put(g, new THREE.SphereGeometry(r, seg, Math.max(6, seg * 0.7)), m, x, y, z);
 
 // Flat polygon (lawn, paving, parking) at height y, world-scaled UVs.
-export function slab(g, ring, y, m, thickness = 0, uvScale = 4) {
+export function slab(g, ring, y, m, thickness = 0, uvScale = 4, holes=[]) {
   const shape = new THREE.Shape(ring.map(([u, v]) => new THREE.Vector2(u, -v)));
+  for(const ring of holes)shape.holes.push(new THREE.Path(ring.map(([u,v])=>new THREE.Vector2(u,-v))));
   const geo = thickness > 0 ? new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false }) : new THREE.ShapeGeometry(shape);
   geo.rotateX(-Math.PI / 2);
   const uv = geo.attributes.uv;
@@ -128,13 +130,13 @@ export function strip(g, path, width, y, m, { offset = 0, height = 0, tile = 4 }
 
 // Extrude a footprint into a building with a textured facade, roof slab and parapet.
 // facade.tex repeats every facade.bay metres wide and facade.floor metres high.
-export function building(g, ring, h, facade, { roof = 0xb9b4aa, parapet = 0.9, base = 0, parapetColor } = {}) {
+export function building(g, ring, h, facade, { roof = 0xb9b4aa, parapet = 0.9, base = 0, parapetColor,holes=[] } = {}) {
   const pts = ring.map(([u, v]) => new THREE.Vector2(u, v));
   if (THREE.ShapeUtils.isClockWise(pts)) pts.reverse();
   const pos = [], uv = [];
   let per = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const p = pts[i], q = pts[(i + 1) % pts.length], len = p.distanceTo(q);
+  for(const contour of [pts,...holes.map(r=>r.map(p=>new THREE.Vector2(...p)))])for (let i = 0; i < contour.length; i++) {
+    const p = contour[i], q = contour[(i + 1) % contour.length], len = p.distanceTo(q);
     const u0 = per / facade.bay, u1 = (per + len) / facade.bay, top = h / facade.floor;
     pos.push(p.x, base, p.y, q.x, h, q.y, q.x, base, q.y, p.x, base, p.y, p.x, h, p.y, q.x, h, q.y);
     uv.push(u0, 0, u1, top, u1, 0, u0, 0, u0, top, u1, top);
@@ -148,7 +150,7 @@ export function building(g, ring, h, facade, { roof = 0xb9b4aa, parapet = 0.9, b
   wm.castShadow = wm.receiveShadow = true; wm.userData.cameraSolid = true;
   g.add(wm);
   const roofRing = pts.map((p) => [p.x, p.y]);
-  slab(g, roofRing, h, roof, 0.25, 6).castShadow = true;
+  slab(g, roofRing, h, roof, 0.25, 6,holes).castShadow = true;
   if (parapet > 0) strip(g, [...roofRing, roofRing[0]], 0.3, h + 0.25, parapetColor ?? facade.parapet ?? 0xe8e4da, { height: parapet });
   return wm;
 }
@@ -450,7 +452,7 @@ export function createSiteZone({ id, f, area, solids = [], walls = [], vehicleFr
     // Optional: inside the site only these corridors/clearings are walkable (forest parks).
     if (walkable && !walkable(u, v, r)) return true;
     for (const s of solids) {
-      if (s.poly && nearPolygon(u, v, s.poly, r)) return true;
+      if (s.poly && nearPolygon(u, v, s.poly, r)&&!(s.holes||[]).some(hole=>pointInPolygon(u,v,hole)&&!hole.some((p,i)=>segDist(u,v,p,hole[(i+1)%hole.length])<r))) return true;
       if (s.circle && Math.hypot(u - s.circle[0], v - s.circle[1]) < s.circle[2] + r) return true;
       if (s.rect) {
         const [cu, cv, w, d, yaw = 0] = s.rect, c = Math.cos(yaw), sn = Math.sin(yaw);

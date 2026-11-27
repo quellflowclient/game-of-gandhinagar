@@ -1,7 +1,9 @@
 // Pedestrian capsule movement, shared by the player, NPCs and presence avatars.
 // Swept substeps prevent running/cycling through thin walls and water edges.
 import {createSidewalks,HAS_SIDEWALK} from './sidewalks.js';
-export function createNavigation(zones = [],{roads,parks=[]}={}) {
+import {polygonIndex,buildingBlocks} from './geographic-polygons.js';
+export function createNavigation(zones = [],{roads,parks=[],playArea,buildings=[]}={}) {
+  const buildingAt=polygonIndex(buildings);
   const obstacleGrid=new Map();
   const obstacleAt=(x,z,r=0.38)=>(obstacleGrid.get(`${Math.floor(x/20)},${Math.floor(z/20)}`)||[]).some(p=>Math.abs(x-p.x)<p.r+r&&Math.abs(z-p.z)<p.r+r&&Math.hypot(x-p.x,z-p.z)<p.r+r);
   const grid=new Map(),cell=50,widths={motorway:26,trunk:22,primary:18,secondary:13,tertiary:10,residential:7,unclassified:7,living_street:6,service:5,pedestrian:6,footway:2.5,path:2,cycleway:3};
@@ -16,6 +18,8 @@ export function createNavigation(zones = [],{roads,parks=[]}={}) {
     return (grid.get(`${Math.floor(x/cell)},${Math.floor(z/cell)}`)||[]).some(({a,b,width})=>{const dx=b[0]-a[0],dz=b[1]-a[1],len=dx*dx+dz*dz,t=len?Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/len)):0;return Math.hypot(x-a[0]-t*dx,z-a[1]-t*dz)<width/2+1.2-r;});
   }
   function heights(x, z, radius) {
+    if(playArea&&!playArea(x,z,radius))return[];
+    if(buildingAt(x,z).some(b=>buildingBlocks(x,z,b,radius)))return[];
     if(obstacleAt(x,z,radius))return[];
     const zone = zones.find(zon => zon.contains(x, z));
     if(zone)return zone.heights(x,z,radius);

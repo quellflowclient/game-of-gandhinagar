@@ -22,9 +22,23 @@ const mockData = () => { const now = Date.now(), iso = (m) => new Date(now - m *
   return { is_admin: true, admin_users: users, admin_live: users.filter((u) => u.online).map((u) => ({ id: u.id, name: u.name, x: u.x, z: u.z, heading: 0.6, vehicle: u.vehicle, place: u.place, updated_at: iso(0.1) })),
     admin_overview: { users: 5, verified: 4, new_today: 1, online: 3, connections: 3, accepted: 2, messages: 27, world_messages: 12, waves: 6, calls: 2, history_points: 340 },
     admin_connections: [[0, 1, true, 18], [0, 2, true, 6], [1, 3, false, 0]].map(([a, b, acc, m]) => ({ a: ids[a], a_name: users[a].name, b: ids[b], b_name: users[b].name, accepted: acc, started_by: ids[a], since: iso(300 * (a + 1)), messages: m, last_message: iso(20), waves: 1 })),
+    admin_locations: users.slice(0, 3).map((u, i) => ({ id: u.id, name: u.name, email: u.email, lat: 23.2156 + i * 0.0012, lng: 72.6369 + i * 0.0009, accuracy: 12 + i * 8, updated_at: iso(i * 0.2), consent_at: iso(600), in_game: i < 2 })),
     admin_history: Array.from({ length: 8 }, (_, i) => ({ x: -630 + i * 3, z: -4960 + i * 2, place: "ldrp", vehicle: "walk", at: iso(i * 0.4) })) }; };
 const rpc = async (name, args) => { if (MOCK) return mockData()[name]; const { data, error } = await sb.rpc(name, args); if (error) throw error; return data; };
 
+const escHtml = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let leafletLoading = null;
+function loadLeaflet() {
+  if (window.L) return Promise.resolve();
+  return leafletLoading ||= new Promise((resolve, reject) => {
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    css.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="; css.crossOrigin = "";
+    const js = document.createElement("script"); js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    js.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="; js.crossOrigin = "";
+    js.onload = () => resolve(); js.onerror = () => { leafletLoading = null; reject(new Error("Leaflet failed")); };
+    document.head.append(css, js);
+  });
+}
 // ---------------- sign in ----------------
 let mounted=false;
 async function start() {
@@ -83,10 +97,10 @@ function notAdmin(email, why) {
 // ---------------- console ----------------
 function app(email) {
   // Clean URLs: /admin, /admin/live, /admin/users, /admin/connections
-  const ROUTES = { overview: "/admin", live: "/admin/live", users: "/admin/users", connections: "/admin/connections", content:'/admin/content', settings:"/admin/settings" };
+  const ROUTES = { overview: "/admin", live: "/admin/live", locations: "/admin/locations", users: "/admin/users", connections: "/admin/connections", content:'/admin/content', settings:"/admin/settings" };
   const viewFromPath = () => { const seg = location.pathname.replace(/\/+$/, "").split("/")[2] || "overview"; return ROUTES[seg] ? seg : "overview"; };
-  const state = { view: viewFromPath(), overview: null, users: [], connections: [], live: [], updated: 0, error: "", map: null, area: 0, query: "" };
-  const views = [["overview", "📊", "Overview"], ["live", "🛰", "Live map"], ["users", "👤", "Users"], ["connections", "🔗", "Connections"], ['content','✏️','Game content'], ["settings", "⚙", "Settings"]];
+  const state = { view: viewFromPath(), overview: null, users: [], connections: [], live: [], locations: [], updated: 0, error: "", map: null, area: 0, query: "" };
+  const views = [["overview", "📊", "Overview"], ["live", "🛰", "Live map"], ["locations", "📍", "Real location"], ["users", "👤", "Users"], ["connections", "🔗", "Connections"], ['content','✏️','Game content'], ["settings", "⚙", "Settings"]];
   let contentEditor=null;
   const editContent=()=>[contentEditor||(contentEditor=createContentEditor(sb,{mock:MOCK}))];
   const navs = {};
@@ -102,11 +116,12 @@ function app(email) {
   async function refresh(full) {
     try {
       const jobs = [rpc("admin_live").then((d) => (state.live = d || []))];
+      if (full || state.view === "locations") jobs.push(rpc("admin_locations").then((d) => (state.locations = d || [])).catch((e) => { state.locationError = /admin_locations/.test(e.message) ? "Run supabase/scale-500.sql to enable real locations." : e.message; }));
       if (full) jobs.push(rpc("admin_overview").then((d) => (state.overview = d)), rpc("admin_users").then((d) => (state.users = d || [])), rpc("admin_connections").then((d) => (state.connections = d || [])));
       await Promise.all(jobs);
       state.updated = Date.now(); state.error = "";
     } catch (e) { state.error = e.message; }
-    if ((full && !(document.activeElement?.matches("input,textarea,select") || document.querySelector(".drawer"))) || state.view === "live" || state.view === "overview") render();
+    if ((full && !(document.activeElement?.matches("input,textarea,select") || document.querySelector(".drawer"))) || state.view === "live" || state.view === "overview" || state.view === "locations") render();
     else stamp();
   }
   function stamp() {
@@ -119,7 +134,7 @@ function app(email) {
   function render() {
     for (const [id, el] of Object.entries(navs)) el.classList.toggle("on", id === state.view);
     stamp();
-    const v = { overview, live, users, connections, content:editContent, settings }[state.view];
+    const v = { overview, live, locations, users, connections, content:editContent, settings }[state.view];
     document.title=`${state.view[0].toUpperCase()+state.view.slice(1)} · GOG Admin`;
     for(const [id,el] of Object.entries(navs))el.setAttribute("aria-current",id===state.view?"page":"false");
     content.replaceChildren(...v());
@@ -201,6 +216,50 @@ function app(email) {
     return [header("Live map"), h("div", { class: "map-wrap" }, canvas, tabs, h("div", { class: "map-legend" }, `● ${state.live.length} online · refreshes every 3 s`)),
       h("div", { class: "box" }, h("h3", {}, "Online players"), state.live.length ? h("table", {}, h("tbody", {}, state.live.map((p) => h("tr", { onclick: () => { const u = state.users.find((x) => x.id === p.id); if (u) drawer(u); } }, h("td", {}, h("b", {}, p.name || "Player")), h("td", {}, fmt.place(p.place)), h("td", {}, p.vehicle), h("td", {}, `x ${p.x.toFixed(0)}, z ${p.z.toFixed(0)}`), h("td", {}, fmt.ago(p.updated_at)))))) : h("div", { class: "empty" }, "Nobody is online right now."))];
   }
+  // Real-world GPS of players who allowed location sharing. The Leaflet map is
+  // created once and reused, so the 3 s refresh only moves markers.
+  const geo = { el: null, map: null, init: null, markers: new Map(), fitted: false };
+  function locations() {
+    if (!geo.el) geo.el = h("div", { class: "geo-map" }, h("div", { class: "empty" }, "Loading map…"));
+    const fresh = (p) => Date.now() - Date.parse(p.updated_at) < 120000;
+    const rows = state.locations;
+    setTimeout(drawGeo, 0);
+    return [header("Real location", h("span", { class: "muted" }, `${rows.filter(fresh).length} live · ${rows.length} shared`)),
+      ...(state.locationError ? [h("div", { class: "box" }, h("div", { class: "empty" }, state.locationError))] : []),
+      h("div", { class: "map-wrap" }, geo.el, h("div", { class: "map-legend" }, "● live (last 2 min)  ○ older · only players who tapped Allow location · refreshes every 3 s")),
+      h("div", { class: "box" }, h("h3", {}, "Shared locations"), rows.length ? h("table", {}, h("thead", {}, h("tr", {}, ["Player", "Email", "Latitude, longitude", "Accuracy", "Updated", "In game", ""].map((t) => h("th", {}, t)))),
+        h("tbody", {}, rows.map((p) => h("tr", {},
+          h("td", {}, h("b", {}, p.name || "Player")), h("td", {}, p.email || "—"),
+          h("td", {}, `${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`), h("td", {}, p.accuracy != null ? `±${Math.round(p.accuracy)} m` : "—"),
+          h("td", {}, fresh(p) ? h("b", { style: { color: "#1fb27a" } }, fmt.ago(p.updated_at)) : fmt.ago(p.updated_at)), h("td", {}, p.in_game ? "Yes" : "No"),
+          h("td", {}, h("button", { class: "btn", onclick: () => { geo.map?.setView([p.lat, p.lng], 18); geo.markers.get(p.id)?.openPopup(); } }, "Show"),
+            " ", h("a", { class: "btn", href: `https://www.google.com/maps?q=${p.lat},${p.lng}`, target: "_blank", rel: "noopener" }, "Google Maps ↗"))))))
+        : h("div", { class: "empty" }, "Nobody has shared their location yet."))];
+  }
+  async function drawGeo() {
+    // Renders overlap every 3 s; create the map exactly once.
+    geo.init ||= loadLeaflet().then(() => {
+      geo.el.replaceChildren();
+      geo.map = window.L.map(geo.el, { zoomControl: true }).setView([23.2156, 72.6369], 15);
+      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap contributors" }).addTo(geo.map);
+    });
+    try { await geo.init; } catch { geo.init = null; geo.el.replaceChildren(h("div", { class: "empty" }, "Map library could not load. Coordinates are listed below.")); return; }
+    if (!geo.el.isConnected) return;
+    geo.map.invalidateSize();
+    const L = window.L, seen = new Set();
+    for (const p of state.locations) {
+      seen.add(p.id);
+      const live = Date.now() - Date.parse(p.updated_at) < 120000;
+      const label = `<b>${escHtml(p.name || "Player")}</b><br>${escHtml(p.email || "")}<br>${p.lat.toFixed(6)}, ${p.lng.toFixed(6)} (±${Math.round(p.accuracy || 0)} m)<br>${fmt.ago(p.updated_at)}`;
+      let m = geo.markers.get(p.id);
+      if (!m) { m = L.circleMarker([p.lat, p.lng], { radius: 9, weight: 3 }).addTo(geo.map); m.bindPopup(label); m.bindTooltip(p.name || "Player", { permanent: true, direction: "right", offset: [10, 0] }); geo.markers.set(p.id, m); }
+      m.setLatLng([p.lat, p.lng]).setPopupContent(label);
+      m.setStyle({ color: "#e7eeea", fillColor: live ? "#1fb27a" : "#7a8a92", fillOpacity: live ? 0.95 : 0.5 });
+    }
+    for (const [id, m] of geo.markers) if (!seen.has(id)) { m.remove(); geo.markers.delete(id); }
+    if (!geo.fitted && state.locations.length) { geo.fitted = true; geo.map.fitBounds(state.locations.map((p) => [p.lat, p.lng]), { padding: [40, 40], maxZoom: 17 }); }
+  }
+
   async function drawMap(canvas) {
     if (!state.map) { try { state.map = await (await fetch("/data/gandhinagar-live.json")).json(); } catch { return; } }
     const m = state.map, ctx = canvas.getContext("2d"), W = canvas.width, H = canvas.height;

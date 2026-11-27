@@ -1,4 +1,5 @@
 import {CONTENT} from './game-content.js';
+import {timeoutSignal} from './network.js';
 import { CITY } from "../config.js";
 
 // City clock (live India time, with Morning/Day/Evening/Night overrides and a
@@ -55,7 +56,7 @@ export function createClock() {
 
   async function loadWeather() {
     const { lat, lon } = CITY.weatherPoint;
-    const json=async url=>{const r=await fetch(url,{signal:AbortSignal.timeout(12000)});if(!r.ok)throw new Error('Weather unavailable');return r.json();};
+    const json=async url=>{const r=await fetch(url,{signal:timeoutSignal(12000)});if(!r.ok)throw new Error('Weather unavailable');return r.json();};
     const [w,a]=await Promise.allSettled([
       json(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,weather_code&daily=sunrise,sunset&forecast_days=1&timezone=Asia%2FKolkata`),
       json(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi`)

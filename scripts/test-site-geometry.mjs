@@ -13,6 +13,7 @@ import {marketPoint,MARKET_SHOPS,MARKET_GROUND} from '../src/world/sites/ldrp-ma
 // Canvas drawing is stubbed only for this CPU geometry test. This does not
 // substitute for the actual rendered screenshots/browser interaction checks.
 const noop=()=>{};
+globalThis.matchMedia=()=>({matches:false});
 globalThis.document={createElement(){const canvas={width:1,height:1};const context=new Proxy({canvas,createLinearGradient:()=>({addColorStop:noop}),createRadialGradient:()=>({addColorStop:noop}),measureText:t=>({width:String(t).length*8}),createImageData:(w,h)=>({data:new Uint8ClampedArray(w*h*4)})},{get:(o,k)=>k in o?o[k]:noop});canvas.getContext=()=>context;return canvas;}};
 const map=alignMetroRoads(createLiveMap(JSON.parse(fs.readFileSync(new URL('../public/data/gandhinagar-map.json',import.meta.url))))),scene=new THREE.Scene(),origin=placePos(placeById('ldrp'));
 const ldrp=buildLdrp(scene,map,origin),metro=buildMetro(scene,map,{lowEnd:true});scene.updateMatrixWorld(true);
@@ -28,7 +29,7 @@ scene.traverse(o=>{if(!o.isMesh)return;assert.ok(o.matrixWorld.elements.every(Nu
 assert.equal(ldrp.market.shops.length,8);assert.equal(ldrp.market.seats.length,148);for(const shop of MARKET_SHOPS.filter(s=>s.kind!=="food")){const c=new Map();for(const s of ldrp.market.seats.filter(s=>s.shopId===shop.id))c.set(s.circle,(c.get(s.circle)||0)+1);assert.deepEqual([...c.values()],[4,4,4,5,5]);};
 for(const shop of MARKET_SHOPS.filter(s=>s.kind!=='food'))assert.equal(ldrp.market.seats.filter(s=>s.shopId===shop.id).length,22);
 assert.ok(ldrp.market.seats.every(s=>s.y===MARKET_GROUND));assert.ok(metro.obstacles.length>0&&metro.obstacles.every(p=>p.r===0.85));
-for(const s of MARKET_SHOPS){const p=marketPoint(origin,s.u,s.v>0?11:-10);assert.ok(ldrp.market.zone.contains(p.x,p.z),'No unowned grass gap beside the shop row');}
+for(const s of MARKET_SHOPS){const p=marketPoint(origin,s.u,s.v-Math.sign(s.v)*4.5);assert.ok(ldrp.market.zone.contains(p.x,p.z),'Each shifted shop row has a continuous pedestrian approach');}
 for(const s of garden.segments){const x=(s.a[0]+s.b[0])/2,z=(s.a[1]+s.b[1])/2;assert.ok(garden.zone.contains(x,z));assert.equal(garden.zone.heights(x,z).length,0,'Every rendered median strip blocks walking');assert.ok(garden.zone.forbidsVehicles(x,z));}
 for(const s of garden.segments)if(s.tree){const nearest=metro.piers.reduce((d,p)=>Math.min(d,Math.hypot(s.tree[0]-p[0],s.tree[1]-p[1])),Infinity);assert.ok(nearest>7,'Trees go between piers, clear of columns');}
 console.log(`Site geometry passed: ${meshes} finite meshes / ${vertices} vertices, 8 shops, 22 seats per tea tapri in circles of 4-5 (148 total), decoded GLB parked vehicles, shoulder and fenced median.`);

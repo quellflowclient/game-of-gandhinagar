@@ -309,6 +309,7 @@ export const local = {
 
   // ---------- safety ----------
   async block(id) { const me = requireUser(); tx((db) => db.blocks.push({ by: me, who: id, at: now() })); },
+  async updateLocation() { /* demo backend: location stays on this device */ },
   async report(id, reason) {
     const me = requireUser();
     tx((db) => {

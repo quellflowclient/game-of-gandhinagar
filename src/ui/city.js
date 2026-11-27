@@ -3,6 +3,7 @@ import { h, openPanel, toast, chips, closePanel, ago } from "./dom.js";
 import { PLAN_CATEGORIES, SAMPLE_EVENTS, FESTIVALS, STALLS } from "../data/live-content.js";
 import { hubs, placedPlaces, placePos, HOME_DISTRICTS } from "../data/places.js";
 import { fmtHour } from "../systems/clock.js";
+import {explorationAreaForPlace,explorationAreaLabel,explorationCorners} from '../world/exploration-areas.js';
 
 // ---------- Plans ----------
 export async function openPlans(app, prefill) {
@@ -94,16 +95,17 @@ export async function openUtsav(app) {
     h("p", { class: "muted small" }, "Sample calendar. Festival dates that move each year are marked; only fixed dates switch on by themselves. \"Preview\" turns an event on so you can see it now.")));
 }
 
-// ---------- Travel (BRTS) ----------
+// ---------- Metro transfers between bounded neighbourhoods ----------
 export function openTravel(app) {
-  const here = app.currentPlace?.id;
+  const here = explorationAreaForPlace(app.currentPlace?.id);
   const counts = app.countsByPlace();
-  openPanel("🚌 BRTS · જનમાર્ગ", h("div", {},
+  openPanel("Ⓜ METRO · મેટ્રો", h("div", {},
+    h("div", {class:'metro-transfer-note'},h('b',{},'Your next neighbourhood'),h('span',{},'Mahatma Mandir aur poora Swarnim Park ek hi walkable area hain. Door ki locations ke liye metro chuno.'),h('small',{class:'muted',style:'display:block;margin-top:6px'},'Game transfers · destination names, not a real station or timetable guide.')),
     h("h3", {}, "KYA JAVU CHE?"),
-    hubs().map((p) => h("button", { type: "button", class: "dest" + (p.id === here ? " here" : ""), disabled: p.id === here, onclick: () => { closePanel(); app.travel(p.id); } },
-      h("div", { class: "nm" }, p.name.toUpperCase(), h("span", { class: "gu" }, " ", p.gu)),
-      h("div", { class: "muted small" }, p.blurb),
-      h("div", { class: "small" }, p.id === here ? "YOU ARE HERE" : `${counts[p.id] || 0} PEOPLE HERE · START MEETING NEW PEOPLE ▸`))),
+    hubs().filter(p=>p.id!=='swarnim').map((p) => h("button", { type: "button", class: "dest" + (p.id === here ? " here" : ""), disabled: p.id === here, onclick: () => { closePanel(); app.travel(p.id); } },
+      h("div", { class: "nm" }, explorationAreaLabel(p.id).toUpperCase(), h("span", { class: "gu" }, " ", p.id==='dandi'?'મહાત્મા મંદિર · સ્વર્ણિમ પાર્ક':p.gu)),
+      h("div", { class: "muted small" }, p.id==='dandi'?'Museum, convention campus and the full Central Vista promenade':p.blurb),
+      h("div", { class: "small" }, p.id === here ? "YOU ARE HERE · EXPLORE ON FOOT" : `${(counts[p.id] || 0)+(p.id==='dandi'?(counts.swarnim||0):0)} PEOPLE HERE · TAKE THE METRO →`))),
     app.world.stage ? h("button", { type: "button", class: "dest", onclick: () => { closePanel(); app.goNear(app.world.stage.x, app.world.stage.z + 8); } },
       h("div", { class: "nm" }, "🎤 OPEN MIC STAGE"), h("div", { class: "muted small" }, "Sector 1 Lake Garden · take the mic or just listen"), h("div", { class: "small" }, "GO TO THE STAGE ▸")) : null,
     placedPlaces().some(p=>!p.hub)?h("h3", { class: "sec" }, "OTHER PLACES (WALK OR CYCLE)"):null,
@@ -129,6 +131,7 @@ export function openMap(app) {
     c.fillStyle = "#efe6d2"; c.fillRect(0, 0, w, hh);
     c.fillStyle = "#c9dcb0";
     for (const p of map.parks) { c.beginPath(); p.pts.forEach(([x, z], i) => (i ? c.lineTo(X(x), Y(z)) : c.moveTo(X(x), Y(z)))); c.fill(); }
+    c.fillStyle='#9aa8a6';for(const b of map.buildings){c.beginPath();for(const ring of [b.pts,...(b.holes||[])]){ring.forEach(([x,z],i)=>i?c.lineTo(X(x),Y(z)):c.moveTo(X(x),Y(z)));c.closePath();}c.fill('evenodd');}
     c.strokeStyle = "#8cc4e0"; c.fillStyle = "#8cc4e0";
     for (const wv of map.water) {
       c.beginPath(); wv.pts.forEach(([x, z], i) => (i ? c.lineTo(X(x), Y(z)) : c.moveTo(X(x), Y(z))));
@@ -140,9 +143,10 @@ export function openMap(app) {
       c.beginPath(); r.pts.forEach(([x, z], i) => (i ? c.lineTo(X(x), Y(z)) : c.moveTo(X(x), Y(z)))); c.stroke();
     }
     markers.length = 0;
+    c.strokeStyle='#ab793d';c.lineWidth=1.5;c.setLineDash([6,4]);for(const ring of explorationCorners()){c.beginPath();ring.forEach((p,i)=>i?c.lineTo(X(p.x),Y(p.z)):c.moveTo(X(p.x),Y(p.z)));c.closePath();c.stroke();}c.setLineDash([]);
     // Places
     for (const p of placedPlaces()) {
-      const { x, z } = placePos(p);
+      const { x, z } = app.world.spawns[p.id]||placePos(p);
       const px = X(x), py = Y(z);
       c.fillStyle = "#" + p.color.toString(16).padStart(6, "0");
       c.beginPath(); c.arc(px, py, p.hub ? 7 : 5, 0, Math.PI * 2); c.fill();
@@ -205,7 +209,8 @@ export function openMap(app) {
         h("button", { type: "button", "aria-label": "Zoom out", onclick: () => { zoom = Math.max(0.03, zoom / 1.4); draw(); } }, "−"),
         h("button", { type: "button", "aria-label": "Recentre on me", onclick: () => { cx = app.player.position.x; cz = app.player.position.z; draw(); } }, "◎"),
         h("button", { type: "button", "aria-label": "Fullscreen", onclick: () => { full = !full; sheet.closest(".sheet").classList.toggle("full", full); setTimeout(draw, 50); } }, "⤢"))),
-    h("p", { class: "muted small" }, "Tap a place to take the BRTS there. Drag to move, scroll to zoom. Map data © OpenStreetMap contributors."));
+    h("p", { class: "muted small" }, "Tap a distant area for Metro. Mahatma Mandir and Swarnim Park share one walking area. Dashed lines show exploration limits. Drag to move, scroll to zoom."),
+    h("p", { class: "muted small" }, "Map geometry: July 2026 · © OpenStreetMap contributors. Footprints keep their mapped positions and scale; building heights without measurements are approximate."));
   openPanel("GANDHINAGAR MAP", sheet, { wide: true });
   requestAnimationFrame(draw);
 }

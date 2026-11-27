@@ -1,5 +1,5 @@
 // Writes public/data/gandhinagar-live.json: the full map clipped to the live
-// destinations (LDRP + Mahatma Mandir). The game loads this small file first.
+// destinations (five separate neighbourhoods). The game loads this small file first.
 import fs from 'node:fs';
 import {createLiveMap} from '../src/world/live-map.js';
 const full=JSON.parse(fs.readFileSync(new URL('../public/data/gandhinagar-map.json',import.meta.url)));

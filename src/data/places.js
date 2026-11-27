@@ -16,7 +16,7 @@ export const PLACES = [
     blurb: "Tech office by Infocity" },
   { id: "gift", name: "GIFT City", gu: "ગિફ્ટ સિટી", kind: "business", hub: true,
     lat: 23.16465, lon: 72.68045, color: 0x2fb7a0,
-    blurb: "Towers, finance and the river view" },
+    blurb: "Full mapped GIFT City boundary, buildings and streets" },
   { id: "pdeu", name: "PDEU", gu: "પીડીઈયુ", kind: "college", hub: true,
     lat: 23.1563544, lon: 72.6652774, color: 0xe08a3c,
     blurb: "Energy university on the knowledge corridor" },
@@ -35,9 +35,9 @@ export const PLACES = [
   { id: "punitvan", name: "Punit Van", gu: "પુનિત વન", kind: "park", hub: false,
     lat: 23.2169187, lon: 72.6676339, color: 0x67b863,
     blurb: "Botanical garden walks" },
-  { id: "swarnim", name: "Swarnim Park", gu: "સ્વર્ણિમ પાર્ક", kind: "park", hub: false,
+  { id: "swarnim", name: "Swarnim Park", gu: "સ્વર્ણિમ પાર્ક", kind: "park", hub: true,
     lat: 23.2221505, lon: 72.6519822, color: 0x76c26b,
-    blurb: "Park in the middle of the sectors" },
+    blurb: "Full Central Vista park · connected on foot to Mahatma Mandir" },
   { id: "dandi", name: "Mahatma Mandir", gu: "મહાત્મા મંદિર · દાંડી કુટીર", kind: "museum", hub: true,
     lat: 23.2328055, lon: 72.631196, color: 0xeeeeee,
     blurb: "Mahatma Mandir campus, waterside walks and Dandi Bridge" },
@@ -58,7 +58,7 @@ export const PLACES = [
     lat: 23.2389922, lon: 72.6390652, color: 0x2f5fa8, blurb: "KSV campus, Sector 15: engineering students, the arc and its garden" },
 ];
 
-export const LIVE_PLACE_IDS = new Set(['ldrp','dandi']);
+export const LIVE_PLACE_IDS = new Set(['ldrp','dandi','swarnim','swagat','gift']);
 export const isLivePlace = id => LIVE_PLACE_IDS.has(id);
 export const placedPlaces = () => PLACES.filter((p) => isLivePlace(p.id) && !p.pending && p.lat != null);
 export const hubs = () => placedPlaces().filter((p) => p.hub);

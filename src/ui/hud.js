@@ -48,6 +48,7 @@ export function createHud({ open, act }) {
   const rideBar=h('nav',{class:'quick-rides','aria-label':'Choose a vehicle'},carQuick,autoQuick,cycleBtn,exitRide);
   let lastRide=null;
   const speed=h('div',{class:'vehicle-speed glass',hidden:true,'aria-live':'off'}),area=h('div',{class:'play-area-label glass',hidden:true},'LDRP · KH-5 · STALLS');
+  const boundaryHint=h('div',{class:'area-boundary-hint glass',hidden:true,role:'status'},'Area ends here · Use Metro for other locations');
   const cameraBtn=ibtn('◉',null,'Camera view',()=>open('camera'),'fab camera-view');
 
   const joystick = h("div", { class: "joystick",role:'group','aria-label':'Movement joystick. Drag to walk, push to outer ring to run.' }, h("div", { class: "knob" }),h('span',{class:'joy-label'},'WALK · RUN'));
@@ -68,7 +69,7 @@ export function createHud({ open, act }) {
   const MENU = [
     ["You", [["🙂","Profile","profile"],["🪪","Campus ID","campus"],["🪞","AI twin","twin"]]],
     ["People", [["🤝","Chats","chats"],["🔍","Find people","find"],["👥","Online now","online"],["💬","City chat","world"]]],
-    ["Explore", [["🗺","Map","map"],["🚌","Travel","travel"],["🚗","Choose ride","vehicles"],["🎯","Missions","missions"]]],
+    ["Explore", [["🗺","Map","map"],["Ⓜ","Metro","travel"],["🚗","Choose ride","vehicles"],["🎯","Missions","missions"]]],
     ["Settings", [["✥","Controls","controls"],["◉","Camera","camera"],["🔊","Sound","sound"],["🕒","Time & weather","time"],["⛶","Fullscreen","fullscreen"]]],
   ];
   const moreBadges = {};
@@ -91,15 +92,16 @@ export function createHud({ open, act }) {
   const arrival = h("div", { class: "arrival", hidden: true });
   const activity = h("div", { class: "activity" });
 
-  root.append(topLeft,rideBar, minimap,cameraBtn, actions, joystick, hint, context, dock, more, arrival, activity,speed);
+  root.append(topLeft,rideBar, minimap,cameraBtn, actions, joystick, hint, context, dock, more, arrival, activity,speed,area,boundaryHint);
   document.body.append(root);
 
   let arrivalTimer = 0;
   return {
     root, joystick, miniCanvas,
+    setBoundary(near){boundaryHint.hidden=!near;},
     get menuOpen(){return !more.hidden;},
     setVehicle(type){if(type===lastRide)return;lastRide=type;jumpBtn.hidden=type!=='walk';carQuick.setAttribute('aria-pressed',String(type==='car'));autoQuick.setAttribute('aria-pressed',String(type==='auto'));exitRide.hidden=type==='walk';cycleBtn.setAttribute('aria-label',`Choose ride. Current: ${type}`);},
-    setDrive(type,kmh,locked,direction='STOP'){speed.hidden=!['car','auto','bike','scooter'].includes(type);const text=`${direction} · ${Math.round(kmh)} / ${({auto:35,car:80,bike:45,scooter:35})[type]||0} km/h`;if(speed.textContent!==text)speed.textContent=text;area.hidden=!locked;},
+    setDrive(type,kmh,locked,direction='STOP',placeName){speed.hidden=!['car','auto','bike','scooter'].includes(type);const text=`${direction} · ${Math.round(kmh)} / ${({auto:35,car:80,bike:45,scooter:35})[type]||0} km/h`;if(speed.textContent!==text)speed.textContent=text;area.hidden=!locked;const label=`${placeName||'LOCAL AREA'} · METRO TO TRAVEL`;if(area.textContent!==label)area.textContent=label;},
     setPlace(p) {
       placeName.textContent = p ? p.name : "Gandhinagar";
       placeGu.textContent = p ? p.gu : "ગાંધીનગર · Green City";

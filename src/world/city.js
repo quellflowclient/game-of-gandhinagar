@@ -4,6 +4,7 @@ import * as T from "./textures.js";
 import {createSidewalks} from './sidewalks.js';
 import {offsetPath} from './road-path.js';
 import {roadClearance} from './metro-road-clearance.js';
+import {withDeadline} from '../systems/network.js';
 
 // Realistic OpenStreetMap city, split into 500 m chunks so off-screen parts are culled
 // (for both the main view and shadows). Buildings get real facade textures chosen by
@@ -20,9 +21,10 @@ const MAJOR = new Set(["motorway", "trunk", "primary", "secondary", "tertiary"])
 const STYLE_SLOTS = ["plaster", "peach", "brick", "govt", "glass", "white"]; // 2 x 3 atlas
 
 export async function loadMap() {
-  // Small pre-clipped live map (LDRP + Mahatma Mandir); full map as fallback.
-  const live = await fetch("/data/gandhinagar-live.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  return live || fetch("/data/gandhinagar-map.json").then((r) => r.json());
+  // Pre-clipped local neighbourhoods; full map as fallback.
+  const read=path=>withDeadline(async signal=>{const r=await fetch(path,{signal});if(!r.ok)throw new Error('Map download failed');return r.json();},15000);
+  const live = await read('/data/gandhinagar-live.json?v=20261126-districts2').catch(() => null);
+  return live || read('/data/gandhinagar-map.json');
 }
 
 const key = (x, z) => `${Math.floor(x / CHUNK)},${Math.floor(z / CHUNK)}`;
@@ -227,6 +229,7 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
 
   for (const p of map.parks) {
     if (p.pts.length < 4) continue;
+    if(clearings.some(c=>c.replacesPark&&p.pts.every(([x,z])=>c.replacesPark(x,z))))continue;
     const g = polygonGeo(p.pts.slice(0, -1), 0.06, 30);
     if (g) C(key(p.pts[0][0], p.pts[0][1])).parks.push(g);
   }
@@ -240,7 +243,7 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
   }
   // Authored compounds and KH Road have their own paving. Do not draw old OSM
   // ribbons through lawns, or leave a slab above a still-rendered city road.
-  const replaced=(x,z)=>clearings.some(c=>c.replacesRoad?.(x,z));
+  const replaced=(x,z,road)=>clearings.some(c=>c.replacesRoad?.(x,z,road));
   const replacementBounds=clearings.filter(c=>c.replacesRoad&&c.roadBounds).map(c=>c.roadBounds);
   const renderRoads=[];
   for(const r of map.roads) {
@@ -254,7 +257,7 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
       const n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/4));
       for(let j=0;j<n;j++) {
         const p=[a[0]+(b[0]-a[0])*j/n,a[1]+(b[1]-a[1])*j/n],q=[a[0]+(b[0]-a[0])*(j+1)/n,a[1]+(b[1]-a[1])*(j+1)/n];
-        if(replaced((p[0]+q[0])/2,(p[1]+q[1])/2))flush();
+        if(replaced((p[0]+q[0])/2,(p[1]+q[1])/2,r))flush();
         else {if(!run.length)run.push(p);run.push(q);}
       }
     }
@@ -309,7 +312,7 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
     const ring = b.pts.slice(0, -1);
     if (ring.length < 3) return;
     const [x0, z0] = ring[0];
-    if (clearings.some((c) => ring.some(([x,z]) => onClearing(c,x,z)))) { skipped++; return; }
+    if (clearings.some((c) => c.replacesBuilding?c.replacesBuilding(b):ring.some(([x,z]) => onClearing(c,x,z)))) { skipped++; return; }
     const h = Math.max(3.4, b.h);
     const geo = buildingGeo(ring, h, pickStyle(b.kind, h, rand()));
     if (!geo) return;
@@ -390,12 +393,14 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), v = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const tint = new THREE.Color();
   const merge = (arr) => (arr.length ? BGU.mergeGeometries(arr, false) : null);
+  const cameraObstacles=[];
   const addMesh = (geo, mat, cast, receive) => {
     if (!geo) return;
     const m = new THREE.Mesh(geo, mat);
     m.castShadow = cast; m.receiveShadow = receive;
     m.updateMatrix();m.matrixAutoUpdate=false;
     group.add(m);
+    return m;
   };
   let treeCount = 0;
   for (const [k, ch] of chunks) {
@@ -403,8 +408,8 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
     addMesh(merge(ch.water), waterMat, false, false);
     for (const [cls, arr] of Object.entries(ch.roads)) addMesh(merge(arr), roadMats[cls], false, true);
     addMesh(merge(ch.walks), walkMat, false, true);
-    addMesh(merge(ch.walls), wallMat, true, true);
-    addMesh(merge(ch.roofs), roofMat, true, true);
+    const walls=addMesh(merge(ch.walls),wallMat,true,true),roofs=addMesh(merge(ch.roofs),roofMat,true,true);
+    if(walls)cameraObstacles.push(walls);if(roofs)cameraObstacles.push(roofs);
     for (const g of [...ch.parks, ...ch.water, ...ch.walks, ...ch.walls, ...ch.roofs, ...Object.values(ch.roads).flat()]) g.dispose();
   }
   const allKeys = new Set([...treeSpots.keys(), ...lightSpots.keys()]);
@@ -442,6 +447,7 @@ export async function buildCity(scene, clearings = [], mapIn, { lowEnd = false }
   }
 
   return {
+    cameraObstacles,
     map,
     group,
     counts: { roads: map.roads.length, buildings: map.buildings.length - skipped, trees: treeCount, chunks: chunks.size },

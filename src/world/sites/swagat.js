@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import * as K from "./kit.js";
 import * as T from "../textures.js";
+import {districtRing} from '../exploration-areas.js';
+import {districtGround} from './district-ground.js';
 
 // Swagat Holiday Mall, Sargasan (SG Highway / NH-147).
 // Sources: Google Maps pin 23.1891285, 72.6097853 and satellite; developer renders and
@@ -17,7 +19,7 @@ export const SWAGAT = {
 
 export function buildSwagat(scene, map, origin) {
   const f = K.frame(origin, SWAGAT.yaw);
-  const g = new THREE.Group(); g.position.set(origin.x, 0, origin.z); g.rotation.y = SWAGAT.yaw; scene.add(g);
+  const g = new THREE.Group(); g.name='Swagat Holiday Mall';g.position.set(origin.x, 0, origin.z); g.rotation.y = SWAGAT.yaw; scene.add(g);
   const solids = [];
   const { u, v, w, d, h } = SWAGAT.mall;
   const front = v - d / 2, back = v + d / 2, left = u - w / 2, right = u + w / 2;
@@ -43,33 +45,46 @@ export function buildSwagat(scene, map, origin) {
   // Glazed central atrium with a cantilevered canopy and steps.
   K.box(g, 12, 19, 1.2, K.mat(0x6f93b2, { roughness: 0.1, metalness: 0.5 }), u, 0.6, front - 0.8);
   K.box(g, 16, 0.5, 6, K.mat(0xdedfe1, { roughness: 0.3, metalness: 0.6 }), u, 7, front - 3.5);
-  for (let i = 0; i < 3; i++) K.box(g, 14, 0.2, 1, 0xbfb9ad, u, i * 0.2, front - 1.4 - i);
-  // Rooftop: hoarding frames and water tanks.
-  for (const du of [-18, 18]) {
-    K.box(g, 14, 5, 0.4, K.mat(0xffffff, { roughness: 0.6 }), u + du, h + 1.5, v - 6);
-    for (const s of [-6, 6]) K.box(g, 0.3, 6.5, 0.3, 0x555555, u + du + s, h, v - 5.6);
-  }
+  // Door apron is flush with the pedestrian paving; no unreachable decorative steps.
+  K.box(g,14,.12,3.8,0xbfb9ad,u,0,front-2.4);
+  solids.push({rect:[u,front-.8,12,1.2]});
+  for(const du of [-7.4,7.4]){K.cyl(g,.12,.12,7,0xa2a5a2,du,.1,front-5.7,12);solids.push({circle:[du,front-5.7,.16]});}
+  // Rooftop service tanks. No fabricated branded tenants or empty billboards.
   for (let k = 0; k < 4; k++) K.cyl(g, 1, 1, 1.7, 0x1d1d1d, u + 20 + k * 2.4, h + 0.3, v + 14, 14);
 
   // Forecourt: paving, curbs along the frontage road, parking, guard cabin, lights.
-  K.slab(g, [[left - 6, front - 14], [right + 6, front - 14], [right + 6, front], [left - 6, front]], 0.08, K.mat(K.greyPavers()), 0, 3);
-  K.strip(g, [[left - 6, front - 14], [right + 6, front - 14]], 0.3, 0, K.mat(K.curbTex()), { height: 0.25, tile: 0.6 });
+  const apron=[[left-6,front-18],[right+6,front-18],[right+6,front],[left-6,front]];
+  K.slab(g,apron,.08,K.mat(K.greyPavers()),0,3);
+  // Leave the central approach open from the frontage sidewalk to the entrance.
+  for(const [a,b] of [[left-6,-5],[5,right+6]])K.strip(g,[[a,front-18],[b,front-18]],.3,.08,K.mat(K.curbTex()),{height:.18,tile:.6});
+  K.strip(g,[[0,front-18],[0,front-5]],.75,.091,0xd7ba70);
+  for(const du of [-24,-16,16,24])K.strip(g,[[du,front-12],[du,front-7]],.08,.092,0xf0e7cb);
   const bikeColors = [0x2f5e9e, 0xc0392b, 0x1a1a1a, 0xdedede, 0x7a7d80];
   for (let i = 0; i < 18; i++) K.scooter(g, left + 2 + i * 1.1, front - 4, Math.PI / 2, bikeColors[i % 5]);
   solids.push({ rect: [left + 11.5, front - 4, 21, 2.2] });
   const carColors = [0xf2f2f2, 0xc0c4c8, 0x1e2a3a, 0xb3261e];
   for (let i = 0; i < 6; i++) { const cu = right - 4 - i * 3, cv = front - 6; K.parkedCar(g, cu, cv, 0, carColors[i % 4]); solids.push({ rect: [cu, cv, 2, 4.4] }); }
   K.securityCabin(g, left - 3, front - 10, 0); solids.push({ rect: [left - 3, front - 10, 2.4, 2.4] });
-  for (const lu of [left - 4, u, right + 4]) K.streetLight(g, lu, front - 13, Math.PI, { h: 8 });
+  const lampU=[left-4,-8,8,right+4];
+  for (const lu of lampU) K.streetLight(g, lu, front - 13, Math.PI, { h: 8 });
   for (const tu of [left - 4, right + 4]) { K.tree(g, tu, front + 6, 1.1); solids.push({ circle: [tu, front + 6, 0.35] }); }
+  for(const du of [-25,25]){
+    const bed=[[du-3,front-16],[du+3,front-16],[du+3,front-14],[du-3,front-14]];K.flowerBed(g,bed);solids.push({poly:bed});
+    K.bench(g,du,front-11,Math.PI);solids.push({rect:[du,front-11,2.1,.8]});
+  }
+  for(const du of lampU)solids.push({circle:[du,front-13,.18]});
 
   K.mergeStatic(g);
-  const area = [[left - 8, front - 16], [right + 8, front - 16], [right + 8, back + 6], [left - 8, back + 6]];
-  const zone = K.createSiteZone({ id: "swagat-mall", f, area, solids, vehicleFree: [ring] });
-  const residents = [[-10, -24 + 6], [8, -20], [20, -22], [-25, -20], [0, -18]].map(([a, b]) => ({ ...f.toWorld(a, b + v), r: 5 }));
+  const area=districtRing('swagat'),roadY=districtGround(map,f);
+  const owned=[[left-7,front-18],[right+7,front-18],[right+7,back+3],[left-7,back+3]];
+  const zone=K.createSiteZone({id:'swagat-mall',f,area,solids,vehicleFree:[owned],groundY:(a,b)=>K.pointInPolygon(a,b,apron)?(Math.abs(a)<7&&b>front-4.3?.128:.088):roadY(a,b)});
+  // Preserve the real frontage road; remove map fragments underneath the rebuilt mall.
+  zone.clearing.replacesRoad=(x,z)=>{const p=f.toLocal(x,z);return K.pointInPolygon(p.u,p.v,owned);};
+  zone.clearing.roadBounds={minX:Math.min(...area.map(p=>f.toWorld(...p).x)),maxX:Math.max(...area.map(p=>f.toWorld(...p).x)),minZ:Math.min(...area.map(p=>f.toWorld(...p).z)),maxZ:Math.max(...area.map(p=>f.toWorld(...p).z))};
+  const residents=[[-4,-25],[5,-24],[-15,-25],[20,-24],[0,-19]].map(([a,b])=>({...f.toWorld(a,b),r:2}));
   const spawn = { ...f.toWorld(u, front - 10), yaw: SWAGAT.yaw + Math.PI, residents };
   return {
-    zone, spawn, frame: f,
-    update(t) { ledMat.emissiveIntensity = 0.35 + 0.15 * Math.sin(t * 2); led.offset.x = (t * 0.02) % 1; },
+    group:g,zone, spawn, frame: f,
+    update(t) { ledMat.emissiveIntensity = 0.4 + 0.06 * Math.sin(t*.6); },
   };
 }

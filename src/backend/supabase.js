@@ -3,6 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { ENV, LIMITS, CONTACT_PATTERN } from "../config.js";
 import {emailAddress} from './email.js';
+import {timeoutSignal} from '../systems/network.js';
 
 const sb = createClient(ENV.supabaseUrl, ENV.supabaseAnonKey);
 const DAY = 86400000;
@@ -24,33 +25,121 @@ const ok = ({ data, error }) => { if (error) throw new Error(error.message); ret
 const me = async () => (await sb.auth.getSession()).data.session?.user?.id || null;
 const clean = (t) => { if (CONTACT_PATTERN.test(t || "")) throw new Error("No phone numbers, emails or links, please."); };
 
-let channel = null, online = [], state = null, generation = 0, joinRevision=0, refreshTimer, heartbeat, sending = false, dirty = false, sendTask=null;
+// ---------- multiplayer networking, built for ~500 concurrent players ----------
+// Positions: write ≤1/s when moving (heartbeat 12 s when idle), read a compact
+// CDN-cached area snapshot every second (api/positions.js). Names/looks come from
+// a nearby roster refreshed every 20 s. Private events (DMs, waves, calls, voice
+// signals) arrive on the private Realtime topic user:<id>, pushed by DB triggers to
+// just the two people involved. Nothing fans out to all players any more.
+const CELL=160, POS_MS=1000, ROSTER_MS=20000, LEGACY_MS=4000, HEARTBEAT_MS=12000, INBOX_POLL_MS=12000;
+let online=[], counts={}, roster=new Map(), state=null, generation=0, joinRevision=0;
+let timers=[], inbox=null, inboxLive=false, inboxSeen=null, sendTask=null, lastSent=null, dirty=false;
+let snapshotApi=true, legacy=false, worldTop=0, polling=false;
 const presenceFns = [];
 const messageFns = [], worldFns = [], waveFns = [], planFns = [];
 const callFns=[],signalFns=[];
 const sessionValue = s => s?.user?.email_confirmed_at ? { userId:s.user.id, contact:s.user.email } : null;
 const emitPresence = () => presenceFns.forEach(fn => fn(online));
-async function refreshOnline(epoch = generation) {
+const missingFn = e => /PGRST202|Could not find the function|does not exist/i.test(`${e?.code||''} ${e?.message||''}`);
+const rebuildOnline = () => { online=[...roster.values()]; emitPresence(); };
+async function refreshRoster(epoch=generation) {
   if (!state?.userId) return;
-  const {data,error} = await sb.rpc('online_players');
-  if (epoch !== generation || error) return;
-  online = data || []; emitPresence();
+  if (!legacy) {
+    const {data,error}=await sb.rpc('online_players_near',{pp:state.place||null,px:state.x??0,pz:state.z??0});
+    if (epoch!==generation) return;
+    if (error) { if(missingFn(error)) {legacy=true;openLegacyEvents(state.userId);} else return; }
+    else if (data) {
+      counts=data.counts||{}; const next=new Map();
+      for (const p of data.players||[]) {
+        const old=roster.get(p.residentNo);
+        // Keep the fresher snapshot position if the roster row is older.
+        next.set(p.residentNo, old&&+new Date(old.updatedAt)>+new Date(p.updatedAt)?{...p,x:old.x,y:old.y,z:old.z,heading:old.heading,vehicle:old.vehicle,updatedAt:old.updatedAt}:p);
+      }
+      roster=next; rebuildOnline(); return;
+    }
+  }
+  // Older database without scale-500.sql: plain polling, still no realtime fan-out.
+  const {data,error}=await sb.rpc('online_players');
+  if (epoch!==generation||error) return;
+  roster=new Map((data||[]).map((p,i)=>[p.residentNo??`l${i}`,p])); counts={};
+  for (const p of data||[]) if(p.place) counts[p.place]=(counts[p.place]||0)+1;
+  rebuildOnline();
 }
-async function sendPosition() {
-  if (!state?.userId || sending || !dirty || !['ldrp','dandi'].includes(state.place)) return;
-  sending = true; dirty = false;
-  const p = {...state};
+async function fetchSnapshot(place,cx,cz) {
+  if (snapshotApi) {
+    try {
+      const r=await fetch(`/api/positions?place=${place}&cx=${cx}&cz=${cz}`,{signal:timeoutSignal(4000)});
+      if (r.ok && (r.headers.get('content-type')||'').includes('json')) return await r.json();
+      if (r.status===404 || r.ok) snapshotApi=false; // dev server / not deployed: ask the DB directly
+      else return null; // temporary edge/DB error: try again next tick
+    } catch { return null; }
+  }
+  const {data,error}=await sb.rpc('positions_snapshot',{pp:place,cx,cz});
+  if (error) { if(missingFn(error)) legacy=true; return null; }
+  return data;
+}
+async function pollPositions(epoch=generation) {
+  if (polling || legacy || !state?.userId || !['ldrp','dandi'].includes(state.place) || state.x==null || document.hidden) return;
+  polling=true;
+  try {
+    const snap=await fetchSnapshot(state.place, Math.floor(state.x/CELL), Math.floor(state.z/CELL));
+    if (epoch!==generation || !snap) return;
+    const at=new Date(snap.t||Date.now()).toISOString();
+    for (const [n,x,y,z,h,v] of snap.p||[]) { const p=roster.get(n); if(p){p.x=x;p.y=y;p.z=z;p.heading=h;p.vehicle=v;p.updatedAt=at;} }
+    if (snap.w>worldTop) { if(worldTop) worldFns.forEach(fn=>fn({id:snap.w,from:null,name:'',text:'',at:Date.now()})); worldTop=snap.w; }
+    rebuildOnline();
+  } finally { polling=false; }
+}
+async function sendPosition(force=false) {
+  if (!state?.userId || sendTask || !['ldrp','dandi'].includes(state.place) || state.x==null) return;
+  const now=Date.now(), p={...state};
+  const moved=!lastSent || Math.hypot(p.x-lastSent.x,p.z-lastSent.z)>.4 || Math.abs((p.heading||0)-lastSent.heading)>.25
+    || p.vehicle!==lastSent.vehicle || p.place!==lastSent.place || Math.abs((p.y||0)-lastSent.y)>.5;
+  // Busy city (>400 online): send every 2 s instead of 1 s so DB load stays flat as
+  // more people join. There is no player limit; the game just gets slightly less chatty.
+  const gap=Object.values(counts).reduce((x,y)=>x+y,0)>400?2000:1000;
+  if (!force && (!dirty || now-(lastSent?.at||0)<gap || (!moved && now-lastSent.at<HEARTBEAT_MS))) return;
+  dirty=false; lastSent={x:p.x,z:p.z,y:p.y||0,heading:p.heading||0,vehicle:p.vehicle,place:p.place,at:now};
   try {
     sendTask=sb.rpc('update_player_presence', {px:p.x,py:p.y||0,pz:p.z,ph:p.heading||0,pv:p.vehicle||'walk',pp:p.place});
     const {error} = await sendTask;
     if(error) console.warn('Multiplayer position:',error.message);
-  } finally { sending=false;sendTask=null; }
+  } finally { sendTask=null; }
+}
+function every(ms,fn) { timers.push(setInterval(fn,ms)); }
+// Fallback when the private Realtime topic is unavailable: tiny "anything new?" check.
+async function pollInbox() {
+  if (inboxLive || !state?.userId || legacy) return;
+  const {data,error}=await sb.rpc('my_inbox_version'); if(error||!data) return;
+  if (inboxSeen && data.m>inboxSeen.m) messageFns.forEach(fn=>fn({id:data.m,thread:null,from:null,text:'',at:Date.now()}));
+  inboxSeen=data;
+}
+function openInbox(userId) {
+  inboxLive=false;
+  inbox=sb.channel(`user:${userId}`,{config:{private:true,broadcast:{self:false,ack:false}}});
+  inbox.on('broadcast',{event:'message'},({payload:m})=>messageFns.forEach(fn=>fn(m)));
+  inbox.on('broadcast',{event:'wave'},({payload:w})=>waveFns.forEach(fn=>fn(w)));
+  inbox.on('broadcast',{event:'call'},({payload:c})=>callFns.forEach(fn=>fn(c)));
+  inbox.on('broadcast',{event:'signal'},({payload:s})=>signalFns.forEach(fn=>fn(s)));
+  inbox.subscribe(status=>{inboxLive=status==='SUBSCRIBED'; if(!inboxLive)pollInbox();});
+}
+let visibilityBound=false, legacyEvents=null;
+function openLegacyEvents(userId) {
+  if (legacyEvents) return;
+  legacyEvents=sb.channel(`legacy-${userId}-${generation}`);
+  legacyEvents.on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},({new:m})=>messageFns.forEach(fn=>fn({id:m.id,thread:m.thread,from:m.sender,text:m.body,at:+new Date(m.created_at)})));
+  legacyEvents.on("postgres_changes",{event:"INSERT",schema:"public",table:"waves",filter:`target=eq.${userId}`},({new:w})=>waveFns.forEach(fn=>fn({from:w.sender,to:w.target})));
+  legacyEvents.on("postgres_changes",{event:"*",schema:"public",table:"voice_calls"},({new:c})=>callFns.forEach(fn=>fn(c)));
+  legacyEvents.on("postgres_changes",{event:"INSERT",schema:"public",table:"voice_signals"},({new:x})=>signalFns.forEach(fn=>fn(x)));
+  legacyEvents.on("postgres_changes",{event:"INSERT",schema:"public",table:"world_messages"},({new:m})=>worldFns.forEach(fn=>fn({id:m.id,from:m.sender,name:"",text:m.body,at:+new Date(m.created_at)})));
+  legacyEvents.subscribe();
 }
 async function leavePresence() {
-  generation++; clearTimeout(refreshTimer); clearInterval(heartbeat);
-  if(channel) { sb.removeChannel(channel); channel=null; }
+  generation++; timers.forEach(clearInterval); timers=[];
+  if(inbox) { sb.removeChannel(inbox); inbox=null; inboxLive=false; }
+  if(legacyEvents) { sb.removeChannel(legacyEvents); legacyEvents=null; }
   const wasJoined = !!state?.userId;
-  state=null; dirty=false; online=[]; emitPresence();
+  state=null; dirty=false; lastSent=null; online=[]; roster=new Map(); counts={}; inboxSeen=null; emitPresence();
   if(wasJoined) {if(sendTask)await sendTask;await sb.rpc('leave_city');}
 }
 
@@ -114,27 +203,26 @@ export const supabase = {
     const session=await this.getSession();
     if(request!==joinRevision||!next.userId || session?.userId!==next.userId) return;
     state={...next}; const epoch=generation;
-    channel=sb.channel(`city-${next.userId}-${epoch}`);
-    channel.on('postgres_changes',{event:'*',schema:'public',table:'player_presence'},()=>{
-      clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refreshOnline(epoch),80);
-    });
-    channel.on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},({new:m})=>messageFns.forEach(fn=>fn({id:m.id,thread:m.thread,from:m.sender,text:m.body,at:+new Date(m.created_at)})));
-    channel.on('postgres_changes',{event:'INSERT',schema:'public',table:'world_messages'},({new:m})=>worldFns.forEach(fn=>fn({id:m.id,from:m.sender,name:'',text:m.body,at:+new Date(m.created_at)})));
-    channel.on('postgres_changes',{event:'INSERT',schema:'public',table:'waves',filter:`target=eq.${next.userId}`},({new:w})=>waveFns.forEach(fn=>fn({from:w.sender,to:w.target})));
-    channel.on('postgres_changes',{event:'*',schema:'public',table:'plans'},()=>planFns.forEach(fn=>fn({})));
-    channel.on('postgres_changes',{event:'*',schema:'public',table:'voice_calls'},({new:c})=>callFns.forEach(fn=>fn(c)));
-    channel.on('postgres_changes',{event:'INSERT',schema:'public',table:'voice_signals'},({new:s})=>signalFns.forEach(fn=>fn(s)));
-    channel.subscribe(status=>{if(status==='SUBSCRIBED'&&epoch===generation){dirty=true;sendPosition();refreshOnline(epoch);}});
-    heartbeat=setInterval(()=>{dirty=true;sendPosition();refreshOnline(epoch);},10000);
-    dirty=true; await sendPosition(); await refreshOnline(epoch);
+    if(!visibilityBound){visibilityBound=true;document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state){pollPositions();refreshRoster();}});}
+    openInbox(next.userId);
+    every(POS_MS,()=>{sendPosition();pollPositions(epoch);});
+    every(ROSTER_MS,()=>{if(!legacy)refreshRoster(epoch);});
+    every(LEGACY_MS,()=>{if(legacy)refreshRoster(epoch);});
+    every(INBOX_POLL_MS,()=>pollInbox());
+    dirty=true; await sendPosition(true); await refreshRoster(epoch); await pollPositions(epoch);
   },
   updatePresence(patch) {
     if (!state) {if(patch.userId)this.joinPresence(patch);return;}
     if(patch.userId === undefined && 'key' in patch) {leavePresence();return;}
-    Object.assign(state,patch);dirty=true;sendPosition();
+    const placeChanged=patch.place&&patch.place!==state.place;
+    Object.assign(state,patch);dirty=true;
+    if(placeChanged){sendPosition(true);refreshRoster();}
   },
   onPresence(fn) { presenceFns.push(fn); },
   presenceList() { return online; },
+  placeCounts() { return counts; },
+  // Consented GPS location; only admins can read it (admin_locations).
+  async updateLocation(lat,lng,accuracy){ok(await sb.rpc("update_my_location",{plat:lat,plng:lng,pacc:accuracy??null}));},
   async listSeats(){return ok(await sb.from('city_seats').select('*'))||[];},
   async tableAction(id,action,pose={}){return ok(await sb.rpc('table_action',{sid:id,action,px:pose.x??null,pz:pose.z??null,ph:pose.yaw??null}));},
   // Low-latency group voice signalling: realtime presence + broadcast, no table writes.
@@ -197,7 +285,9 @@ export const supabase = {
 
   async postWorld(text) {
     clean(text);
-    return ok(await sb.from("world_messages").insert({ body: text.slice(0, 280) }).select().single());
+    const row=ok(await sb.from("world_messages").insert({ body: text.slice(0, 280) }).select().single());
+    if(row?.id>worldTop)worldTop=row.id;
+    return row;
   },
   async listWorld() {
     if (!(await me())) return [];

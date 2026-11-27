@@ -5,7 +5,7 @@ import {createSeatState,createStreetService,atStallCounter} from '../systems/str
 import {CHARACTERS} from '../data/content.js';
 
 export function createStreetLife(app,market) {
-  const player=app.player,guestId=`guest-${crypto.randomUUID()}`,seats=createSeatState(market.seats);
+  const player=app.player,guestId=`guest-${crypto.randomUUID?.()||[...crypto.getRandomValues(new Uint32Array(4))].join('-')}`,seats=createSeatState(market.seats);
   let me=guestId,remoteBusy=false,seatPending=false,remoteLast=0;
   const onlineMode=()=>!!(app.session&&app.backend.tableAction);
   async function syncRemote(){

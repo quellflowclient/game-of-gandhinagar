@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [devApi(env), adminRoutes()],
     build: {
-      target: "esnext", // allows top-level await
+      target: ["chrome98", "edge98", "firefox94", "safari15.4"], // explicit mobile baseline, including top-level await
       chunkSizeWarningLimit: 1200,
       // Separate admin page: players never download the admin code.
       rollupOptions: { input: { main: "index.html", admin: "admin/index.html" } },

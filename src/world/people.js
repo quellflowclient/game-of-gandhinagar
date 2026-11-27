@@ -66,7 +66,7 @@ export function createPeople({ scene, camera, labelsEl, onTap, spawns = {}, navi
   // Spawn residents for places near the player, despawn far ones.
   function manage(playerPos) {
     for (const place of placedPlaces()) {
-      const { x, z } = placePos(place);
+      const { x, z } = spawns[place.id]||placePos(place);
       const d = Math.hypot(playerPos.x - x, playerPos.z - z);
       if (d < SPAWN_R && !loadedPlaces.has(place.id)) {
         loadedPlaces.add(place.id);

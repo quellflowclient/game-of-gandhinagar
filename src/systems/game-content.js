@@ -1,4 +1,4 @@
-import defaults from '../data/game-defaults.json';
+import defaults from '../data/game-defaults.json' with {type:'json'};
 export const CONTENT=structuredClone(defaults);
 export const defaultContent=()=>structuredClone(defaults);
 const forbidden=new Set(['__proto__','prototype','constructor']);

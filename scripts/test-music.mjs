@@ -87,3 +87,26 @@ eventPlayer.music.setVenue({...program,key:'one-shot',loop:false});await eventPl
 eventPlayer.music.setVenue(null);eventPlayer.audio.ended=false;await eventPlayer.flush();
 const quietEvent=createPlayer();await quietEvent.choose(false);quietEvent.enter();quietEvent.music.setVenue(program);await quietEvent.flush();assert(quietEvent.audio.paused);assert.equal(quietEvent.audio.loads.length,0,'event audio never bypasses consent');
 console.log('Venue music passed: one audible stream, exact shared-clock offset, drift correction, consent, mute/unmute resync, interrupted recording restore and non-loop completion.');
+
+const isPark=audio=>audio.src.startsWith('/audio/swarnim%20park.mp3');
+const park=createPlayer();await park.choose();park.audio.currentTime=22;
+park.enter('swarnim');await park.flush();
+assert(isPark(park.audio),'park entry selects the supplied Swarnim track');assert(park.audio.loop);assert(!park.audio.paused);assert.equal(park.audio.volume,1);
+park.audio.currentTime=35;const parkLoads=park.audio.loads.length;
+park.enter('swarnim',{vehicle:'bicycle'});park.enter('swarnim');await park.flush();
+assert.equal(park.audio.loads.length,parkLoads,'moving around the park does not reload its song');assert.equal(park.audio.currentTime,35);
+park.music.duck(true);assert.equal(park.audio.volume,.2);park.music.duck(false);
+park.music.setMaster(false);assert(park.audio.paused);park.music.setMaster(true);await park.flush();assert.equal(park.audio.currentTime,35);
+park.document.hidden=true;park.document.emit('visibilitychange');assert(park.audio.paused);
+park.document.hidden=false;park.document.emit('visibilitychange');await park.flush();assert(!park.audio.paused);assert.equal(park.audio.currentTime,35);
+park.music.setVenue(program);await park.flush();assert.equal(park.audio.src,program.url);
+park.music.setVenue(null);await park.flush();assert(isPark(park.audio));assert.equal(park.audio.currentTime,35,'event exit restores the interrupted park track');
+park.enter('dandi');await park.flush();assert(!isPark(park.audio),'Mahatma Mandir does not play the park song');assert.equal(park.audio.currentTime,22,'leaving the park restores the previous city soundtrack');
+park.enter('swarnim');await park.flush();assert(isPark(park.audio));assert.equal(park.audio.currentTime,0,'a new park visit starts its song from the beginning');
+park.enter(null);await park.flush();assert(!isPark(park.audio),'metro travel stops the park soundtrack');
+park.enter('swarnim');park.enter('ldrp',{inside:true});await park.flush();assert(park.audio.src.startsWith('/audio/campus.mp3'),'a cancelled park transition cannot replace campus music');
+const quietPark=createPlayer();await quietPark.choose(false);quietPark.enter('swarnim');await quietPark.flush();assert(quietPark.audio.paused);assert.equal(quietPark.audio.loads.length,0);
+quietPark.elements['music-mute'].emit('click');await quietPark.flush();assert(isPark(quietPark.audio));assert(!quietPark.audio.paused);
+const blockedPark=createPlayer();await blockedPark.choose();blockedPark.audio.rejectNext=true;blockedPark.enter('swarnim');await blockedPark.flush();assert(blockedPark.audio.paused);assert(!blockedPark.elements['music-enable'].hidden);assert.match(blockedPark.elements['music-enable'].textContent,/Swarnim Park/);
+blockedPark.elements['music-enable'].emit('click');await blockedPark.flush();assert(!blockedPark.audio.paused);
+console.log('Swarnim music passed: park loop, continuous movement, new-visit restart, city/campus/metro exit, one-stream event restore, consent, mute, background pause and autoplay recovery.');

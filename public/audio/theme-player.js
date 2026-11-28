@@ -2,9 +2,9 @@
 (() => {
  const audio=document.getElementById('gog-theme'),dialog=document.getElementById('music-choice');
  const toggle=document.getElementById('music-mute'),retry=document.getElementById('music-enable');
- const files={general:'/audio/gog-theme.mp3',campus:'/audio/ldrp-campus.mp3',gift:'/audio/gift-city-entry.mp3'};
- const positions={general:0,campus:0,gift:0,venue:0};
- let settings={welcomeVolume:1,walkingVolume:.25,vehicleVolume:1,campusVolume:1};
+ const files={general:'/audio/gog-theme.mp3',campus:'/audio/ldrp-campus.mp3',gift:'/audio/gift-city-entry.mp3',swarnim:'/audio/swarnim%20park.mp3'};
+ const positions={general:0,campus:0,gift:0,swarnim:0,venue:0};
+ let settings={welcomeVolume:1,walkingVolume:.25,vehicleVolume:1,campusVolume:1,parkVolume:1};
  const needsGain=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
  const sourceUrl=name=>files[name].startsWith('/audio/')?files[name]+'?v=20261126-volume2':files[name];
  let dialogueDucked=false,venue=null;
@@ -15,7 +15,7 @@
  let track='general',desired='general',switchTimer=0,pending=false,ticket=0,blocked=false;
  let context=null,gain=null,source=null,lastVolume=-1,resolveReady;
  const ready=new Promise(resolve=>{resolveReady=resolve;});
- const baseVolume=()=>!master||muted||choice!==true?0:track==='venue'?Math.max(0,Math.min(1,venue?.volume??.8)):!entered||track==='gift'?settings.welcomeVolume:inside?settings.campusVolume:vehicle!=='walk'?settings.vehicleVolume:settings.walkingVolume;
+ const baseVolume=()=>!master||muted||choice!==true?0:track==='venue'?Math.max(0,Math.min(1,venue?.volume??.8)):!entered||track==='gift'?settings.welcomeVolume:track==='swarnim'?settings.parkVolume:inside?settings.campusVolume:vehicle!=='walk'?settings.vehicleVolume:settings.walkingVolume;
  const volume=()=>baseVolume()*(dialogueDucked?.2:1);
  function setVolume(value){
   if(value===lastVolume)return;lastVolume=value;
@@ -31,12 +31,12 @@
   }).finally(()=>{if(current===ticket)pending=false;});
  }
  function refresh(){
-  const next=venueActive()?'venue':entered&&place==='gift'&&giftEntryPending?'gift':entered&&inside?'campus':'general';
+  const next=venueActive()?'venue':entered&&place==='gift'&&giftEntryPending?'gift':entered&&place==='swarnim'?'swarnim':entered&&inside?'campus':'general';
   if(next!==desired){desired=next;clearTimeout(switchTimer);switchTimer=0;}
   const enabled=choice===true&&!muted&&master;
   toggle.hidden=choice===null;toggle.textContent=enabled?(blocked?'♫ Resume':'♫ On'):'♫ Off';
   toggle.setAttribute('aria-label',enabled?(blocked?'Resume music':'Mute music'):'Play music');toggle.setAttribute('aria-pressed',String(enabled));
-  retry.textContent=desired==='venue'?'♪ Tap to hear event audio':desired==='gift'?'♪ Tap to hear GIFT City audio':'♪ Tap to resume music';
+  retry.textContent=desired==='venue'?'♪ Tap to hear event audio':desired==='gift'?'♪ Tap to hear GIFT City audio':desired==='swarnim'?'♪ Tap to hear Swarnim Park music':'♪ Tap to resume music';
   if(!enabled||document.hidden){clearTimeout(switchTimer);switchTimer=0;audio.pause();retry.hidden=true;return;}
   if(track!==desired){
    if(!switchTimer){
@@ -94,6 +94,10 @@
    giftEntryPending=true;positions.gift=0;
    if(track==='gift')audio.currentTime=0;
   }else if(!nextEntered||nextPlace!=='gift')giftEntryPending=false;
+  if(nextEntered&&nextPlace==='swarnim'&&(!entered||place!=='swarnim')){
+   positions.swarnim=0;
+   if(track==='swarnim')audio.currentTime=0;
+  }
   entered=nextEntered;inside=nextInside;vehicle=nextVehicle;place=nextPlace;refresh();
  },setVenue(next){
   const changed=(next?.key||null)!==(venue?.key||null)||(next?.url||null)!==(venue?.url||null);

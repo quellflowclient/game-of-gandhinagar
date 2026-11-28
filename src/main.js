@@ -593,7 +593,9 @@ function frame(stamp=performance.now()) {
   t += dt;
   controls.update();
   app.entertainment.update(realDt,{running:entered,transit:metroJourney.active});
-  window.gogMusic.update({entered,place:metroJourney.active?null:player.areaId,vehicle:player.crashed?'walk':player.vehicle,inside:entered&&player.areaId===explorationAreaForPlace('ldrp')});
+  // Swarnim and Mahatma share a travel area; music follows the actual park plots.
+  const musicPlace=player.areaId==='dandi'?localPlaceAt(player.position.x,player.position.z):player.areaId;
+  window.gogMusic.update({entered,place:metroJourney.active?null:musicPlace,vehicle:player.crashed?'walk':player.vehicle,inside:entered&&player.areaId===explorationAreaForPlace('ldrp')});
   if(!entered){if(!pagePaused)welcomeMotion?.render(realDt);recordFrame(performance.now()-workStarted);return;}
   if(metroJourney.update(realDt)){recordFrame(performance.now()-workStarted);return;}
   // Account/menu pages do not need a running 3D simulation. Keep calls and

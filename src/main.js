@@ -25,6 +25,7 @@ import { createMinimap } from "./ui/minimap.js";
 import { h, toast, closePanel, panelOpen } from "./ui/dom.js";
 import * as social from "./ui/social.js";
 import * as prof from "./ui/profile.js";
+import './ui/auth.css';
 import * as city from "./ui/city.js";
 import * as game from "./ui/game.js";
 import {createStreetLife} from './ui/street.js';
@@ -140,7 +141,7 @@ const app = {
   },
   async refreshMe() {
     app.me = app.session ? await backend.getMyProfile() : null;
-    hud.setMe(app.me?.name);
+    hud.setMe(app.me?.name,!!app.session);
     if (app.me) {
       player.setLook(app.me.look || "casual", app.me.skin);
       backend.updatePresence(presenceState());
@@ -158,6 +159,7 @@ const app = {
   onSignedOut() {
     app.voice?.end();
     app.session = null; app.me = null;
+    hud.setMe(null,false);
     backend.joinPresence(presenceState());
     toast("Signed out. You can keep walking as a visitor.");
   },
@@ -212,7 +214,7 @@ player.teleport(startSpawn.x, startSpawn.z);
 function openNamed(name) {
   if(metroJourney.active)return;
   const map = {
-    profile: () => prof.openAccount(app), about: () => prof.openAbout(app), twin: () => prof.openTwin(app), card: () => prof.openResidentCard(app),
+    profile: () => app.session?prof.openAccount(app):prof.openSignUp(app), about: () => prof.openAbout(app), twin: () => prof.openTwin(app), card: () => prof.openResidentCard(app),
     find: () => social.openFind(app), online: () => social.openOnline(app), chats: () => social.openChats(app), world: () => social.openWorld(app),
     plans: () => city.openPlans(app), events:()=>app.entertainment.open(), utsav: () => city.openUtsav(app), travel: () => city.openTravel(app), map: () => city.openMap(app),
     time: () => city.openTime(app), sound: () => city.openSound(app),camera:()=>openCamera(app),controls:()=>openControlGuide(),fullscreen:()=>landscape.toggleFullscreen(),vehicles:()=>openVehicles(app,hud),campus:()=>app.campus?.inventory(), suggest: () => city.openSuggest(app), ads: () => city.openAds(app),
@@ -478,17 +480,19 @@ function updateTicker() {
 }
 
 // ---------- landing ----------
-function beginAt(placeId,signIn=false){
+async function beginAt(placeId,authMode=null){
  if(entered)return;
  const spawn=world.spawns[placeId];
  if(spawn){const safe=world.navigation.safePoint(spawn.x,spawn.z);player.teleport(safe.x,safe.z,spawn.yaw||0,safe.y);checkPlace();}
- skipVisitorToast=signIn;
- enter();
- if(signIn)setTimeout(()=>prof.openSignIn(app),350);
+ skipVisitorToast=!!authMode;
+ await enter();
+ if(authMode==='signup')prof.openSignUp(app);
+ else if(authMode==='signin')prof.openSignIn(app);
+ else if(authMode==='account'&&app.me?.name)prof.openAccount(app);
 }
 const titleScreen=createTitleScreen({
  signedIn:!!app.session,places:hubs(),renderer,scene,follow,world,cityObj,metro,lowEnd,tourMode,
- onPlay:id=>beginAt(id),onSignIn:id=>beginAt(id,true),onCharacter:()=>prof.openCharacterPreview(app)
+ onPlay:id=>beginAt(id),onSignIn:id=>beginAt(id,app.session?'account':'signin'),onSignUp:id=>beginAt(id,'signup'),onCharacter:()=>prof.openCharacterPreview(app)
 });
 const landing=titleScreen.root,welcomeMusic=titleScreen.music,welcomeMotion=titleScreen;
 document.body.classList.add("on-landing");
@@ -515,8 +519,8 @@ async function enter() {
   if(!tourMode)locationSharing.begin();
   if (app.session) await app.refreshMe();
   backend.joinPresence(presenceState());
-  if (!app.session && !skipVisitorToast) toast("You are exploring as a visitor. Sign in for private chats and to be seen by other players.", "info", 6000, { label: "Sign in", fn: () => prof.openSignIn(app) });
-  else if (!app.me?.name) prof.openQuickJoin(app);
+  if (!app.session && !skipVisitorToast) toast("Exploring as a visitor. Create an account to chat, call and save your character.", "info", 6000, { label: "Sign up", fn: () => prof.openSignUp(app) });
+  else if (app.session&&!app.me?.name) prof.openQuickJoin(app);
 }
 
 // ---------- loop ----------

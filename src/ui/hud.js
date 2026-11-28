@@ -65,19 +65,19 @@ export function createHud({ open, act }) {
 
   // Grouped, trimmed menu. Every entry opens a real, working panel.
   const MENU = [
-    ["You", [["🙂","Profile","profile"],["🪪","Campus ID","campus"],["🪞","AI twin","twin"]]],
+    ["You", [["🙂","Sign up / Sign in","profile"],["🪪","Campus ID","campus"],["🪞","AI twin","twin"]]],
     ["People", [["🤝","Private chats","chats"],["🔍","Find people","find"],["👥","Online now","online"]]],
     ["Explore", [["🗺","City map","map"],["♫","Concerts & club","events"],["🚗","Choose ride","vehicles"]]],
     ["Settings", [["✥","Controls","controls"],["◉","Camera","camera"],["🔊","Sound","sound"],["🕒","Time & weather","time"],["⛶","Fullscreen","fullscreen"]]],
   ];
-  const moreBadges = {};
+  const moreBadges = {},menuButtons={};
   const more = h("div", { class: "more glass city-menu", hidden: true, id:"game-hub", role: "dialog", 'aria-modal':'true', "aria-label": "Game menu" },
     h("div", { class: "more-head" },h('div',{},h('small',{class:'menu-kicker'},'GANDHINAGAR'),h("b", {}, "Your city"),h('p',{class:'menu-description'},'People, places & settings')), h("button", { type: "button", class: "x", "aria-label": "Close menu", onclick: () => toggleMore(false) }, "✕")),
     ...MENU.map(([section, items]) => h("section", { class: "more-sec" }, h("h4", {}, section),
       h("div", { class: "more-grid" }, items.map(([icon, label, name]) => {
         const badge = h("span", { class: "mini-badge", hidden: true });
         moreBadges[name] = badge;
-        return h("button", { type: "button", "aria-label": label, onclick: () => { toggleMore(false); open(name); } },
+        return menuButtons[name]=h("button", { type: "button", "aria-label": label, onclick: () => { toggleMore(false); open(name); } },
           name==='profile'?meAv:h("span", { class: "i" }, icon), h("span", { class: "l" }, label), badge);
       })))));
   function toggleMore(on = more.hidden) { if(on===!more.hidden)return;more.hidden = !on; document.body.classList.toggle("game-menu-open",on);dock.lastChild.setAttribute("aria-expanded",String(on));if(on)more.querySelector("button")?.focus();else dock.lastChild.focus({preventScroll:true}); }
@@ -121,7 +121,10 @@ export function createHud({ open, act }) {
     setTime(text, night, weather) {
       timeChip.textContent = `${night ? "🌙" : "☀"} ${text}${weather ? " · " + weather : ""}`;
     },
-    setMe(name) { meAv.textContent = name ? name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase() : "🙂"; },
+    setMe(name,signedIn=false) {
+      meAv.textContent=name?name.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase():'🙂';
+      const label=signedIn?'Profile':'Sign up / Sign in';menuButtons.profile.setAttribute('aria-label',label);menuButtons.profile.querySelector('.l').textContent=label;
+    },
     setOnline(n) { if(moreBadges.online){moreBadges.online.hidden=!n;moreBadges.online.textContent=String(n);}},
     setBadge(which, n) {
       unread[which]=Math.max(0,Number(n)||0);const total=unread.chats+unread.world;

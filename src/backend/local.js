@@ -64,10 +64,11 @@ export const local = {
   // ---------- auth ----------
   async getSession() { return session(); },
   onAuth(fn) { handlers.auth.push(fn); },
-  async signInWithOtp(contact) {
+  async signInWithOtp(contact,{createUser=false}={}) {
     contact = emailAddress(contact);
+    if(!createUser&&!Object.values(load().users).some(u=>u.contact===contact))throw new Error('No account found. Choose Sign up to create your account.');
     const code = String(Math.floor(100000 + Math.random() * 900000));
-    tx((db) => { db.otps[contact] = { code, at: now() }; });
+    tx((db) => { db.otps[contact] = { code, at: now(), createUser }; });
     return { sent: true, demoCode: code };
   },
   async verifyOtp(contact, code) {
@@ -78,6 +79,7 @@ export const local = {
       delete db.otps[contact];
       let u = Object.values(db.users).find((x) => x.contact === contact);
       if (!u) {
+        if(!o.createUser)throw new Error('No account found. Choose Sign up to create your account.');
         u = { id: uid(), contact, created: now() };
         db.users[u.id] = u;
         db.counter += 1;

@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { ENV } from "../config.js";
 import { h } from "../ui/dom.js";
+import {emailOtpCode,EMAIL_OTP_LENGTH} from '../backend/email.js';
 import {createContentEditor} from './content-editor.js';
 import {createEventEditor} from './event-editor.js';
 
@@ -77,16 +78,18 @@ function signIn() {
 }
 function codeStep(address){
   let busy=false;
-  const code=h("input",{id:"admin-code",name:"code",class:"in otp",type:"text",inputmode:"numeric",maxlength:8,minlength:6,required:true,pattern:"[0-9]{6,8}",placeholder:"000000",autocomplete:"one-time-code","aria-label":"Email verification code"});
+  const code=h("input",{id:"admin-code",name:"code",class:"in otp",type:"text",inputmode:"numeric",maxlength:EMAIL_OTP_LENGTH,minlength:EMAIL_OTP_LENGTH,required:true,pattern:"[0-9]{6}",placeholder:"000000",autocomplete:"one-time-code","aria-label":"6-digit email verification code"});
   const err=h("p",{class:"err",role:"alert"}),verify=h("button",{type:"submit",class:"btn primary"},"Verify & open console →");
   const form=h("form",{class:"auth-form",onsubmit:async e=>{
     e.preventDefault();if(busy||!code.reportValidity())return;busy=true;verify.disabled=true;err.textContent="";
-    try{const {error}=await sb.auth.verifyOtp({email:address,token:code.value.trim(),type:"email"});if(error)throw error;await start();}
+    try{const {error}=await sb.auth.verifyOtp({email:address,token:emailOtpCode(code.value),type:"email"});if(error)throw error;await start();}
     catch(error){err.textContent=error.message;}
     finally{busy=false;verify.disabled=false;}
   }},h("label",{for:"admin-code"},"Verification code"),code,verify,err);
-  code.addEventListener("input",()=>{code.value=code.value.replace(/\D/g,"");});
-  authCard(h("h1",{},"Check your inbox."),h("p",{},`Enter the code sent to ${address}.`),form,h("button",{type:"button",class:"btn",onclick:signIn},"Use another email / resend"));
+  const oldCode=()=>{code.value='';err.textContent='Request a new 6-digit code. Use the latest email.';};
+  code.addEventListener('paste',event=>{if((event.clipboardData?.getData('text')||'').replace(/\D/g,'').length>EMAIL_OTP_LENGTH){event.preventDefault();oldCode();}});
+  code.addEventListener("input",()=>{const digits=code.value.replace(/\D/g,'');if(digits.length>EMAIL_OTP_LENGTH)oldCode();else{code.value=digits;err.textContent='';}});
+  authCard(h("h1",{},"Check your inbox."),h("p",{},`Enter the 6-digit code sent to ${address}.`),form,h("button",{type:"button",class:"btn",onclick:signIn},"Use another email / resend"));
   code.focus();
 }
 

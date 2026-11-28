@@ -9,7 +9,7 @@ class Element{
  replaceChildren(...nodes){this.children=[];this.text='';this.append(...nodes);}
  get textContent(){return this.text+this.children.map(n=>n.textContent??n).join('');}set textContent(v){this.text=String(v);this.children=[];}
  addEventListener(k,fn){(this.listeners[k]??=[]).push(fn);}
- emit(k){for(const fn of this.listeners[k]||[])fn({preventDefault(){},stopPropagation(){},target:this});}
+ emit(k,extra={}){for(const fn of this.listeners[k]||[])fn({preventDefault(){},stopPropagation(){},target:this,...extra});}
  focus(){document.activeElement=this;}select(){this.focus();}
  remove(){if(this.parent)this.parent.children=this.parent.children.filter(n=>n!==this);this.isConnected=false;}
  querySelectorAll(selector){return descendants(this).filter(n=>selector.startsWith('.')?n.classes.has(selector.slice(1)):n.tag===selector);}
@@ -27,7 +27,7 @@ const {closePanel}=await import('../src/ui/dom.js');
 const {local}=await import('../src/backend/local.js');
 const settle=async()=>{for(let i=0;i<8;i++)await new Promise(resolve=>setImmediate(resolve));};
 const all=()=>descendants(body),button=text=>all().find(n=>n.tag==='button'&&n.textContent===text),field=label=>all().find(n=>n.attrs['aria-label']===label),form=()=>all().find(n=>n.tag==='form');
-let ready=0;const requests=[],backend={mode:'demo',async signInWithOtp(email,options){requests.push({email,options});return local.signInWithOtp(email,options);},verifyOtp:(...args)=>local.verifyOtp(...args)};
+let ready=0,verifications=0;const requests=[],backend={mode:'demo',async signInWithOtp(email,options){requests.push({email,options});return local.signInWithOtp(email,options);},verifyOtp(...args){verifications++;return local.verifyOtp(...args);}};
 const app={backend,async onSignedIn(){ready++;app.session=await local.getSession();}};
 await assert.rejects(local.signInWithOtp('new@example.com'),/Sign up/);
 openSignUp(app);field('Email address').value=' New@Example.com ';
@@ -37,6 +37,11 @@ form().emit('submit');form().emit('submit');await settle();assert.equal(requests
 assert.equal(intervals.size,1);assert(field('6-digit code'));assert(button('Verify and continue'));
 const db=()=>JSON.parse(localStorage.getItem('gnr-db-v1'));
 const correct=db().otps['new@example.com'].code;
+assert.match(correct,/^\d{6}$/,'new demo emails use exactly six digits');
+assert.equal(field('6-digit code').attrs.maxlength,6);assert.equal(field('6-digit code').attrs.minlength,6);
+let pasteBlocked=false;field('6-digit code').emit('paste',{clipboardData:{getData:()=>correct+'12'},preventDefault(){pasteBlocked=true;}});await settle();assert(pasteBlocked);assert.equal(field('6-digit code').value,'');assert.equal(verifications,0,'an old eight-digit code cannot be truncated and auto-submitted');
+await assert.rejects(local.verifyOtp('new@example.com',correct+'12'),/6-digit/);assert.equal(await local.getSession(),null);
+field('6-digit code').value=correct+'12';field('6-digit code').emit('input');await settle();assert.equal(verifications,0,'overlong autofill cannot auto-submit a partial code');assert.equal(field('6-digit code').value,'');
 field('6-digit code').value=correct==='000000'?'111111':'000000';form().emit('submit');await settle();assert.equal(ready,0,'invalid OTP cannot create a session');assert.equal(await local.getSession(),null);
 field('6-digit code').value=correct;field('6-digit code').emit('input');form().emit('submit');await settle();assert.equal(ready,1,'auto-submit and Enter cannot verify twice');assert(app.session.userId);assert.equal(intervals.size,0,'successful verification stops the resend timer');
 await local.saveProfile({name:'Test Resident',look:'fcasual',skin:0xc58c63});const id=app.session.userId;await local.signOut();

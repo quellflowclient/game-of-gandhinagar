@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
-import {emailAddress,emailOtpRequest} from '../src/backend/email.js';
+import {emailAddress,emailOtpRequest,emailOtpCode,EMAIL_OTP_LENGTH} from '../src/backend/email.js';
 for(const contact of ['9876543210','+919876543210','WhatsApp 9876543210','','a@','a b@example.com',null])assert.throws(()=>emailAddress(contact));
 assert.equal(emailAddress(' Student+game@Example.com '),'student+game@example.com');
 assert.equal(emailAddress('resident@college.ac.in'),'resident@college.ac.in');
 assert.deepEqual(emailOtpRequest(' Student+game@Example.com ',{createUser:true,origin:'https://game-of-gandhinagar.vercel.app'}),{email:'student+game@example.com',options:{shouldCreateUser:true,emailRedirectTo:'https://game-of-gandhinagar.vercel.app'}});
 assert.equal(emailOtpRequest('resident@college.ac.in').options.shouldCreateUser,false,'sign-in cannot silently create an account');
 assert.equal(emailOtpRequest('resident@college.ac.in',{createUser:false}).options.shouldCreateUser,false);
-console.log('Email-only auth passed: phone/WhatsApp numbers and malformed contacts rejected; email aliases and college domains accepted.');
+assert.equal(EMAIL_OTP_LENGTH,6);
+for(const code of ['12345','1234567','12345678','1234567890','12ab34','123.45','-12345',null,''])assert.throws(()=>emailOtpCode(code),/6-digit/);
+assert.equal(emailOtpCode('012345'),'012345','leading zeros must survive verification');
+assert.equal(emailOtpCode(' 123 456 '),'123456');
+console.log('Email auth passed: email normalization, explicit signup, exactly six OTP digits, leading-zero preservation and rejection of stale eight-digit codes.');

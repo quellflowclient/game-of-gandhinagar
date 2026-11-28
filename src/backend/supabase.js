@@ -2,7 +2,7 @@
 // Needs the tables, policies and functions in supabase/schema.sql.
 import { createClient } from "@supabase/supabase-js";
 import { ENV, LIMITS, CONTACT_PATTERN } from "../config.js";
-import {emailAddress,emailOtpRequest} from './email.js';
+import {emailAddress,emailOtpCode,emailOtpRequest} from './email.js';
 import {timeoutSignal} from '../systems/network.js';
 
 const sb = createClient(ENV.supabaseUrl, ENV.supabaseAnonKey);
@@ -173,7 +173,7 @@ export const supabase = {
     return { sent: true };
   },
   async verifyOtp(contact, code) {
-    ok(await sb.auth.verifyOtp({email:emailAddress(contact),token:code.trim(),type:'email'}));
+    ok(await sb.auth.verifyOtp({email:emailAddress(contact),token:emailOtpCode(code),type:'email'}));
     return this.getSession();
   },
   async signOut() { await leavePresence(); ok(await sb.auth.signOut()); },

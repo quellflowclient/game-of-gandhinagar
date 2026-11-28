@@ -3,7 +3,7 @@
 // its own session in sessionStorage, so two tabs can be two different users for testing.
 // Sign-in codes are shown on screen because no email is sent in demo mode.
 import { LIMITS, CONTACT_PATTERN } from "../config.js";
-import {emailAddress} from './email.js';
+import {emailAddress,emailOtpCode} from './email.js';
 import {demoEventRpc} from './events-demo.js';
 
 const DB_KEY = "gnr-db-v1";
@@ -73,6 +73,7 @@ export const local = {
   },
   async verifyOtp(contact, code) {
     contact = emailAddress(contact);
+    code = emailOtpCode(code);
     const userId = tx((db) => {
       const o = db.otps[contact];
       if (!o || o.code !== code.trim() || now() - o.at > 10 * 60000) throw new Error("That code is not right or has expired.");

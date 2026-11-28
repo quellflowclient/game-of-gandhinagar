@@ -1,5 +1,5 @@
 import {h,openPanel,setPanelBody,closePanel,toast} from './dom.js';
-import {emailAddress} from '../backend/email.js';
+import {emailAddress,emailOtpCode,EMAIL_OTP_LENGTH} from '../backend/email.js';
 
 export const openSignIn=(app,reason)=>openAuth(app,{reason});
 export const openSignUp=(app,reason)=>openAuth(app,{mode:'signup',reason});
@@ -39,7 +39,7 @@ function openAuth(app,{mode='signin',reason,email=''}={}){
   finally{busy=false;}
  }
  function codeStep(result){
-  const code=h('input',{type:'text',inputmode:'numeric',autocomplete:'one-time-code',maxlength:6,pattern:'[0-9]{6}',required:true,placeholder:'000000',class:'otp-input','aria-label':'6-digit code'});
+  const code=h('input',{type:'text',inputmode:'numeric',autocomplete:'one-time-code',maxlength:EMAIL_OTP_LENGTH,minlength:EMAIL_OTP_LENGTH,pattern:'[0-9]{6}',required:true,placeholder:'000000',class:'otp-input','aria-label':'6-digit code'});
   const error=h('p',{class:'auth-error',role:'alert'});
   const verifyBtn=h('button',{type:'submit',class:'btn primary wide'},signup?'Verify and continue':'Verify and sign in');
   const resend=h('button',{type:'button',class:'link',disabled:true,onclick:resendCode},'Resend code in 30s');
@@ -56,15 +56,17 @@ function openAuth(app,{mode='signin',reason,email=''}={}){
   }
   async function verify(event){
    event?.preventDefault();if(busy||!active)return;
-   const value=code.value.replace(/\D/g,'');
-   if(!/^\d{6}$/.test(value)){error.textContent='Enter the 6-digit code from your email.';code.focus();return;}
+   let value;
+   try{value=emailOtpCode(code.value);}catch(e){error.textContent=e.message;code.focus();return;}
    busy=true;verifyBtn.disabled=true;verifyBtn.textContent='Checking…';error.textContent='';
    try{await app.backend.verifyOtp(email,value);}
    catch(e){if(active){error.textContent=friendly(e);verifyBtn.disabled=false;verifyBtn.textContent=signup?'Verify and continue':'Verify and sign in';code.select();}busy=false;return;}
    if(!active)return;closePanel();
    try{await app.onSignedIn();}catch(e){toast(e?.message||'Email verified. Open Profile to finish setting up your account.','bad');}
   }
-  code.addEventListener('input',()=>{code.value=code.value.replace(/\D/g,'').slice(0,6);error.textContent='';if(code.value.length===6)void verify();});
+  const oldCode=()=>{code.value='';error.textContent='Request a new 6-digit code. Use the latest email.';};
+  code.addEventListener('paste',event=>{if((event.clipboardData?.getData('text')||'').replace(/\D/g,'').length>EMAIL_OTP_LENGTH){event.preventDefault();oldCode();}});
+  code.addEventListener('input',()=>{const digits=code.value.replace(/\D/g,'');if(digits.length>EMAIL_OTP_LENGTH){oldCode();return;}code.value=digits;error.textContent='';if(digits.length===EMAIL_OTP_LENGTH)void verify();});
   setPanelBody(h('form',{class:'auth',onsubmit:verify},
    h('div',{class:'auth-hero'},h('span',{class:'auth-kicker'},signup?'STEP 1 / VERIFY YOUR EMAIL':'CHECK YOUR INBOX'),h('h3',{},'Check your email'),h('p',{class:'muted'},'Enter the 6-digit code sent to ',h('b',{},email),'.')),
    app.backend.mode==='demo'&&result?.demoCode?h('p',{class:'demo-note'},`Demo mode (no email sent): ${result.demoCode}`):null,

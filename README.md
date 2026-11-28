@@ -39,6 +39,11 @@ Useful extras:
      host, port, username, password, sender email and sender name into those settings.
      Adding these variables to Vercel alone does not configure hosted Supabase Auth.
      Sign-in accepts email addresses only; SMS and WhatsApp login are not supported.
+   - In **Authentication → Sign In / Providers → Email**, set **Email OTP length**
+     to **6**. Signup, player sign-in and admin sign-in all verify exactly six digits.
+     Hosted Auth has its own setting; the local `supabase/config.toml` value does not
+     update it. Email templates must render the full `{{ .Token }}`. Request a fresh
+     code after changing the OTP length.
    - Optional: turn on `pg_cron` and the two retention jobs at the end of the schema.
 2. **Claude** (AI residents and AI twins): set `ANTHROPIC_API_KEY` (server only). Without it,
    simple offline replies are used.

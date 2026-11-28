@@ -121,6 +121,12 @@ begin
  update public.venue_presence set action='idle',event_id=null,started_at=now(),updated_at=now() where user_id=auth.uid();
 end $$;
 
+-- Match the relocated lounge's footprint, with five metres of presence tolerance.
+create or replace function public.city_club_contains(px real,pz real) returns boolean language sql immutable set search_path='' as $$
+ select px between 3446 and 3494 and pz between 3294 and 3346;
+$$;
+revoke all on function public.city_club_contains(real,real) from public,anon,authenticated;
+
 create or replace function public.venue_action(venue text,kind text) returns void language plpgsql security definer set search_path='' as $$
 declare p public.player_presence;active_event uuid;
 begin
@@ -133,7 +139,7 @@ begin
  end if;
  select * into p from public.player_presence where id=auth.uid() and place='gift' and updated_at>now()-interval '45 seconds';
  if p.id is null then raise exception 'Go to the venue first.';end if;
- if venue='city-club' and not(p.x between 3526.24 and 3600.24 and p.z between 4069.77 and 4139.77) then raise exception 'Go inside City Club first.';end if;
+ if venue='city-club' and not public.city_club_contains(p.x,p.z) then raise exception 'Go inside City Club first.';end if;
  if venue='city-club' and kind<>'idle' and not exists(select 1 from public.entertainment_settings where id='global' and club_enabled) then raise exception 'City Club is closed right now.';end if;
  if venue='gift-live' and active_event is null then raise exception 'Take your concert spot first.';end if;
  if exists(select 1 from public.venue_presence where user_id=auth.uid() and updated_at>now()-interval '500 milliseconds') then return;end if;
@@ -158,7 +164,7 @@ begin
   cross join public.player_presence viewer
   left join active_members m on m.user_id=q.user_id and m.event_id=q.event_id
   where viewer.id=auth.uid() and q.venue_id=venue and p.visible and p.name<>'' and not public.is_blocked(auth.uid(),q.user_id)
-  and (q.venue_id='gift-live' and m.event_id is not null or q.venue_id='city-club' and pp.x between 3526.24 and 3600.24 and pp.z between 4069.77 and 4139.77)
+  and (q.venue_id='gift-live' and m.event_id is not null or q.venue_id='city-club' and public.city_club_contains(pp.x,pp.z))
   order by (pp.x-viewer.x)^2+(pp.z-viewer.z)^2 limit 60
  ) t),'[]'::jsonb);
 end $$;

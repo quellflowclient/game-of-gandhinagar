@@ -1,5 +1,5 @@
 import {h,openPanel,closePanel,toast,panelOpen} from '../ui/dom.js';
-import {ARENA,CLUB,VENUE_MARKERS,venueAt,venueEntry,standingSpot,entertainmentPoint} from '../world/entertainment-layout.js';
+import {ARENA,CLUB,VENUE_MARKERS,venueAt,venueEntry,standingSpot,entertainmentPoint,clubPoint} from '../world/entertainment-layout.js';
 import {createEventClock,eventPhase} from './event-schedule.js';
 import {createVenueMedia} from './venue-media.js';
 import '../ui/entertainment.css';
@@ -53,7 +53,7 @@ export function createEntertainment(app,{onMap}){
   const venue=VENUE_MARKERS.find(v=>v.id===id)||VENUE_MARKERS[1];
   const content=h('div',{class:'venue-panel'},h('p',{class:'muted small'},'Game venue · GIFT City'),h('button',{type:'button',class:'btn',onclick:()=>onMap(venue)},'View map location'));
   if(id===CLUB.id){
-   content.append(h('h3',{},'City Club'),h('p',{},catalog.club?.club_enabled===false?'City Club is closed right now.':'Step onto the dance floor, meet people and choose your move.'),h('p',{class:'muted small'},catalog.club?.club_audio?'Music is shared through your music control.':'No track is playing right now.'),h('div',{class:'venue-moves'},...['dance','cheer','clap','wave','idle'].map(kind=>h('button',{type:'button',class:'btn',disabled:catalog.club?.club_enabled===false&&kind!=='idle',onclick:()=>perform(kind)},({dance:'Dance',cheer:'Cheer',clap:'Clap',wave:'Wave',idle:'Stop dancing'})[kind]))),h('button',{type:'button',class:'btn primary',onclick:()=>setWaypoint(CLUB.id)},'Mark club entrance'));
+   content.append(h('h3',{},'City Club'),h('p',{},catalog.club?.club_enabled===false?'City Club is closed right now.':'Explore the juice bar, centre tables and lounge booths, or step onto the dance floor.'),h('p',{class:'muted small'},catalog.club?.club_audio?'Music is shared through your music control.':'No track is playing right now.'),h('div',{class:'venue-moves'},...['dance','cheer','clap','wave','idle'].map(kind=>h('button',{type:'button',class:'btn',disabled:catalog.club?.club_enabled===false&&kind!=='idle',onclick:()=>perform(kind)},({dance:'Dance',cheer:'Cheer',clap:'Clap',wave:'Wave',idle:'Stop dancing'})[kind]))),h('button',{type:'button',class:'btn primary',onclick:()=>setWaypoint(CLUB.id)},'Mark club entrance'));
    openPanel('City Club',content);return;
   }
   const list=h('div',{},h('p',{class:'muted'},'Loading concert schedule…'));content.append(list);openPanel('GIFT Live',content);await load();if(!content.isConnected)return;
@@ -75,7 +75,7 @@ export function createEntertainment(app,{onMap}){
   open,setWaypoint,perform,get attending(){return !!entry;},get joining(){return joining;},
   update(dt,{running=false,transit=false}={}){
    entered=running;if(!entered||transit){badge.hidden=true;media.update(null);return;}
-   const now=clock.now(),p=app.player.position,local=venueAt(p.x,p.z),gate=venueEntry(ARENA.id),club=entertainmentPoint(CLUB.u,CLUB.v),stage=entertainmentPoint(ARENA.u,-60),nearClub=Math.hypot(p.x-club.x,p.z-club.z),nearGate=Math.hypot(p.x-gate.x,p.z-gate.z),nearPlaza=app.player.areaId==='gift'&&(nearClub<100||nearGate<180);
+   const now=clock.now(),p=app.player.position,local=venueAt(p.x,p.z),gate=venueEntry(ARENA.id),club=clubPoint(0,0),stage=entertainmentPoint(ARENA.u,-60),nearClub=Math.hypot(p.x-club.x,p.z-club.z),nearGate=Math.hypot(p.x-gate.x,p.z-gate.z),nearPlaza=app.player.areaId==='gift'&&(nearClub<100||nearGate<180);
    activeVenue=local||(nearGate<40?ARENA.id:nearClub<45?CLUB.id:null);
    if(now-lastCatalog>(nearPlaza?15000:60000)&&!loading)load();
    const event=current(),phase=eventPhase(event,now);
@@ -90,7 +90,7 @@ export function createEntertainment(app,{onMap}){
    program=null;
    if(!resumePending&&phase==='live'&&event&&local!==CLUB.id&&(entry||app.player.areaId==='gift'&&Math.hypot(p.x-stage.x,p.z-stage.z)<210))program={key:`concert:${event.id}:${event.revision}`,url:event.audio_url||event.video_url,videoUrl:event.video_url,startAt:Date.parse(event.starts_at),endAt:Date.parse(event.ends_at),loop:event.loop_media,volume:(event.volume??.85)*(entry?1:Math.max(.1,1-Math.hypot(p.x-stage.x,p.z-stage.z)/230))};
    else if(!resumePending&&app.player.areaId==='gift'&&catalog.club?.club_enabled&&catalog.club.club_audio&&nearClub<65)program={key:`club:${catalog.club.revision}`,url:catalog.club.club_audio,videoUrl:'',startAt:Date.parse(catalog.club.updated_at)||0,endAt:Infinity,loop:true,volume:catalog.club.club_volume*Math.min(1,Math.max(0,(65-nearClub)/30))};
-   world.setLive(phase==='live',event?.bpm||catalog.club?.club_bpm||120);media.update(program,{videoVisible:!panelOpen()});
+   world.setLive(phase==='live',event?.bpm||120,catalog.club?.club_bpm||120);media.update(program,{videoVisible:!panelOpen()});
    liveBar.hidden=!entry;videoRetry.hidden=!media.videoFailed;
    if(entry&&event){const seconds=Math.max(0,Math.ceil((Date.parse(phase==='entry'?event.starts_at:event.ends_at)-now)/1000)),text=`${event.title}|${entry.tier}|${entry.position}|${seconds}|${phase}`;if(text!==lastBar){lastBar=text;barTitle.textContent=`${event.title} · ${entry.tier} · Spot ${Number(entry.position)+1}`;barTime.textContent=phase==='entry'?`Starts in ${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`:`Live · ${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')} remaining`;}}
    badge.hidden=!!entry||!activeVenue&&!waypoint;

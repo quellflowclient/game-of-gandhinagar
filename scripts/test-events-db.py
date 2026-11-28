@@ -20,6 +20,7 @@ with c.cursor() as q:
  q.execute("do $$ begin if not exists(select 1 from pg_roles where rolname='anon') then create role anon nologin;end if;if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin;end if;end $$;")
  q.execute("grant usage on schema public,auth to anon,authenticated;create table auth.users(id uuid primary key,email_confirmed_at timestamptz);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;create table public.profiles(id uuid primary key references auth.users(id),name text not null,visible boolean not null default true);create table public.admins(id uuid primary key);create function public.is_admin() returns boolean language sql security definer set search_path='' as $$select exists(select 1 from public.admins where id=auth.uid())$$;create function public.is_blocked(a uuid,b uuid) returns boolean language sql as $$select false$$;create table public.player_presence(id uuid primary key references public.profiles(id),x real not null,y real not null default 0,z real not null,heading real not null default 0,vehicle text not null default 'walk',place text check(place in('ldrp','dandi')),updated_at timestamptz not null default now());")
  q.execute((ROOT/'supabase'/'entertainment.sql').read_text(encoding='utf-8'))
+ q.execute((ROOT/'supabase'/'club-layout.sql').read_text(encoding='utf-8'))
 ids=[str(uuid.UUID(int=i+1000)) for i in range(16)];admin=ids[0]
 with c.cursor() as q:
  for i,id in enumerate(ids):
@@ -51,6 +52,12 @@ fails(admin,'admin_save_concert',(show(title='Overlapping'),0),'already uses thi
 fails(ids[1],'admin_save_club',({'club_audio':'','club_enabled':True,'club_bpm':120,'club_volume':.7},1),'Not an admin')
 club=rpc(admin,'admin_save_club',({'club_audio':'','club_enabled':True,'club_bpm':120,'club_volume':.7},1));assert club['revision']==2
 fails(admin,'admin_save_club',({'club_audio':'','club_enabled':True,'club_bpm':120,'club_volume':.7},1),'changed')
+con=connect();con.autocommit=True
+with con.cursor() as q:
+ q.execute("update public.player_presence set x=3470,z=3320 where id=%s",(ids[14],))
+ q.execute("update public.player_presence set x=3563.24,z=4104.77 where id=%s",(ids[15],))
+con.close();rpc(ids[14],'venue_action',('city-club','dance'));fails(ids[15],'venue_action',('city-club','dance'),'inside City Club')
+assert any(p['user_id']==ids[14] for p in rpc(ids[14],'venue_people',('city-club',))),'New club presence is visible at the relocated venue'
 def attempt(user):
  try:return (user,rpc(user,'join_concert',(eid,'premium')),None)
  except psycopg2.Error as e:return (user,None,str(e))

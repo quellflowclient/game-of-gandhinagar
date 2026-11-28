@@ -51,7 +51,7 @@ import {withDeadline} from './systems/network.js';
 import {createTitleScreen} from './ui/title-screen.js';
 import {buildEntertainment} from './world/entertainment.js';
 import {createEntertainment} from './systems/entertainment.js';
-import {CLUB,ARENA,entertainmentPoint,venueEntry} from './world/entertainment-layout.js';
+import {CLUB,ARENA,entertainmentPoint,venueEntry,clubPoint} from './world/entertainment-layout.js';
 import {mapDestinations,safeMapArrival} from './systems/map-destinations.js';
 
 const loading = document.getElementById("loading");
@@ -732,11 +732,12 @@ if (new URLSearchParams(location.search).has("tour")) {
       tourCamera={position:new THREE.Vector3(cp.x,pose.camera[1],cp.z),target:new THREE.Vector3(tp.x,pose.target[1],tp.z)};
     }
   }
-  if(params.get('place')==='gift'&&['club','concert'].includes(params.get('view'))){
-    const isClub=params.get('view')==='club',spawn=venueEntry(isClub?CLUB.id:ARENA.id),p=isClub?entertainmentPoint(CLUB.u,CLUB.v+6):spawn;
+  if(params.get('place')==='gift'&&['club','juice','club-exterior','concert'].includes(params.get('view'))){
+    const view=params.get('view'),isClub=view!=='concert',spawn=venueEntry(isClub?CLUB.id:ARENA.id),p=isClub?clubPoint(0,4):spawn;
     player.teleport(p.x,p.z,0,.18);player.setView(5,.15);
-    const cp=entertainmentPoint(isClub?CLUB.u:ARENA.u+72,isClub?CLUB.v+26:128),tp=entertainmentPoint(isClub?CLUB.u:ARENA.u,isClub?CLUB.v-15:-30);
-    tourCamera={position:new THREE.Vector3(cp.x,isClub?4:36,cp.z),target:new THREE.Vector3(tp.x,isClub?2.5:8,tp.z)};
+    const from=view==='juice'?[3,2.5,7]:view==='club-exterior'?[26,8,44]:[14,3.2,17],to=view==='juice'?[16,1.7,-4]:view==='club-exterior'?[0,2,8]:[-5,1.7,-9];
+    const cp=isClub?clubPoint(from[0],from[2]):entertainmentPoint(ARENA.u+72,128),tp=isClub?clubPoint(to[0],to[2]):entertainmentPoint(ARENA.u,-30);
+    tourCamera={position:new THREE.Vector3(cp.x,isClub?from[1]:36,cp.z),target:new THREE.Vector3(tp.x,isClub?to[1]:8,tp.z)};
   }
   if(params.get('place')==='ldrp') {
     if(params.get('night')==='1')clock.setPreset('Night');else if(params.get('day')==='1')clock.setPreset('Day');
